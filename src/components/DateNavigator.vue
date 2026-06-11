@@ -2,9 +2,10 @@
 import { ref, watch, computed } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { useStore } from "../stores/useStore";
-import type { DayFile } from "../types";
+import type { DayFile, Granularity } from "../types";
 
 const store = useStore();
+const emit = defineEmits<{ navigate: [] }>();
 const noteRef = ref<HTMLDivElement>();
 
 // Sync note from store → DOM (not via template interpolation to avoid VDOM conflict)
@@ -24,22 +25,43 @@ function dateObj(): Date {
 
 const displayDate = computed(() => {
   const d = dateObj();
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const target = new Date(d);
-  target.setHours(0, 0, 0, 0);
-  const diff = Math.round((target.getTime() - today.getTime()) / 86400000);
-
-  const s = d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
-  if (diff === 0) return `Today — ${s}`;
-  if (diff === -1) return `Yesterday — ${s}`;
-  if (diff === 1) return `Tomorrow — ${s}`;
-  return s;
+  const fmt = d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  if (store.granularity === "day") {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const target = new Date(d);
+    target.setHours(0, 0, 0, 0);
+    const diff = Math.round((target.getTime() - today.getTime()) / 86400000);
+    if (diff === 0) return `Today — ${fmt}`;
+    if (diff === -1) return `Yesterday — ${fmt}`;
+    if (diff === 1) return `Tomorrow — ${fmt}`;
+    return fmt;
+  }
+  if (store.granularity === "week") {
+    return weekLabel(d);
+  }
+  return d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 });
 
-function shiftDate(days: number) {
+function weekLabel(d: Date): string {
+  const day = d.getDay();
+  const monday = new Date(d);
+  monday.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  const fmt = (dt: Date) => dt.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return `${fmt(monday)} – ${fmt(sunday)}`;
+}
+
+function shift(delta: number) {
   const d = dateObj();
-  d.setDate(d.getDate() + days);
+  if (store.granularity === "day") {
+    d.setDate(d.getDate() + delta);
+  } else if (store.granularity === "week") {
+    d.setDate(d.getDate() + delta * 7);
+  } else {
+    d.setMonth(d.getMonth() + delta);
+  }
   store.currentDate = [
     d.getFullYear(),
     String(d.getMonth() + 1).padStart(2, "0"),
@@ -52,6 +74,7 @@ async function loadDay() {
   try {
     const df = (await invoke("get_entries", { rootPath: store.rootPath, date: store.currentDate })) as DayFile;
     store.today = df;
+    emit("navigate");
   } catch (e) {
     console.error("get_entries failed:", e);
   }
@@ -69,9 +92,18 @@ async function saveNote() {
 
 <template>
   <div class="flex items-center justify-between">
-    <button class="px-2 py-1 text-gray-500 hover:bg-gray-100 rounded transition-colors text-sm" @click="shiftDate(-1)">←</button>
-    <div class="text-center">
+    <button class="px-2 py-1 text-gray-500 hover:bg-gray-100 rounded transition-colors text-sm" @click="shift(-1)">←</button>
+    <div class="text-center flex flex-col items-center gap-1">
       <div class="text-sm font-semibold text-gray-700">{{ displayDate }}</div>
+      <select
+        :value="store.granularity"
+        class="text-xs border border-gray-300 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        @change="store.granularity = ($event.target as HTMLSelectElement).value as Granularity; loadDay()"
+      >
+        <option value="day">Day</option>
+        <option value="week">Week</option>
+        <option value="month">Month</option>
+      </select>
       <div
         ref="noteRef"
         class="text-xs text-gray-500 font-normal mt-0.5 outline-none rounded px-1.5 -mx-1.5 hover:bg-gray-100 focus:bg-white focus:ring-2 focus:ring-blue-500 cursor-text min-w-[60px]"
@@ -80,7 +112,7 @@ async function saveNote() {
         @blur="saveNote"
       ></div>
     </div>
-    <button class="px-2 py-1 text-gray-500 hover:bg-gray-100 rounded transition-colors text-sm" @click="shiftDate(1)">→</button>
+    <button class="px-2 py-1 text-gray-500 hover:bg-gray-100 rounded transition-colors text-sm" @click="shift(1)">→</button>
   </div>
 </template>
 
