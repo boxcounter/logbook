@@ -7,6 +7,11 @@ import DimensionPanel from "./DimensionPanel.vue";
 import type { Dimension, DayFile } from "../types";
 import { logError } from "../utils/errorLog";
 
+const emit = defineEmits<{
+  submit: [item: string, durationMinutes: number];
+  appended: [];
+}>();
+
 const store = useStore();
 const showDimensions = ref(false);
 const dimValues = ref<Record<string, string>>({});
@@ -34,6 +39,7 @@ async function handleSubmit(item: string, durationMinutes: number) {
     await invoke("append_entry", { rootPath: store.rootPath, date: store.currentDate, entry: newEntry });
     store.lastDimensions = { ...dimensions };
     await refreshDay();
+    emit("appended");
     dimValues.value = {};
   } catch (e) {
     logError("QuickEntry.handleSubmit", e);

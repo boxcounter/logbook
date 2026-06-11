@@ -7,8 +7,53 @@ import CommitmentsPanel from "./CommitmentsPanel.vue";
 import QuickEntry from "./QuickEntry.vue";
 import EntryList from "./EntryList.vue";
 import SummaryBar from "./SummaryBar.vue";
-import type { DayFile } from "../types";
+import type { Granularity, Entry, DayFile } from "../types";
 import { logError } from "../utils/errorLog";
+
+function formatDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function datesInPeriod(dateStr: string, granularity: Granularity): string[] {
+  const d = new Date(dateStr + "T00:00:00");
+  const dates: string[] = [];
+  if (granularity === "day") {
+    dates.push(dateStr);
+  } else if (granularity === "week") {
+    const day = d.getDay();
+    const monday = new Date(d);
+    monday.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+    for (let i = 0; i < 7; i++) {
+      const dt = new Date(monday);
+      dt.setDate(monday.getDate() + i);
+      dates.push(formatDate(dt));
+    }
+  } else {
+    const year = d.getFullYear();
+    const month = d.getMonth();
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    for (let day = 1; day <= lastDay; day++) {
+      dates.push(`${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`);
+    }
+  }
+  return dates;
+}
+
+async function loadPeriod() {
+  const dates = datesInPeriod(store.currentDate, store.granularity);
+  const map: Record<string, Entry[]> = {};
+  for (const date of dates) {
+    try {
+      const df = (await invoke("get_entries", { rootPath: store.rootPath, date })) as DayFile;
+      map[date] = df.entries;
+    } catch (e) {
+      console.error("loadPeriod failed for", date, e);
+      map[date] = [];
+    }
+  }
+  store.periodEntries = map;
+  store.today = { note: null, entries: map[store.currentDate] || [] };
+}
 
 const store = useStore();
 
@@ -84,14 +129,20 @@ const isToday = (): boolean => {
   <div class="flex gap-4 p-4 max-w-4xl mx-auto items-start">
     <!-- Left 2/3 -->
     <div class="flex-[2] min-w-0 flex flex-col gap-3">
-      <DateNavigator />
-      <QuickEntry v-if="isToday()" />
+      <DateNavigator @navigate="loadPeriod" />
+      <QuickEntry v-if="isToday()" @appended="loadPeriod" />
       <EntryList
         :entries="store.today?.entries || []"
+        :granularity="store.granularity"
+        :periodEntries="store.periodEntries"
         @update="(entryId, item, dur) => handleUpdateEntry(entryId, item, dur)"
         @delete="(entryId) => handleDeleteEntry(entryId)"
       />
-      <SummaryBar :entries="store.today?.entries || []" />
+      <SummaryBar
+        :entries="store.today?.entries || []"
+        :granularity="store.granularity"
+        :periodEntries="store.periodEntries"
+      />
     </div>
     <!-- Right 1/3 -->
     <div class="flex-1 min-w-[180px] flex flex-col gap-3 sticky top-4">
