@@ -62,9 +62,12 @@ pub fn init(app: AppHandle) -> InitResult {
 
     let config = match files::read_config(root) {
         Ok(c) => c,
-        Err(e) => return InitResult::ConfigError(vec![ConfigErrorDetail {
-            kind: "ConfigReadError".to_string(), message: e,
-        }]),
+        Err(e) => {
+            crate::error_log::log_error("init: read_config", &e);
+            return InitResult::ConfigError(vec![ConfigErrorDetail {
+                kind: "ConfigReadError".to_string(), message: e,
+            }]);
+        }
     };
 
     let mut all_errors = validate_config(&config);
@@ -92,7 +95,10 @@ pub fn set_root_path(app: AppHandle, path: String) -> Result<InitResult, String>
 
     save_root_path(&app_data_dir, root_path)?;
 
-    let config = files::read_config(root_path).map_err(|e| format!("Failed to read config: {}", e))?;
+    let config = files::read_config(root_path).map_err(|e| {
+        crate::error_log::log_error("set_root_path: read_config", &e);
+        format!("Failed to read config: {}", e)
+    })?;
     let mut all_errors = validate_config(&config);
 
     let now = chrono::Local::now();
@@ -166,6 +172,11 @@ fn validate_date_format(date: &str) -> Result<(), String> {
     chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d")
         .map_err(|e| format!("Invalid date '{}': {}. Expected YYYY-MM-DD", date, e))?;
     Ok(())
+}
+
+#[tauri::command]
+pub fn log_error(message: String) {
+    crate::error_log::log_frontend_error(&message);
 }
 
 #[cfg(test)]

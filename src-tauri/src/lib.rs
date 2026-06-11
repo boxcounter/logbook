@@ -1,7 +1,8 @@
 mod commands;
-mod config;
-mod files;
-mod models;
+pub mod config;
+mod error_log;
+pub mod files;
+pub mod models;
 
 use config::watch_files;
 use std::path::PathBuf;
@@ -15,6 +16,7 @@ pub fn run() {
         .setup(|app| {
             let app_handle = app.handle().clone();
             let app_data_dir = app.path().app_local_data_dir().unwrap_or_else(|_| PathBuf::from("."));
+            error_log::init(&app_data_dir);
             if let Some(root_path) = files::read_root_path(&app_data_dir) {
                 if root_path.exists() {
                     watch_files(app_handle, root_path);
@@ -31,6 +33,7 @@ pub fn run() {
             commands::delete_entry,
             commands::set_day_note,
             commands::get_commitments,
+            // commands::log_error,  // TODO: uncomment when B1 adds the fn
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
