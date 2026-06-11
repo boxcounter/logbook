@@ -62,6 +62,18 @@ pub fn append_to_day_file(root: &Path, date: &str, entry: &Entry) -> Result<Entr
     Ok(entry)
 }
 
+/// Append entry from NewEntry (for integration tests and internal use).
+pub fn append_new_entry(root: &Path, date: &str, new_entry: &crate::models::NewEntry) -> Result<Entry, String> {
+    let duration = crate::commands::parse_duration(&new_entry.duration)?;
+    let entry = Entry {
+        id: uuid::Uuid::new_v4().to_string(),
+        item: new_entry.item.clone(),
+        duration,
+        dimensions: new_entry.dimensions.clone(),
+    };
+    append_to_day_file(root, date, &entry)
+}
+
 /// Update an entry by ID. Applies only the fields present in `update`.
 pub fn update_entry_in_file(root: &Path, date: &str, entry_id: &str, update: &crate::models::UpdateEntry) -> Result<DayFile, String> {
     let mut day_file = read_day_file(root, date)?;
