@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pnpm vue-tsc --noEmit && cd src-tauri && cargo check && cargo test",
+            "timeout": 120
+          }
+        ]
+      }
+    ]
+  }
+}
