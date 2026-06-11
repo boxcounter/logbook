@@ -23,6 +23,7 @@ src/
 ├── files.rs     // path helpers, atomic I/O, root_path persistence, frontmatter parse
 ├── config.rs    // validate_config, validate_monthly, watch_files (notify crate)
 └── commands.rs  // 9 Tauri commands + parse_duration + validate_date_format
+├── error_log.rs // init, log_error, log_frontend_error
 ```
 
 ## 测试约定
@@ -43,8 +44,7 @@ src/
 - Commitments 不在 Rust 端写入——用户直接编辑 `_monthly.md`，由 `notify` watcher 重新读取
 - `root_path` 由前端持有，每次 command 调用时传入；Rust 端通过 `root_path.txt` 持久化选择
 - **Phase checkpoint**：每完成一个独立 phase 停下来确认，不要连续推进多个 phase 不征求同意
-- **Spec-code alignment**：写 HANDOFF.md 之前，dispatch subagent 对比以下文档 vs 实际代码，报告不一致项：
-  - `SPEC.md` 命令清单 vs `#[tauri::command]` 实际注解
-  - `SPEC.md` 组件树 vs `src/components/` 实际文件
-  - Vault `1_Projects/Logbook/README.md` 数据结构 vs `src-tauri/src/models.rs`
-  - Subagent 会读取文档和代码，做语义对比（不是 shell grep），发现差异直接列在 handoff 里
+- **文档一致性检查**：写 HANDOFF.md 之前，dispatch subagent 做全量交叉比对。范围：
+  - **文档 ↔ 文档**：Vault `1_Projects/Logbook/README.md` ↔ `SPEC.md` ↔ `HANDOFF.md` ↔ `src-tauri/CLAUDE.md`
+  - **文档 ↔ 代码**：上述文档 vs 实际 Rust 模块、Vue 组件、命令签名、数据结构
+  - Subagent 读全部文档和代码，报告不一致项。不要裁剪范围——命令、数据结构、组件树、约定、Phase 进度全部比

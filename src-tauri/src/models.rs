@@ -33,7 +33,7 @@ pub struct MonthlyFile {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Commitment {
     pub role: String,
-    pub allocation: u32, // hours per week
+    pub allocation: u32, // hours per month
     #[serde(default)]
     pub goals: Vec<String>,
 }

@@ -7,7 +7,7 @@
 | 层 | 选型 |
 |---|------|
 | 桌面框架 | Tauri 2.x |
-| 后端 | Rust (`#[tauri::command]` + `serde_yaml`) |
+| 后端 | Rust (`#[tauri::command]` + `yaml_serde`) |
 | 文件监听 | `notify` crate |
 | 前端 | Vue 3 + Composition API + TypeScript |
 | 样式 | Tailwind CSS |
@@ -94,16 +94,12 @@ struct CommitmentStats {
 struct GoalStats { goal: String, minutes: u32, percentage: f32, entries: Vec<EntrySummary> }
 struct EntrySummary { date: String, item: String, duration: u32 }
 
-// Config validation
-enum ConfigError {
-    DimensionsNotArray,
-    MissingName { index: usize },
-    MissingKey { index: usize },
-    MissingValues { index: usize },       // source = "static" 且无 values
-    ValuesNotArray { index: usize },
-    ValuesEmpty { index: usize },
-    KeyInvalidChars { index: usize, key: String },
-    InvalidSource { index: usize, found: String },
+// Config & monthly validation errors
+struct ConfigErrorDetail {
+    kind: String,      // "MissingName" | "MissingKey" | "MissingValues" | "ValuesEmpty"
+    message: String,   // | "KeyInvalidChars" | "InvalidSource" | "MultipleMonthly"
+                       // | "MissingRole" | "ZeroAllocation" | "DuplicateGoal"
+                       // | "ParseError" | "ConfigReadError"
 }
 ```
 

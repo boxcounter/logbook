@@ -11,7 +11,7 @@ export interface Config {
 
 export interface Commitment {
   role: string;
-  allocation: number; // hours per week
+  allocation: number; // hours per month
   goals: string[];
 }
 
