@@ -22,7 +22,7 @@ src/
 ├── models.rs    // all structs/enums — Config, Dimension, MonthFile, Entry, etc.
 ├── files.rs     // path helpers, atomic I/O, root_path persistence, frontmatter parse
 ├── config.rs    // validate_config, validate_monthly, watch_files (notify crate)
-└── commands.rs  // 8 Tauri commands + parse_duration + validate_date_format
+└── commands.rs  // 9 Tauri commands + parse_duration + validate_date_format
 ```
 
 ## 测试约定
@@ -43,3 +43,8 @@ src/
 - Commitments 不在 Rust 端写入——用户直接编辑 `_monthly.md`，由 `notify` watcher 重新读取
 - `root_path` 由前端持有，每次 command 调用时传入；Rust 端通过 `root_path.txt` 持久化选择
 - **Phase checkpoint**：每完成一个独立 phase 停下来确认，不要连续推进多个 phase 不征求同意
+- **Spec-code alignment**：写 HANDOFF.md 之前，dispatch subagent 对比以下文档 vs 实际代码，报告不一致项：
+  - `SPEC.md` 命令清单 vs `#[tauri::command]` 实际注解
+  - `SPEC.md` 组件树 vs `src/components/` 实际文件
+  - Vault `1_Projects/Logbook/README.md` 数据结构 vs `src-tauri/src/models.rs`
+  - Subagent 会读取文档和代码，做语义对比（不是 shell grep），发现差异直接列在 handoff 里
