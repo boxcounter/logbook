@@ -19,11 +19,11 @@ Stop hook（自动）：`pnpm vue-tsc --noEmit && cd src-tauri && cargo check &&
 src/
 ├── main.rs      // fn main()
 ├── lib.rs       // plugins, setup hook, file watcher, command registration
-├── models.rs    // all structs/enums — Config, Dimension, MonthFile, Entry, etc.
+├── models.rs    // all structs/enums — Config, Dimension, MonthlyFile, Entry, etc.
 ├── files.rs     // path helpers, atomic I/O, root_path persistence, frontmatter parse
 ├── config.rs    // validate_config, validate_monthly, watch_files (notify crate)
-└── commands.rs  // 9 Tauri commands + parse_duration + validate_date_format
-├── error_log.rs // init, log_error, log_frontend_error
+├── commands.rs  // 9 Tauri commands + parse_duration + validate_date_format
+└── error_log.rs // init, log_error, log_frontend_error
 ```
 
 ## 测试约定
