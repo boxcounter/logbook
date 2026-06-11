@@ -8,6 +8,7 @@ import QuickEntry from "./QuickEntry.vue";
 import EntryList from "./EntryList.vue";
 import SummaryBar from "./SummaryBar.vue";
 import type { DayFile } from "../types";
+import { logError } from "../utils/errorLog";
 
 const store = useStore();
 
@@ -34,6 +35,7 @@ async function handleUpdateEntry(entryId: string, item: string, durationMinutes:
     })) as DayFile;
     store.today = df;
   } catch (e) {
+    logError("TodayView.handleUpdateEntry", e);
     console.error("update_entry failed:", e);
   }
 }
@@ -56,6 +58,7 @@ async function handleDeleteEntry(entryId: string) {
     try {
       await invoke("delete_entry", { rootPath: store.rootPath, date: store.currentDate, entryId });
     } catch (e) {
+      logError("TodayView.handleDeleteEntry", e);
       console.error("delete_entry failed:", e);
       entries.splice(idx, 0, removed); // restore on failure
     }

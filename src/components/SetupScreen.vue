@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useStore } from "../stores/useStore";
 import type { InitResult } from "../types";
+import { logError } from "../utils/errorLog";
 
 const store = useStore();
 
@@ -29,6 +30,7 @@ async function selectFolder() {
       store.screen = "error";
     }
   } catch (e) {
+    logError("SetupScreen.selectFolder", e);
     store.configErrors = [{ kind: "SetupError", message: `Failed: ${e}` }];
     store.screen = "error";
   }

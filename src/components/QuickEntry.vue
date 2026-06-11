@@ -5,6 +5,7 @@ import { useStore } from "../stores/useStore";
 import EntryInput from "./EntryInput.vue";
 import DimensionPanel from "./DimensionPanel.vue";
 import type { Dimension, DayFile } from "../types";
+import { logError } from "../utils/errorLog";
 
 const store = useStore();
 const showDimensions = ref(false);
@@ -35,6 +36,7 @@ async function handleSubmit(item: string, durationMinutes: number) {
     await refreshDay();
     dimValues.value = {};
   } catch (e) {
+    logError("QuickEntry.handleSubmit", e);
     console.error("append_entry failed:", e);
   }
 }

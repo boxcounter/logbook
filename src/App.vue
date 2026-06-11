@@ -7,6 +7,7 @@ import SetupScreen from "./components/SetupScreen.vue";
 import ConfigErrorBanner from "./components/ConfigErrorBanner.vue";
 import TodayView from "./components/TodayView.vue";
 import type { InitResult, ConfigErrorDetail } from "./types";
+import { logError } from "./utils/errorLog";
 
 const store = useStore();
 const showUndoToast = ref(false);
@@ -49,6 +50,7 @@ async function initApp() {
         break;
     }
   } catch (e) {
+    logError("App.initApp", e);
     store.configErrors = [{ kind: "InitError", message: `Failed: ${e}` }];
     store.screen = "error";
   }
