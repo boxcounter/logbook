@@ -114,3 +114,36 @@ fn test_read_nonexistent_date_returns_empty() {
     assert!(df.note.is_none());
     teardown(suffix);
 }
+
+#[test]
+fn test_parse_duration_via_append() {
+    // Test that NewEntry with various duration formats roundtrips correctly
+    let suffix = "parse_dur";
+    setup(suffix);
+    let root = test_root(suffix);
+    let date = "2026-06-12";
+
+    let cases = vec![
+        ("1.5h", 90),
+        ("30m", 30),
+        ("90", 90),
+        ("2h", 120),
+        ("1h 30m", 90),
+    ];
+
+    for (input, expected) in &cases {
+        let new_entry = NewEntry {
+            item: format!("Test {}", input),
+            duration: input.to_string(),
+            dimensions: HashMap::new(),
+        };
+        let entry = tauri_app_lib::files::append_new_entry(&root, date, &new_entry)
+            .expect(&format!("append failed for '{}'", input));
+        assert_eq!(entry.duration, *expected, "duration mismatch for '{}'", input);
+    }
+
+    let day_file = tauri_app_lib::files::read_day_file(&root, date).unwrap();
+    assert_eq!(day_file.entries.len(), cases.len());
+
+    teardown(suffix);
+}
