@@ -16,7 +16,7 @@
 
 ## Rust 后端
 
-### 命令清单
+### 命令清单（9 个，已实现）
 
 ```
 init(app: AppHandle) → InitResult
@@ -26,9 +26,11 @@ append_entry(root_path: String, date: String, entry: NewEntry) → Entry
 update_entry(root_path: String, date: String, entry_id: String, update: UpdateEntry) → DayFile
 delete_entry(root_path: String, date: String, entry_id: String) → DayFile
 set_day_note(root_path: String, date: String, note: String) → DayFile
-get_stats(root_path: String, year: i32, month: u32) → MonthStats
 get_commitments(root_path: String, year: i32, month: u32) → Vec<Commitment>
+log_error(message: String)                              // 前端 error → error.log
 ```
+
+Phase 3 将新增：`get_stats(root_path: String, year: i32, month: u32) → MonthStats`
 
 `validate_config`、`validate_monthly`、`watch_files` 是内部函数，通过 `init` 和 Tauri `setup` hook 调用，不暴露为命令。Commitments 通过直接编辑 `_monthly.md` 文件写入（文件监听自动重新读取），不提供 `set_commitments` 命令。`root_path` 由前端状态持有，每次调用时传入。
 
@@ -143,24 +145,26 @@ Rust 端通过 Goal 维度关联：
 
 ```
 App.vue
-├── TabBar.vue
 ├── SetupScreen.vue                     // 首次启动，folder picker
 ├── ConfigErrorBanner.vue
-├── TodayView.vue
-│   ├── DateNavigator.vue
-│   ├── CommitmentsPanel.vue            // Allocation / Spent / Balance 进度条
-│   ├── QuickEntry.vue
-│   │   ├── EntryInput.vue
-│   │   └── DimensionPanel.vue
-│   ├── EntryList.vue → EntryItem.vue
-│   └── SummaryBar.vue
-└── StatsView.vue
-    ├── MonthSelector.vue
-    ├── MonthTotal.vue
-    ├── CommitmentsPanel.vue            // 同上组件，可复用
-    ├── TrendChart.vue (Chart.js Bar)
-    ├── DonutChart.vue (Chart.js Doughnut)   // 每个维度一张
-    └── EntryDetailPanel.vue
+└── TodayView.vue
+    ├── DateNavigator.vue               // 日期导航 + Day/Week/Month 粒度切换
+    ├── CommitmentsPanel.vue            // Allocation / Spent / Balance 进度条
+    ├── QuickEntry.vue
+    │   ├── EntryInput.vue
+    │   └── DimensionPanel.vue
+    ├── EntryList.vue → EntryItem.vue · EntryGroup.vue
+    └── SummaryBar.vue                  // 多级合计（Day/Week/Month）
+
+// Phase 3（planned）:
+// └── StatsView.vue
+//     ├── TabBar.vue
+//     ├── MonthSelector.vue
+//     ├── MonthTotal.vue
+//     ├── CommitmentsPanel.vue（复用）
+//     ├── TrendChart.vue (Chart.js Bar)
+//     ├── DonutChart.vue (Chart.js Doughnut)
+//     └── EntryDetailPanel.vue
 ```
 
 ### 状态管理
