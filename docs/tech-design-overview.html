@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Logbook — 技术设计总览</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --card: #fff;
+    --text: #1a1a1a;
+    --text-muted: #666;
+    --border: #e5e5e5;
+    --accent: #2563eb;
+    --accent-dim: #dbeafe;
+    --rust: #f46623;
+    --rust-dim: #fef3ee;
+    --vue: #42b883;
+    --vue-dim: #edfaf4;
+    --tauri: #ffc131;
+    --tauri-dim: #fffbeb;
+    --ts: #3178c6;
+    --ts-dim: #eef4fc;
+    --chart: #8b5cf6;
+    --chart-dim: #f4f0fe;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    padding: 40px 24px;
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+
+  /* Header */
+  header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+  header h1 {
+    font-size: 2.25rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 8px;
+  }
+  header p {
+    color: var(--text-muted);
+    font-size: 1.05rem;
+  }
+  .badge-row {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+  }
+  .badge {
+    padding: 4px 14px;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+  .badge--tauri { background: var(--tauri-dim); color: #92400e; }
+  .badge--rust  { background: var(--rust-dim);  color: #9a3412; }
+  .badge--vue   { background: var(--vue-dim);   color: #166534; }
+  .badge--ts    { background: var(--ts-dim);    color: #1e40af; }
+  .badge--chart { background: var(--chart-dim); color: #5b21b6; }
+
+  /* Section */
+  section {
+    margin-bottom: 40px;
+  }
+  section h2 {
+    font-size: 1.35rem;
+    font-weight: 700;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--border);
+    letter-spacing: -0.01em;
+  }
+
+  /* Cards */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    margin-bottom: 16px;
+  }
+
+  /* Architecture diagram */
+  .arch-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .arch-layer {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 20px;
+    border-radius: 8px;
+    font-size: 0.95rem;
+  }
+  .arch-layer__label {
+    font-weight: 700;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    min-width: 64px;
+  }
+  .arch-layer__desc { flex: 1; }
+  .arch-layer__tech {
+    font-weight: 600;
+    font-size: 0.85rem;
+  }
+  .arch-layer--ui    { background: var(--vue-dim);  border: 1px solid #c6e6d6; }
+  .arch-layer--glue  { background: var(--tauri-dim); border: 1px solid #fde68a; }
+  .arch-layer--logic { background: var(--rust-dim);  border: 1px solid #fcd8c4; }
+  .arch-arrows {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 0 20px;
+  }
+  .arch-arrows span {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-family: "SF Mono", "Fira Code", monospace;
+  }
+
+  /* Two column layout for side-by-side */
+  .cols {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 768px) { .cols { grid-template-columns: 1fr; } }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+  }
+  th, td {
+    text-align: left;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  th {
+    font-weight: 600;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: #f9f9f9;
+  }
+  td code, th code {
+    font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+    font-size: 0.85em;
+    background: #f3f3f3;
+    padding: 2px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+  .type-col { color: var(--accent); font-family: "SF Mono", monospace; font-size: 0.85rem; }
+
+  /* File tree */
+  .file-tree {
+    font-family: "SF Mono", "Fira Code", monospace;
+    font-size: 0.88rem;
+    line-height: 1.8;
+    white-space: pre;
+    overflow-x: auto;
+  }
+  .file-tree .dir  { color: var(--accent); font-weight: 600; }
+  .file-tree .file { color: var(--text); }
+  .file-tree .cmt  { color: var(--text-muted); }
+
+  /* Flow */
+  .flow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 0;
+    flex-wrap: wrap;
+    font-size: 0.9rem;
+  }
+  .flow-node {
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .flow-arrow {
+    color: var(--text-muted);
+    font-weight: 700;
+    font-size: 1.1rem;
+  }
+  .flow-node--rust  { border-color: var(--rust);  background: var(--rust-dim); }
+  .flow-node--fs   { border-color: #999; background: #f5f5f5; }
+  .flow-node--vue  { border-color: var(--vue);  background: var(--vue-dim); }
+
+  /* Status */
+  .status {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+  }
+  .status--done  { background: #22c55e; }
+  .status--wip   { background: #f59e0b; }
+  .status--todo  { background: #d4d4d4; }
+
+  /* Decision list */
+  .decision-list {
+    list-style: none;
+  }
+  .decision-list li {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .decision-list li:last-child { border-bottom: none; }
+  .decision-list .choice {
+    font-weight: 600;
+    margin-right: 8px;
+  }
+  .decision-list .why {
+    color: var(--text-muted);
+    font-size: 0.88rem;
+    display: block;
+    margin-top: 2px;
+  }
+
+  hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
+  .caption { font-size: 0.82rem; color: var(--text-muted); margin-top: 8px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<!-- Header -->
+<header>
+  <h1>Logbook</h1>
+  <p>个人工作时间记录 — 替代 Apple Numbers 的桌面应用</p>
+  <div class="badge-row">
+    <span class="badge badge--tauri">Tauri 2.x</span>
+    <span class="badge badge--rust">Rust</span>
+    <span class="badge badge--vue">Vue 3</span>
+    <span class="badge badge--ts">TypeScript</span>
+    <span class="badge badge--chart">Chart.js</span>
+  </div>
+</header>
+
+<!-- Architecture -->
+<section>
+  <h2>架构分层</h2>
+  <div class="arch-stack">
+    <div class="arch-layer arch-layer--ui">
+      <span class="arch-layer__label">UI</span>
+      <span class="arch-layer__desc">用户界面，跑在系统 WebView 中 (macOS WKWebView)</span>
+      <span class="arch-layer__tech">Vue 3 · TypeScript · Tailwind CSS · Chart.js</span>
+    </div>
+    <div class="arch-arrows">
+      <span>invoke('command', params)  ────→</span>
+      <span>←────  JSON (自动序列化)</span>
+    </div>
+    <div class="arch-layer arch-layer--glue">
+      <span class="arch-layer__label">胶水层</span>
+      <span class="arch-layer__desc">IPC 通道 · 窗口管理 · 文件监听 → 事件推送 · 系统对话框</span>
+      <span class="arch-layer__tech">Tauri 2.x · plugin-dialog · plugin-opener</span>
+    </div>
+    <div class="arch-arrows">
+      <span>函数调用  ────→</span>
+      <span>←────  Result</span>
+    </div>
+    <div class="arch-layer arch-layer--logic">
+      <span class="arch-layer__label">后端</span>
+      <span class="arch-layer__desc">文件 I/O · YAML 解析 · Duration 计算 · 统计聚合 · Config 校验</span>
+      <span class="arch-layer__tech">Rust · serde_yml · notify · chrono · regex · uuid</span>
+    </div>
+  </div>
+  <p class="caption">类比：Tauri = 用 Web 技术写 UI 的 Electron，但后端用 Rust 而非 Node.js，体积小、性能好、不连网、纯本地。</p>
+</section>
+
+<!-- Communication -->
+<section>
+  <h2>前后端通讯接口（8 个命令）</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>命令名</th>
+        <th>前端调用</th>
+        <th>Rust 签名</th>
+        <th>返回值</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>init</code></td>
+        <td><code>invoke('init')</code></td>
+        <td><code>fn init(app: AppHandle)</code></td>
+        <td class="type-col">InitResult</td>
+      </tr>
+      <tr>
+        <td><code>set_root_path</code></td>
+        <td><code>invoke('set_root_path', { path })</code></td>
+        <td><code>fn set_root_path(app: AppHandle, path: String)</code></td>
+        <td class="type-col">Result&lt;InitResult, String&gt;</td>
+      </tr>
+      <tr>
+        <td><code>get_entries</code></td>
+        <td><code>invoke('get_entries', { rootPath, date })</code></td>
+        <td><code>fn get_entries(root_path: String, date: String)</code></td>
+        <td class="type-col">DayFile</td>
+      </tr>
+      <tr>
+        <td><code>append_entry</code></td>
+        <td><code>invoke('append_entry', { rootPath, date, entry })</code></td>
+        <td><code>fn append_entry(root_path: String, date: String, entry: NewEntry)</code></td>
+        <td class="type-col">Entry</td>
+      </tr>
+      <tr>
+        <td><code>update_entry</code></td>
+        <td><code>invoke('update_entry', { rootPath, date, entryId, update })</code></td>
+        <td><code>fn update_entry(root_path: String, date: String, entry_id: String, update: UpdateEntry)</code></td>
+        <td class="type-col">DayFile</td>
+      </tr>
+      <tr>
+        <td><code>delete_entry</code></td>
+        <td><code>invoke('delete_entry', { rootPath, date, entryId })</code></td>
+        <td><code>fn delete_entry(root_path: String, date: String, entry_id: String)</code></td>
+        <td class="type-col">DayFile</td>
+      </tr>
+      <tr>
+        <td><code>set_day_note</code></td>
+        <td><code>invoke('set_day_note', { rootPath, date, note })</code></td>
+        <td><code>fn set_day_note(root_path: String, date: String, note: String)</code></td>
+        <td class="type-col">DayFile</td>
+      </tr>
+      <tr>
+        <td><code>get_commitments</code></td>
+        <td><code>invoke('get_commitments', { rootPath, year, month })</code></td>
+        <td><code>fn get_commitments(root_path: String, year: i32, month: u32)</code></td>
+        <td class="type-col">Vec&lt;Commitment&gt;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="caption">Tauri 自动完成 camelCase ↔ snake_case 转换和 JSON 序列化。参数名、类型即契约，无需独立 API schema 文件。</p>
+</section>
+
+<!-- Data structures -->
+<section>
+  <h2>核心数据结构</h2>
+  <div class="cols">
+    <div class="card">
+      <h3 style="font-size:1rem; margin-bottom:12px;">配置 & 计划</h3>
+      <table>
+        <tr><th>类型</th><th>字段</th></tr>
+        <tr><td><code>Config</code></td><td>dimensions: Vec&lt;Dimension&gt;</td></tr>
+        <tr><td><code>Dimension</code></td><td>name, key, source, values?</td></tr>
+        <tr><td><code>MonthlyFile</code></td><td>commitments: Vec&lt;Commitment&gt;</td></tr>
+        <tr><td><code>Commitment</code></td><td>role, allocation (hours), goals</td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <h3 style="font-size:1rem; margin-bottom:12px;">日志 & 条目</h3>
+      <table>
+        <tr><th>类型</th><th>字段</th></tr>
+        <tr><td><code>DayFile</code></td><td>note?, entries: Vec&lt;Entry&gt;</td></tr>
+        <tr><td><code>Entry</code></td><td>id (UUID v4), item, duration (分钟), dimensions</td></tr>
+        <tr><td><code>NewEntry</code></td><td>item, duration (String), dimensions</td></tr>
+        <tr><td><code>UpdateEntry</code></td><td>item?, duration?, dimensions? (全部可选)</td></tr>
+      </table>
+    </div>
+    <div class="card" style="grid-column: 1 / -1;">
+      <h3 style="font-size:1rem; margin-bottom:12px;">统计 (Phase 2-3)</h3>
+      <table>
+        <tr><th>类型</th><th>用途</th></tr>
+        <tr><td><code>MonthStats</code></td><td>year, month, total_minutes, daily_totals, dimension_stats, commitments</td></tr>
+        <tr><td><code>DailyTotal</code></td><td>day, minutes</td></tr>
+        <tr><td><code>DimensionStats</code></td><td>values: Vec&lt;ValueStats&gt; (每个维度值的小计和占比)</td></tr>
+        <tr><td><code>CommitmentStats</code></td><td>role, allocation, spent, goals: Vec&lt;GoalStats&gt;</td></tr>
+        <tr><td><code>GoalStats</code></td><td>goal, minutes, percentage, entries (该 Goal 下的条目明细)</td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- File layout -->
+<section>
+  <h2>文件存储规范</h2>
+  <div class="card">
+    <div class="file-tree">
+<span class="dir">{root}/</span>
+├── <span class="file">config.yaml</span>              <span class="cmt">维度定义 (dimensions[])</span>
+└── <span class="dir">2026/</span>
+    └── <span class="dir">06/</span>
+        ├── <span class="file">_monthly.md</span>      <span class="cmt">当月 Commitments (role + allocation + goals)</span>
+        ├── <span class="file">2026-06-07.md</span>     <span class="cmt">日记录 = frontmatter YAML + body</span>
+        └── <span class="file">2026-06-08.md</span>
+</div>
+  </div>
+  <div class="card" style="margin-top:12px;">
+    <p style="font-size:0.9rem;"><strong>日文件格式：</strong></p>
+    <pre style="background:#f9f9f9; padding:12px; border-radius:6px; font-size:0.85rem; overflow-x:auto;"><code>---
+note: 五一假期
+entries:
+  - id: a1b2c3d4-...
+    item: 准备技术方案
+    duration: 90
+    dimensions:
+      business-line: Slax Reader
+      goal: MVP 上线
+---
+正文（可选，不做结构化要求）</code></pre>
+    <p class="caption">关键规则：文件名即日期真源（frontmatter 内不存 date）；写入先写 temp 再 rename（原子写入）。</p>
+  </div>
+</section>
+
+<!-- Rust modules -->
+<section>
+  <h2>Rust 模块结构</h2>
+  <div class="card">
+    <div class="file-tree">
+<span class="dir">src-tauri/src/</span>
+├── <span class="file">main.rs</span>     <span class="cmt">fn main() { tauri_app_lib::run() } — 不动</span>
+├── <span class="file">lib.rs</span>      <span class="cmt">Builder · plugins · setup hook · watch_files · 命令注册</span>
+├── <span class="file">models.rs</span>   <span class="cmt">所有 struct / enum（见上方数据结构）</span>
+├── <span class="file">files.rs</span>    <span class="cmt">路径构造 · day file 原子读写 · config/monthly 读取 · root_path.txt</span>
+├── <span class="file">config.rs</span>   <span class="cmt">validate_config() · validate_monthly() · watch_files()</span>
+└── <span class="file">commands.rs</span>  <span class="cmt">8 个 #[tauri::command] · parse_duration() · validate_date_format()</span>
+</div>
+  </div>
+</section>
+
+<!-- Component tree -->
+<section>
+  <h2>Vue 3 组件树（双栏布局）</h2>
+  <div class="card">
+    <div class="file-tree" style="line-height:2;">
+<span class="dir">App.vue</span>
+├── <span class="file">SetupScreen.vue</span>              <span class="cmt">首次启动 — 文件夹选择器</span>
+├── <span class="file">ConfigErrorBanner.vue</span>        <span class="cmt">config / _monthly.md 校验错误提示</span>
+└── <span class="dir">TodayView.vue</span>                 <span class="cmt">双栏：左 flex-[2] + 右 flex-1</span>
+    ├── <span class="cmt">[Left]</span>
+    │   ├── <span class="file">DateNavigator.vue</span>    <span class="cmt">← date → · 行内 day note (contenteditable)</span>
+    │   ├── <span class="dir">QuickEntry.vue</span>
+    │   │   ├── <span class="file">EntryInput.vue</span>   <span class="cmt">单字段 · 实时 duration 预览</span>
+    │   │   └── <span class="file">DimensionPanel.vue</span> <span class="cmt">Chips + select (toggle 展开)</span>
+    │   ├── <span class="dir">EntryList.vue</span>
+    │   │   └── <span class="file">EntryItem.vue</span>    <span class="cmt">双击编辑 · hover × · key=entry.id</span>
+    │   └── <span class="file">SummaryBar.vue</span>       <span class="cmt">"X entries · Xh Xm"</span>
+    └── <span class="cmt">[Right]</span>
+        └── <span class="file">CommitmentsPanel.vue</span> <span class="cmt">Role 进度条 · Goals 列表 · 零花费置灰</span>
+</div>
+  </div>
+  <p class="caption">状态管理：reactive() + provide/inject（无需 Pinia）。12 个组件（含 Stats 相关待 Phase 2-3）。</p>
+</section>
+
+<!-- Data flow -->
+<section>
+  <h2>核心数据流</h2>
+
+  <h3 style="font-size:1rem; margin-bottom:8px;">启动流程</h3>
+  <div class="flow">
+    <span class="flow-node">App.vue mounted</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-node flow-node--rust">invoke('init')</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-node flow-node--fs">读 root_path.txt</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-node">InitResult</span>
+  </div>
+  <div style="margin-left:20px; border-left:3px solid var(--border); padding-left:20px; margin-top:8px;">
+    <p style="font-size:0.88rem;"><code>NeedsSetup</code> → SetupScreen （文件夹选择器） → <code>set_root_path</code> → 重新 init</p>
+    <p style="font-size:0.88rem;"><code>ConfigError(errors)</code> → ConfigErrorBanner 显示错误列表</p>
+    <p style="font-size:0.88rem;"><code>Ready { config, today, commitments }</code> → 渲染 TodayView</p>
+  </div>
+
+  <hr>
+
+  <h3 style="font-size:1rem; margin-bottom:8px;">录入流程</h3>
+  <div class="flow">
+    <span class="flow-node flow-node--vue">用户输入文字</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-node flow-node--vue">前端 regex 扫描 duration 求和</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-node flow-node--vue">去除匹配片段 → item</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-node flow-node--vue">追加继承维度</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-node flow-node--rust">invoke('append_entry', ...)</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-node flow-node--fs">Rust parse_duration → u32 · 原子写入</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-node flow-node--vue">返回 Entry · 刷新列表 + Commitments</span>
+  </div>
+
+  <hr>
+
+  <h3 style="font-size:1rem; margin-bottom:8px;">文件监听</h3>
+  <div class="flow" style="font-size:0.88rem;">
+    Tauri <code>setup</code> hook 启动 <code>notify</code> 线程 →
+    递归 watch root → config.yaml / <code>_monthly.md</code> 变更 →
+    emit <code>config-changed</code> / <code>commitments-changed</code> 事件 → 前端自动刷新
+  </div>
+</section>
+
+<!-- Key design decisions -->
+<section>
+  <h2>关键设计决策</h2>
+  <div class="card">
+    <ul class="decision-list">
+      <li>
+        <span class="choice">文件名即日期真源</span>
+        <span class="why">frontmatter 不存 date，避免二义性。文件路径 <code>{root}/2026/06/2026-06-07.md</code> 即唯一真相。</span>
+      </li>
+      <li>
+        <span class="choice">乐观删除 + Toast 撤销</span>
+        <span class="why">点 × → entry 立即从列表消失 → 5 秒 toast "Undo"。超时才调 Rust delete。避免确认弹窗打断流程。</span>
+      </li>
+      <li>
+        <span class="choice">双击统一编辑</span>
+        <span class="why">Item 文字和 Duration 都是双击进入编辑。Duration 支持 <code>+30</code> / <code>-15</code> 增量语法，Enter 确认，Esc 取消。</span>
+      </li>
+      <li>
+        <span class="choice">Dimension 继承（纯前端）</span>
+        <span class="why">上一条的维度自动带入下一条。lastDimensions ref 记忆，不存磁盘。UI 行为而非存储关注点。</span>
+      </li>
+      <li>
+        <span class="choice">Entry.id = UUID v4</span>
+        <span class="why">不用数组 index 作 key。删除时避免 React/Vue 的 key 错位问题。前端 list 用 <code>entry.id</code> 渲染。</span>
+      </li>
+      <li>
+        <span class="choice">UpdateEntry 全部可选</span>
+        <span class="why">部分更新（item? / duration? / dimensions?），避免全量 NewEntry 导致覆盖陈旧数据的风险。</span>
+      </li>
+      <li>
+        <span class="choice">最多 1 个 source: monthly 维度</span>
+        <span class="why">当前只有 Goal。值列表不从 config 取，从 <code>_monthly.md</code> 的 goals 并集动态构建。</span>
+      </li>
+      <li>
+        <span class="choice">原子写入</span>
+        <span class="why">所有文件操作先写 temp 再 rename。防止并发读写导致的文件损坏。</span>
+      </li>
+    </ul>
+  </div>
+</section>
+
+<!-- Current status -->
+<section>
+  <h2>实施状态</h2>
+  <div class="cols">
+    <div class="card">
+      <h3 style="font-size:1rem; margin-bottom:12px;">已完成</h3>
+      <table>
+        <tr><td><span class="status status--done"></span> Tauri + Vue 脚手架 (pnpm tauri dev 可跑)</td></tr>
+        <tr><td><span class="status status--done"></span> 产品设计 (Vault README)</td></tr>
+        <tr><td><span class="status status--done"></span> SPEC.md (技术规格)</td></tr>
+        <tr><td><span class="status status--done"></span> Phase 1 设计 (phase-1-design.md)</td></tr>
+        <tr><td><span class="status status--done"></span> 实现计划 (17 tasks, 含全部代码)</td></tr>
+        <tr><td><span class="status status--done"></span> 技术审查 (4 Critical + 6 High 已修复)</td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <h3 style="font-size:1rem; margin-bottom:12px;">待实施 (Phase 1)</h3>
+      <table>
+        <tr><td><span class="status status--todo"></span> Task 1-6: Rust 后端 (8 命令 + 文件监听)</td></tr>
+        <tr><td><span class="status status--todo"></span> Task 7-16: Vue 前端 (12 组件 + 状态管理)</td></tr>
+        <tr><td><span class="status status--todo"></span> Task 17: E2E 验证</td></tr>
+        <tr><td style="padding-top:12px; color:var(--text-muted); font-size:0.85rem;">代码目前仍是 Tauri demo 状态 (greet)</td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- Dependencies -->
+<section>
+  <h2>依赖清单</h2>
+  <div class="cols">
+    <div class="card">
+      <h3 style="font-size:1rem; margin-bottom:12px;">Rust (Cargo.toml)</h3>
+      <table>
+        <tr><td><code>tauri</code></td><td>2.x</td><td>桌面框架</td></tr>
+        <tr><td><code>serde</code></td><td>1</td><td>序列化</td></tr>
+        <tr><td><code>serde_yml</code></td><td>1</td><td>YAML 解析</td></tr>
+        <tr><td><code>notify</code></td><td>6</td><td>文件监听</td></tr>
+        <tr><td><code>chrono</code></td><td>0.4</td><td>日期处理</td></tr>
+        <tr><td><code>regex</code></td><td>1</td><td>Duration 解析</td></tr>
+        <tr><td><code>uuid</code></td><td>1 (v4)</td><td>Entry ID 生成</td></tr>
+        <tr><td><code>tauri-plugin-dialog</code></td><td>2</td><td>系统文件夹选择器</td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <h3 style="font-size:1rem; margin-bottom:12px;">前端 (package.json)</h3>
+      <table>
+        <tr><td><code>vue</code></td><td>^3.5</td><td>UI 框架</td></tr>
+        <tr><td><code>@tauri-apps/api</code></td><td>^2</td><td>Tauri IPC</td></tr>
+        <tr><td><code>@tauri-apps/plugin-dialog</code></td><td>^2</td><td>文件夹选择器</td></tr>
+        <tr><td><code>tailwindcss</code></td><td>v4</td><td>样式</td></tr>
+        <tr><td><code>chart.js</code></td><td>—</td><td>图表 (Doughnut + Bar)</td></tr>
+        <tr><td><code>vite</code></td><td>^6</td><td>构建</td></tr>
+        <tr><td><code>typescript</code></td><td>~5.6</td><td>类型检查</td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer style="text-align:center; color:var(--text-muted); font-size:0.82rem; padding:40px 0 20px;">
+  Logbook · Tauri 2.x + Vue 3 + Rust · 2026-06-12
+</footer>
+
+</div>
+</body>
+</html>
