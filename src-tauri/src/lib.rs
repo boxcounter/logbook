@@ -33,7 +33,7 @@ pub fn run() {
             commands::delete_entry,
             commands::set_day_note,
             commands::get_commitments,
-            // commands::log_error,  // TODO: uncomment when B1 adds the fn
+            commands::log_error,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
