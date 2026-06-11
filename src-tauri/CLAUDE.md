@@ -43,8 +43,4 @@ src/
 - Goal 维度 `source: "monthly"`，值列表来自 `_monthly.md`，不在 config.yaml 的 values 里
 - Commitments 不在 Rust 端写入——用户直接编辑 `_monthly.md`，由 `notify` watcher 重新读取
 - `root_path` 由前端持有，每次 command 调用时传入；Rust 端通过 `root_path.txt` 持久化选择
-- **Phase checkpoint**：每完成一个独立 phase 停下来确认，不要连续推进多个 phase 不征求同意
-- **文档一致性检查**：写 HANDOFF.md 之前，dispatch subagent 做全量交叉比对。范围：
-  - **文档 ↔ 文档**：Vault `1_Projects/Logbook/README.md` ↔ `SPEC.md` ↔ `HANDOFF.md` ↔ `src-tauri/CLAUDE.md`
-  - **文档 ↔ 代码**：上述文档 vs 实际 Rust 模块、Vue 组件、命令签名、数据结构
-  - Subagent 读全部文档和代码，报告不一致项。不要裁剪范围——命令、数据结构、组件树、约定、Phase 进度全部比
+- **Phase checkpoint**：每完成一个独立 phase 停下来确认，不要连续推进多个 phase 不征求同意（规则见根目录 CLAUDE.md）
