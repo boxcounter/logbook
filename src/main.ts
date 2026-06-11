@@ -1,9 +1,8 @@
 import { createApp } from "vue";
 import App from "./App.vue";
 import "./assets/main.css";
-import { createStore, provideStore } from "./stores/useStore";
+import { createStore, STORE_KEY } from "./stores/useStore";
 
 const app = createApp(App);
-const store = createStore();
-provideStore(store);
+app.provide(STORE_KEY, createStore());
 app.mount("#app");

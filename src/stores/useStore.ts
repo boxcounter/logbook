@@ -12,7 +12,7 @@ export interface AppStore {
   currentDate: string;
 }
 
-const STORE_KEY: InjectionKey<AppStore> = Symbol("AppStore");
+export const STORE_KEY: InjectionKey<AppStore> = Symbol("AppStore");
 
 export function createStore(): AppStore {
   const now = new Date();
