@@ -42,3 +42,4 @@ src/
 - Goal 维度 `source: "monthly"`，值列表来自 `_monthly.md`，不在 config.yaml 的 values 里
 - Commitments 不在 Rust 端写入——用户直接编辑 `_monthly.md`，由 `notify` watcher 重新读取
 - `root_path` 由前端持有，每次 command 调用时传入；Rust 端通过 `root_path.txt` 持久化选择
+- **Phase checkpoint**：每完成一个独立 phase 停下来确认，不要连续推进多个 phase 不征求同意
