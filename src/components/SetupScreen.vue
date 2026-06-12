@@ -16,6 +16,10 @@ async function selectFolder() {
   if (!selected) return;
 
   const path = selected as string;
+  await trySetRootPath(path);
+}
+
+async function trySetRootPath(path: string) {
   try {
     const result = (await invoke("set_root_path", { path })) as InitResult;
     if (result.status === "Ready") {
@@ -30,9 +34,24 @@ async function selectFolder() {
       store.screen = "error";
     }
   } catch (e) {
-    logError("SetupScreen.selectFolder", e);
-    store.configErrors = [{ kind: "SetupError", message: `Failed: ${e}` }];
-    store.screen = "error";
+    const msg = String(e);
+    if (msg.includes("Failed to read") || msg.includes("No such file")) {
+      const shouldCreate = confirm("No config.yaml found. Create one with default settings?");
+      if (shouldCreate) {
+        try {
+          await invoke("create_starter_files", { path });
+          await trySetRootPath(path);
+        } catch (e2) {
+          logError("SetupScreen.selectFolder", e2);
+          store.configErrors = [{ kind: "SetupError", message: `Failed: ${e2}` }];
+          store.screen = "error";
+        }
+      }
+    } else {
+      logError("SetupScreen.selectFolder", e);
+      store.configErrors = [{ kind: "SetupError", message: `Failed: ${e}` }];
+      store.screen = "error";
+    }
   }
 }
 </script>

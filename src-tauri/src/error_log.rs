@@ -8,7 +8,8 @@ static LOG_PATH: Mutex<Option<PathBuf>> = Mutex::new(None);
 /// Initialize the log path. Call once during app setup.
 pub fn init(app_data_dir: &std::path::Path) {
     let log_path = app_data_dir.join("logbook.log");
-    if let Ok(mut path) = LOG_PATH.lock() {
+    {
+        let mut path = LOG_PATH.lock().unwrap_or_else(|e| e.into_inner());
         *path = Some(log_path.clone());
     }
     let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
@@ -17,7 +18,7 @@ pub fn init(app_data_dir: &std::path::Path) {
 
 /// Append a line to the log. Non-blocking, best-effort.
 fn append_log(level: &str, context: &str, message: &str) -> Result<(), String> {
-    let path = LOG_PATH.lock().map_err(|e| format!("Lock error: {}", e))?;
+    let path = LOG_PATH.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     let path = path.as_ref().ok_or("Log not initialized")?;
     if let Some(parent) = path.parent() {
         let _ = fs::create_dir_all(parent);

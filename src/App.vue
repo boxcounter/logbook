@@ -39,7 +39,16 @@ onMounted(async () => {
     });
 
     unlistenFocus = await getCurrentWindow().onFocusChanged(({ payload: focused }) => {
-      if (focused) focusRequestId.value++;
+      if (focused) {
+        focusRequestId.value++;
+        // Refresh date if midnight was crossed while app was backgrounded
+        const now = new Date();
+        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+        if (store.currentDate !== todayStr && store.screen === "ready") {
+          store.currentDate = todayStr;
+          initApp();
+        }
+      }
     });
   } catch (e) {
     logError("App.onMounted", e);

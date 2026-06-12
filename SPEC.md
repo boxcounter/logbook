@@ -11,24 +11,26 @@
 | 文件监听 | `notify` crate |
 | 前端 | Vue 3 + Composition API + TypeScript |
 | 样式 | Tailwind CSS |
-| 图表 | Chart.js（按需引入：Doughnut + Bar controllers） |
-| Frontmatter 解析 | 手动提取 `---` 边界 + `serde_yaml`（格式简单，不引入额外 crate） |
+| 图表 | Chart.js（按需引入：Doughnut + Bar controllers，Phase 3） |
+| Frontmatter 解析 | 手动提取 `---` 边界 + `yaml_serde` |
 
 ## Rust 后端
 
-### 命令清单（10 个，已实现）
+### 命令清单（12 个，已实现）
 
 ```
 init(app: AppHandle) → InitResult
 set_root_path(app: AppHandle, path: String) → Result<InitResult, String>
-get_entries(root_path: String, date: String) → DayFile
-append_entry(root_path: String, date: String, entry: NewEntry) → Entry
-update_entry(root_path: String, date: String, entry_id: String, update: UpdateEntry) → DayFile
-delete_entry(root_path: String, date: String, entry_id: String) → DayFile
-set_day_note(root_path: String, date: String, note: String) → DayFile
-get_commitments(root_path: String, year: i32, month: u32) → Vec<Commitment>
+get_entries(root_path: String, date: String) → Result<DayFile, String>
+append_entry(root_path: String, date: String, entry: NewEntry) → Result<Entry, String>
+update_entry(root_path: String, date: String, entry_id: String, update: UpdateEntry) → Result<DayFile, String>
+delete_entry(root_path: String, date: String, entry_id: String) → Result<DayFile, String>
+set_day_note(root_path: String, date: String, note: String) → Result<DayFile, String>
+get_commitments(root_path: String, year: i32, month: u32) → Result<Vec<Commitment>, String>
 open_in_editor(root_path: String, date: String) → Result<(), String>  // 用系统编辑器打开文件
+create_starter_files(path: String) → Result<(), String>  // 空目录创建初始文件
 log_error(message: String)                              // 前端 error → error.log
+log_info(message: String)                               // 前端 info → info.log
 ```
 
 Phase 3 将新增：`get_stats(root_path: String, year: i32, month: u32) → MonthStats`

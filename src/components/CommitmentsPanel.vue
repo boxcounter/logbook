@@ -22,7 +22,8 @@ interface CommitmentStat {
 
 const stats = computed<CommitmentStat[]>(() => {
   return props.commitments.map((c) => {
-    const dailyAllocation = Math.round((c.allocation * 60) / 7);
+    const WORKING_DAYS_PER_MONTH = 20;
+    const dailyAllocation = Math.round((c.allocation * 60) / WORKING_DAYS_PER_MONTH);
     const goals: GoalStat[] = c.goals.map((name) => ({
       name,
       spent: props.entries

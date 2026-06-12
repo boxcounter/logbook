@@ -3,6 +3,7 @@ import type { Entry, Granularity } from "../types";
 import { computed } from "vue";
 import EntryItem from "./EntryItem.vue";
 import EntryGroup from "./EntryGroup.vue";
+import { parseDate } from "../utils/dates";
 
 const props = defineProps<{
   entries: Entry[];
@@ -33,7 +34,7 @@ const groups = computed<Group[]>(() => {
     for (const date of sorted) {
       const entries = props.periodEntries[date];
       if (entries.length === 0) continue;
-      const d = new Date(date + "T00:00:00");
+      const d = parseDate(date);
       const label = d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
       result.push({ label, entries });
     }
@@ -44,7 +45,7 @@ const groups = computed<Group[]>(() => {
   const weeks: Record<string, Entry[]> = {};
   for (const [date, entries] of Object.entries(props.periodEntries)) {
     if (entries.length === 0) continue;
-    const d = new Date(date + "T00:00:00");
+    const d = parseDate(date);
     const day = d.getDay();
     const weekStart = new Date(d);
     weekStart.setDate(d.getDate() - (day === 0 ? 6 : day - 1));

@@ -1,9 +1,14 @@
-/// Integration tests using the real fixture at ~/Downloads/logbook-test.
+/// Integration tests using fixture data.
+/// Set LOGBOOK_TEST_FIXTURE env var to override the default ~/Downloads/logbook-test path.
 use std::path::Path;
 
 fn fixture_root() -> std::path::PathBuf {
-    let home = std::env::var("HOME").expect("HOME not set");
-    Path::new(&home).join("Downloads/logbook-test")
+    std::env::var("LOGBOOK_TEST_FIXTURE")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| {
+            let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+            Path::new(&home).join("Downloads/logbook-test")
+        })
 }
 
 #[test]

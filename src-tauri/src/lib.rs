@@ -36,6 +36,7 @@ pub fn run() {
             commands::set_day_note,
             commands::get_commitments,
             commands::open_in_editor,
+            commands::create_starter_files,
             commands::log_error,
             commands::log_info,
         ])

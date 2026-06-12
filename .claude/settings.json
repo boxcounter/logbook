@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "pnpm vue-tsc --noEmit && cargo check --manifest-path src-tauri/Cargo.toml && cargo test --manifest-path src-tauri/Cargo.toml",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && pnpm vue-tsc --noEmit && cd src-tauri && cargo check && cargo test",
             "timeout": 120
           }
         ]

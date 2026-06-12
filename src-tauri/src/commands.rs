@@ -13,7 +13,7 @@ static DURATION_RE: LazyLock<Regex> = LazyLock::new(|| {
 
 /// Read a day file, distinguishing "file not found" from "file found but corrupt".
 fn read_day_file_safe(root: &std::path::Path, date: &str) -> Result<DayFile, String> {
-    let path = files::day_path(root, date);
+    let path = files::day_path(root, date)?;
     match files::read_day_file(root, date) {
         Ok(day_file) => Ok(day_file),
         Err(e) => {
@@ -286,21 +286,20 @@ pub fn get_commitments(root_path: String, year: i32, month: u32) -> Result<Vec<C
     result
 }
 
-fn validate_date_format(date: &str) -> Result<(), String> {
+fn validate_date_format(date: &str) -> Result<chrono::NaiveDate, String> {
     chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d")
-        .map_err(|e| format!("Invalid date '{}': {}. Expected YYYY-MM-DD", date, e))?;
-    Ok(())
+        .map_err(|e| format!("Invalid date '{}': {}. Expected YYYY-MM-DD", date, e))
 }
 
 #[tauri::command]
 pub fn open_in_editor(root_path: String, date: String) -> Result<(), String> {
     use std::process::Command;
     error_log::log_command_enter("open_in_editor", &format!("date={}", date));
-    validate_date_format(&date)?;
+    let parsed = validate_date_format(&date)?;
     let root = std::path::Path::new(&root_path);
-    let year = &date[..4];
-    let month = &date[5..7];
-    let file_path = root.join(year).join(month).join(format!("{}.md", date));
+    let year = format!("{}", parsed.year());
+    let month = format!("{:02}", parsed.month());
+    let file_path = root.join(&year).join(&month).join(format!("{}.md", date));
     if !file_path.exists() {
         error_log::log_command_exit("open_in_editor", false, "file not found");
         return Err(format!("File not found: {}", file_path.display()));
@@ -312,6 +311,21 @@ pub fn open_in_editor(root_path: String, date: String) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     { Command::new("cmd").arg("/c").arg("start").arg("").arg(&file_path).spawn().map_err(|e| format!("Failed to open: {}", e))?; }
     error_log::log_command_exit("open_in_editor", true, "");
+    Ok(())
+}
+
+#[tauri::command]
+pub fn create_starter_files(path: String) -> Result<(), String> {
+    let root = std::path::Path::new(&path);
+    if !root.exists() {
+        std::fs::create_dir_all(root)
+            .map_err(|e| format!("Failed to create directory: {}", e))?;
+    }
+    let config_path = root.join("config.yaml");
+    if !config_path.exists() {
+        std::fs::write(&config_path, "dimensions:\n  - name: Goal\n    key: goal\n    source: monthly\n")
+            .map_err(|e| format!("Failed to write config.yaml: {}", e))?;
+    }
     Ok(())
 }
 
@@ -373,7 +387,7 @@ mod tests {
         let tmp = std::env::temp_dir().join("logbook_test_corrupt_day");
         let _ = fs::remove_dir_all(&tmp);
         let date = "2026-06-12";
-        let path = files::day_path(&tmp, date);
+        let path = files::day_path(&tmp, date).unwrap();
         fs::create_dir_all(path.parent().unwrap()).unwrap();
         fs::write(&path, "---\nentries: [\n---\n").unwrap(); // broken YAML
         let result = read_day_file_safe(&tmp, date);

@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useStore } from "../stores/useStore";
 import type { DayFile, Granularity } from "../types";
 import { logError } from "../utils/errorLog";
+import { weekLabel, parseDate } from "../utils/dates";
 
 const store = useStore();
 const emit = defineEmits<{ navigate: [] }>();
@@ -21,7 +22,7 @@ watch(
 );
 
 function dateObj(): Date {
-  return new Date(store.currentDate + "T00:00:00");
+  return parseDate(store.currentDate);
 }
 
 const displayDate = computed(() => {
@@ -43,16 +44,6 @@ const displayDate = computed(() => {
   }
   return d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 });
-
-function weekLabel(d: Date): string {
-  const day = d.getDay();
-  const monday = new Date(d);
-  monday.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-  const fmt = (dt: Date) => dt.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  return `${fmt(monday)} – ${fmt(sunday)}`;
-}
 
 function shift(delta: number) {
   const d = dateObj();
@@ -78,6 +69,24 @@ async function loadDay() {
     emit("navigate");
   } catch (e) {
     logError("DateNavigator.loadDay", e);
+  }
+}
+
+function onNotePaste(e: ClipboardEvent) {
+  e.preventDefault();
+  const text = e.clipboardData?.getData("text/plain") || "";
+  const selection = window.getSelection();
+  if (selection && selection.rangeCount > 0) {
+    const range = selection.getRangeAt(0);
+    range.deleteContents();
+    range.insertNode(document.createTextNode(text));
+    range.collapse(false);
+  }
+}
+
+function onNoteInput() {
+  if (noteRef.value && noteRef.value.innerHTML !== noteRef.value.textContent) {
+    noteRef.value.textContent = noteRef.value.textContent || "";
   }
 }
 
@@ -111,6 +120,8 @@ async function saveNote() {
         contenteditable="true"
         data-placeholder="Add a note…"
         @blur="saveNote"
+        @paste="onNotePaste"
+        @input="onNoteInput"
       ></div>
     </div>
     <button class="px-2 py-1 text-gray-500 hover:bg-gray-100 rounded transition-colors text-sm" @click="shift(1)">→</button>

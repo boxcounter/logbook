@@ -16,24 +16,27 @@
 | 后端 CLAUDE.md | `src-tauri/CLAUDE.md` |
 | 技术规格 | `SPEC.md` |
 | 交接文档 | `HANDOFF.md` |
-| 设计文档 | Vault `1_Projects/Logbook/README.md` |
+| 设计文档 | Obsidian vault `1_Projects/Logbook/README.md` |
 
 ### 代码集
 
 | 范围 | 路径 |
 |------|------|
-| Rust 模块 | `src-tauri/src/` 所有 `.rs` 文件 |
+| Rust 源码 | `src-tauri/src/` 所有 `.rs` 文件 |
 | Rust 集成测试 | `src-tauri/tests/` |
+| Cargo 清单 | `src-tauri/Cargo.toml` |
+| Tauri 配置 | `src-tauri/tauri.conf.json` |
 | Vue 组件 | `src/components/` 所有 `.vue` 文件 |
 | 前端入口 | `src/App.vue`、`src/main.ts` |
-| Cargo 清单 | `src-tauri/Cargo.toml` |
+| 前端工具/store | `src/utils/`、`src/stores/` 所有 `.ts` 文件 |
+| 前端测试 | `src/__tests__/`、`vitest.config.ts` |
 | 前端清单 | `package.json` |
 
 ## 执行协议
 
-**单 Agent 执行。** 与 `/review-project` 不同，一致性检查不需要多维度并行审查——它是一个结构化的交叉比对任务。Dispatch 一个 subagent（`subagent_type: "general-purpose"`，`run_in_background: true`），一次性通读所有文档和代码，产出结构化报告。
+单 Agent 执行。一致性检查是结构化交叉比对任务，不需要多维度并行审查。Dispatch 一个 subagent，一次性通读所有文档和代码，产出结构化报告。
 
-### Agent Prompt
+## Agent Prompt
 
 ```
 你是文档一致性检查员。对 Logbook 项目做全量交叉比对。
@@ -48,49 +51,55 @@
 - CLAUDE.md（根目录）
 - src-tauri/CLAUDE.md
 - SPEC.md
-- HANDOFF.md
-- Vault 1_Projects/Logbook/README.md（设计文档，用 Obsidian CLI 读取）
+- HANDOFF.md（如果不存在，标注后跳过引用它的检查项）
 
-代码：
+代码（用 ls / find 动态发现实际文件，以下为预期路径）：
 - src-tauri/src/ 下所有 .rs 文件
 - src-tauri/tests/ 下所有 .rs 文件
 - src-tauri/Cargo.toml
+- src-tauri/tauri.conf.json
 - src/components/ 下所有 .vue 文件
 - src/App.vue、src/main.ts
+- src/utils/、src/stores/ 下所有 .ts 文件
+- src/__tests__/、vitest.config.ts
 - package.json
+
+设计文档 `1_Projects/Logbook/README.md` 用 Obsidian CLI 读取。如果 vault 名不确定，先 `obsidian-cli vault list` 找到包含 Logbook 项目的 vault。无法访问时在报告中注明。
 
 ## 检查项目
 
+所有「文档声称的 X」均指动态读取该文档后提取的信息——不要依赖本 prompt 中的任何示例或暗示，以实际文件内容为准。
+
 ### A. 文档 ↔ 文档
 
-按以下矩阵逐对比较：
-
 #### A1. 命令数量
-- src-tauri/CLAUDE.md 声称的命令数 vs SPEC.md 列出的命令数 vs HANDOFF.md 声称的命令数
+- src-tauri/CLAUDE.md 声称的命令数 vs SPEC.md 列出的命令数 vs HANDOFF.md 声称的命令数（如 HANDOFF.md 存在）
 - 不一致时报告：哪个文档说几个，实际应该几个
 
 #### A2. Phase 进度
-- HANDOFF.md 声称的「已完成 Phase」与 SPEC.md Phase 表格对比
-- CLAUDE.md 和 HANDOFF.md 的 Phase 描述是否一致
+- HANDOFF.md 声称的「已完成 Phase」与 SPEC.md Phase 表格对比（如 HANDOFF.md 存在）
+- CLAUDE.md 和 HANDOFF.md 的 Phase 描述是否一致（如 HANDOFF.md 存在）
 
 #### A3. 模块结构
-- src-tauri/CLAUDE.md ## 模块结构 列出的文件 vs 实际 `src-tauri/src/` 下的 `.rs` 文件
+- src-tauri/CLAUDE.md「模块结构」列出的文件 vs 实际 `src-tauri/src/` 下的 `.rs` 文件（用 ls 动态列出）
 - 报告多余或遗漏的文件
 
 #### A4. 组件树
-- SPEC.md ## 组件树 列出的组件 vs 实际 `src/components/` 下的 `.vue` 文件
+- SPEC.md「组件树」列出的组件 vs 实际 `src/components/` 下的 `.vue` 文件（用 ls 动态列出）
 - 注意区分「已实现」和「planned/Phase 3」的组件
 
 #### A5. 数据结构
-- SPEC.md ## 数据结构 中的 struct 定义 vs src-tauri/CLAUDE.md ## 关键约定 中的描述
+- SPEC.md「数据结构」中的 struct 定义 vs src-tauri/CLAUDE.md「关键约定」中的描述
 - 两个文档是否对同一概念有矛盾的说法
 
 #### A6. 技术栈
-- SPEC.md ## 技术栈 表格 vs Cargo.toml 和 package.json 的实际依赖
-- 特别检查：yaml_serde（不是 serde_yml）、Chart.js 引入方式、Tauri 版本
+- SPEC.md「技术栈」表格 vs Cargo.toml、package.json 和 tauri.conf.json 的实际依赖
+- 特别检查：yaml_serde（不是 serde_yml）、Chart.js 引入方式、Tauri 版本、tauri.conf.json 中的 identifier/window 配置是否与 SPEC.md 一致
 
-#### A7. 测试数量
-- HANDOFF.md 声称的测试数 vs 实际运行 `cd src-tauri && cargo test -- -q` 的输出
+#### A7. 测试覆盖
+- HANDOFF.md 声称的测试数（如存在）vs 实际运行测试的输出
+- Rust：`cd src-tauri && cargo test -- -q`
+- 前端：检查 `src/__tests__/` 下文件数、`vitest.config.ts` 是否存在、文档是否提及前端测试
 
 ### B. 文档 ↔ 代码
 
@@ -105,14 +114,17 @@
 - 字段名、类型、Option 包裹是否一致
 
 #### B3. 关键约定
-- src-tauri/CLAUDE.md ## 关键约定 逐条验证：
-  - YAML 序列化用 `yaml_serde`（检查 `Cargo.toml` 依赖 + `files.rs` 中的 import）
-  - Entry duration 存储为 u32 分钟（检查 `models.rs` 中 Entry.duration 类型）
-  - 文件写入先 `.tmp` 再 rename（检查 `files.rs` 实现）
-  - Frontmatter 解析用 `yaml_serde::from_str`（检查 `files.rs`）
-  - Goal 维度 `source: "monthly"`，值来自 `_monthly.md`（检查 `config.rs`）
-  - `root_path` 由前端持有，每次传入（检查 `commands.rs` 中命令参数）
-  - Phase checkpoint 规则在两个 CLAUDE.md 中一致
+- 读取 src-tauri/CLAUDE.md「关键约定」章节的每一条
+- 逐条验证代码实现（而非验证本 prompt 中列出的项）：
+  - 读取约定 → 找到对应代码文件 → 确认实现匹配
+- 示例（以 src-tauri/CLAUDE.md 实际内容为准，这些只是常见检查点）：
+  - YAML 序列化库 → 检查 Cargo.toml 依赖 + files.rs 中的 import
+  - Entry duration 类型 → 检查 models.rs
+  - 文件写入策略 → 检查 files.rs 实现
+  - Frontmatter 解析 → 检查 files.rs
+  - Goal 维度配置 → 检查 config.rs
+  - root_path 传递方式 → 检查 commands.rs
+  - Phase checkpoint 规则 → 检查两个 CLAUDE.md 是否一致
 
 #### B4. 前端组件
 - SPEC.md 组件树中的「已实现」组件
@@ -120,8 +132,12 @@
 - 组件是否在 `App.vue` 或父组件中被引用
 
 #### B5. 数据流
-- SPEC.md ## 数据流 描述的事件（`config-changed`、`commitments-changed`）
+- SPEC.md「数据流」描述的事件（`config-changed`、`commitments-changed` 等）
 - vs `lib.rs` 中实际 emit 的事件
+
+#### B6. 前端模块遗漏
+- 列出 `src/` 下的所有子目录和关键文件（components/、stores/、utils/、__tests__/ 等）
+- 检查 SPEC.md 或 HANDOFF.md 是否遗漏了这些模块的说明
 
 ## 输出格式
 
@@ -159,8 +175,7 @@
 - 不要裁剪——每个检查项都必须执行
 - 每个结论必须有文件引用（file:line）
 - 不确定的地方标注「未验证：...」
-- 设计文档（Vault README.md）如果无法访问，在报告中注明
-- 检查 `components/` 目录下的**所有子目录**（`stores/`、`utils/`、`components/`），看文档是否遗漏了模块
+- 如果 HANDOFF.md 不存在，在报告中标注，并跳过 A1/A2/A7 中引用 HANDOFF.md 的子项
 ```
 
 ## 使用方式

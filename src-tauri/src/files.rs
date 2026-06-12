@@ -19,12 +19,15 @@ fn with_file_lock<T, F: FnOnce() -> Result<T, String>>(path: &Path, f: F) -> Res
 }
 
 /// Day file path: {root}/{year}/{month:02}/{date}.md
+/// Validates date format before constructing path.
 /// date format: "2026-06-12". Date is canonical from filename, not stored in frontmatter.
-pub fn day_path(root: &Path, date: &str) -> PathBuf {
+pub fn day_path(root: &Path, date: &str) -> Result<PathBuf, String> {
+    chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d")
+        .map_err(|e| format!("Invalid date '{}': {}", date, e))?;
     let parts: Vec<&str> = date.split('-').collect();
-    let year = parts.get(0).unwrap_or(&"0000");
-    let month = parts.get(1).unwrap_or(&"00");
-    root.join(year).join(month).join(format!("{}.md", date))
+    let year = parts[0];
+    let month = parts[1];
+    Ok(root.join(year).join(month).join(format!("{}.md", date)))
 }
 
 /// Monthly file path: {root}/{year}/{month:02}/_monthly.md
@@ -41,7 +44,7 @@ pub fn config_path(root: &Path) -> PathBuf {
 
 /// Read a day file. Returns empty DayFile if file doesn't exist.
 pub fn read_day_file(root: &Path, date: &str) -> Result<DayFile, String> {
-    let path = day_path(root, date);
+    let path = day_path(root, date)?;
     if !path.exists() {
         return Ok(DayFile { note: None, entries: vec![] });
     }
@@ -53,7 +56,7 @@ pub fn read_day_file(root: &Path, date: &str) -> Result<DayFile, String> {
 
 /// Write a full day file (atomic: temp then rename).
 pub fn write_day_file(root: &Path, date: &str, day_file: &DayFile) -> Result<(), String> {
-    let path = day_path(root, date);
+    let path = day_path(root, date)?;
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)
             .map_err(|e| format!("Failed to create directory: {}", e))?;
@@ -71,7 +74,7 @@ pub fn write_day_file(root: &Path, date: &str, day_file: &DayFile) -> Result<(),
 
 /// Append an entry to a day file. Creates directories if needed.
 pub fn append_to_day_file(root: &Path, date: &str, entry: &Entry) -> Result<Entry, String> {
-    let path = day_path(root, date);
+    let path = day_path(root, date)?;
     with_file_lock(&path, || {
         let mut day_file = read_day_file(root, date)?;
         let entry = entry.clone();
@@ -95,7 +98,7 @@ pub fn append_new_entry(root: &Path, date: &str, new_entry: &crate::models::NewE
 
 /// Update an entry by ID. Applies only the fields present in `update`.
 pub fn update_entry_in_file(root: &Path, date: &str, entry_id: &str, update: &crate::models::UpdateEntry) -> Result<DayFile, String> {
-    let path = day_path(root, date);
+    let path = day_path(root, date)?;
     with_file_lock(&path, || {
         let mut day_file = read_day_file(root, date)?;
         let pos = day_file.entries.iter().position(|e| e.id == entry_id)
@@ -114,7 +117,7 @@ pub fn update_entry_in_file(root: &Path, date: &str, entry_id: &str, update: &cr
 
 /// Delete an entry by ID from a day file.
 pub fn delete_entry_from_file(root: &Path, date: &str, entry_id: &str) -> Result<DayFile, String> {
-    let path = day_path(root, date);
+    let path = day_path(root, date)?;
     with_file_lock(&path, || {
         let mut day_file = read_day_file(root, date)?;
         let pos = day_file.entries.iter().position(|e| e.id == entry_id)
@@ -127,7 +130,7 @@ pub fn delete_entry_from_file(root: &Path, date: &str, entry_id: &str) -> Result
 
 /// Set the day note.
 pub fn set_day_note_in_file(root: &Path, date: &str, note: &str) -> Result<DayFile, String> {
-    let path = day_path(root, date);
+    let path = day_path(root, date)?;
     with_file_lock(&path, || {
         let mut day_file = read_day_file(root, date)?;
         day_file.note = if note.is_empty() { None } else { Some(note.to_string()) };
@@ -239,8 +242,13 @@ mod tests {
     #[test]
     fn test_day_path() {
         let root = Path::new("/data");
-        let p = day_path(root, "2026-06-12");
+        let p = day_path(root, "2026-06-12").unwrap();
         assert_eq!(p, PathBuf::from("/data/2026/06/2026-06-12.md"));
+    }
+
+    #[test]
+    fn test_day_path_invalid() {
+        assert!(day_path(Path::new("/data"), "bad-date").is_err());
     }
 
     #[test]

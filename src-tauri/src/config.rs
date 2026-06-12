@@ -2,7 +2,9 @@ use crate::models::{Config, ConfigErrorDetail, MonthlyFile};
 use crate::files;
 use chrono::Datelike;
 use notify::{Event, EventKind, RecursiveMode, Watcher, Config as NotifyConfig};
+use std::collections::HashMap;
 use std::path::PathBuf;
+use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter};
 
 fn is_valid_key(key: &str) -> bool {
@@ -82,7 +84,7 @@ pub fn validate_monthly(monthly: &MonthlyFile) -> Vec<ConfigErrorDetail> {
         if c.allocation == 0 {
             errors.push(ConfigErrorDetail {
                 kind: "ZeroAllocation".to_string(),
-                message: format!("Commitment '{}': allocation is 0 (should be hours per week)", c.role),
+                message: format!("Commitment '{}': allocation is 0 (should be hours per month)", c.role),
             });
         }
         for goal in &c.goals {
@@ -98,12 +100,20 @@ pub fn validate_monthly(monthly: &MonthlyFile) -> Vec<ConfigErrorDetail> {
 }
 
 pub fn watch_files(app_handle: AppHandle, root_path: PathBuf) {
+    crate::error_log::log_info("file_watcher", &format!("Watching {}", root_path.display()));
     std::thread::spawn(move || {
         let (tx, rx) = std::sync::mpsc::channel();
 
         let mut watcher = notify::recommended_watcher(move |res: Result<Event, notify::Error>| {
-            if let Ok(event) = res {
-                let _ = tx.send(event);
+            match res {
+                Ok(event) => {
+                    if let Err(e) = tx.send(event) {
+                        crate::error_log::log_error("file_watcher", &format!("send error: {:?}", e));
+                    }
+                }
+                Err(e) => {
+                    crate::error_log::log_error("file_watcher", &format!("notify error: {}", e));
+                }
             }
         })
         .expect("Failed to create file watcher");
@@ -114,24 +124,42 @@ pub fn watch_files(app_handle: AppHandle, root_path: PathBuf) {
 
         // Watch root directory recursively to catch config.yaml
         // and all _monthly.md files, including across month boundaries.
-        watcher.watch(&root_path, RecursiveMode::Recursive).ok();
+        if let Err(e) = watcher.watch(&root_path, RecursiveMode::Recursive) {
+            crate::error_log::log_error("file_watcher", &format!("Failed to watch: {}", e));
+        }
+
+        let debounce_ms = Duration::from_millis(300);
+        let mut last_event: HashMap<std::path::PathBuf, Instant> = HashMap::new();
 
         for event in rx {
             let is_modify = matches!(event.kind, EventKind::Modify(_) | EventKind::Create(_));
             if !is_modify { continue; }
 
             for path in &event.paths {
+                // Debounce: skip if same path fired within 300ms
+                let now = Instant::now();
+                if let Some(last) = last_event.get(path) {
+                    if now.duration_since(*last) < debounce_ms {
+                        continue;
+                    }
+                }
+                last_event.insert(path.clone(), now);
+
                 let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
                 if file_name == "config.yaml" {
                     match files::read_config(&root_path) {
                         Ok(config) => {
                             let errors = validate_config(&config);
-                            let _ = app_handle.emit("config-changed", &errors);
+                            if let Err(e) = app_handle.emit("config-changed", &errors) {
+                                crate::error_log::log_error("file_watcher", &format!("emit config-changed failed: {}", e));
+                            }
                         }
                         Err(e) => {
-                            let _ = app_handle.emit("config-changed", &vec![ConfigErrorDetail {
+                            if let Err(e2) = app_handle.emit("config-changed", &vec![ConfigErrorDetail {
                                 kind: "ParseError".to_string(), message: e,
-                            }]);
+                            }]) {
+                                crate::error_log::log_error("file_watcher", &format!("emit config-changed failed: {}", e2));
+                            }
                         }
                     }
                 } else if file_name == "_monthly.md" {
@@ -140,12 +168,16 @@ pub fn watch_files(app_handle: AppHandle, root_path: PathBuf) {
                     match files::read_monthly_file(&root_path, now.year(), now.month()) {
                         Ok(monthly) => {
                             let errors = validate_monthly(&monthly);
-                            let _ = app_handle.emit("commitments-changed", &errors);
+                            if let Err(e) = app_handle.emit("commitments-changed", &errors) {
+                                crate::error_log::log_error("file_watcher", &format!("emit commitments-changed failed: {}", e));
+                            }
                         }
                         Err(e) => {
-                            let _ = app_handle.emit("commitments-changed", &vec![ConfigErrorDetail {
+                            if let Err(e2) = app_handle.emit("commitments-changed", &vec![ConfigErrorDetail {
                                 kind: "ParseError".to_string(), message: e,
-                            }]);
+                            }]) {
+                                crate::error_log::log_error("file_watcher", &format!("emit commitments-changed failed: {}", e2));
+                            }
                         }
                     }
                 }

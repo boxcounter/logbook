@@ -7,38 +7,10 @@ import CommitmentsPanel from "./CommitmentsPanel.vue";
 import QuickEntry from "./QuickEntry.vue";
 import EntryList from "./EntryList.vue";
 import SummaryBar from "./SummaryBar.vue";
-import type { Granularity, Entry, DayFile } from "../types";
+import type { Entry, DayFile } from "../types";
 import { logError, logInfo } from "../utils/errorLog";
 import { computed } from "vue";
-
-function formatDate(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function datesInPeriod(dateStr: string, granularity: Granularity): string[] {
-  const d = new Date(dateStr + "T00:00:00");
-  const dates: string[] = [];
-  if (granularity === "day") {
-    dates.push(dateStr);
-  } else if (granularity === "week") {
-    const day = d.getDay();
-    const monday = new Date(d);
-    monday.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
-    for (let i = 0; i < 7; i++) {
-      const dt = new Date(monday);
-      dt.setDate(monday.getDate() + i);
-      dates.push(formatDate(dt));
-    }
-  } else {
-    const year = d.getFullYear();
-    const month = d.getMonth();
-    const lastDay = new Date(year, month + 1, 0).getDate();
-    for (let day = 1; day <= lastDay; day++) {
-      dates.push(`${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`);
-    }
-  }
-  return dates;
-}
+import { datesInPeriod } from "../utils/dates";
 
 async function loadPeriod() {
   const dates = datesInPeriod(store.currentDate, store.granularity);
@@ -53,7 +25,9 @@ async function loadPeriod() {
     }
   }
   store.periodEntries = map;
-  store.today = { note: null, entries: map[store.currentDate] || [] };
+  if (store.currentDate in map) {
+    store.today = { note: null, entries: map[store.currentDate] };
+  }
 }
 
 const store = useStore();
@@ -120,8 +94,11 @@ async function handleDeleteEntry(entryId: string) {
       await invoke("delete_entry", { rootPath: store.rootPath, date: store.currentDate, entryId });
     } catch (e) {
       logError("TodayView.handleDeleteEntry", e);
-      logError("TodayView.handleDeleteEntry", e);
-      entries.splice(idx, 0, removed); // restore on failure
+      // Re-insert at original position if still valid
+      const currentIdx = entries.findIndex(e => e.id === entryId);
+      if (currentIdx === -1) {
+        entries.splice(idx, 0, removed);
+      }
     }
   }, 5000);
 
@@ -129,7 +106,10 @@ async function handleDeleteEntry(entryId: string) {
   triggerUndoToast(() => {
     cancelled = true;
     if (pendingDeleteTimer) clearTimeout(pendingDeleteTimer);
-    entries.splice(idx, 0, removed);
+    const currentIdx = entries.findIndex(e => e.id === entryId);
+    if (currentIdx === -1) {
+      entries.splice(idx, 0, removed);
+    }
   });
 }
 

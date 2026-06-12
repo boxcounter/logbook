@@ -32,10 +32,13 @@ watch(
   { immediate: true }
 );
 
-const DIM_ALIASES: Record<string, string> = {};
-for (const d of props.dimensions) {
-  DIM_ALIASES[d.key] = d.name;
-}
+const DIM_ALIASES = computed<Record<string, string>>(() => {
+  const map: Record<string, string> = {};
+  for (const d of props.dimensions) {
+    map[d.key] = d.name;
+  }
+  return map;
+});
 
 const staticDimensions = computed(() =>
   props.dimensions.filter((d) => d.source !== "monthly")
@@ -80,7 +83,7 @@ function getMenuItems(): MenuItem[] {
   if (menuPhase.value === "dim") {
     return props.dimensions
       .filter((d) => d.name.toLowerCase().includes(q) || d.key.toLowerCase().includes(q))
-      .map((d) => ({ label: d.name, sub: DIM_ALIASES[d.key] || d.key, key: d.key }));
+      .map((d) => ({ label: d.name, sub: DIM_ALIASES.value[d.key] || d.key, key: d.key }));
   }
   if (menuPhase.value === "val" && activeDimKey.value) {
     if (activeDimKey.value === monthlyDimension.value?.key) {
@@ -210,10 +213,10 @@ watch(focusRequestId, () => {
 });
 
 // ---- Submit ----
-let submitting = false;
+const submitting = ref(false);
 
 function handleSubmit() {
-  if (submitting) return;
+  if (submitting.value) return;
   error.value = "";
   const trimmed = input.value.trim();
   if (!trimmed) return;
@@ -238,14 +241,14 @@ function handleSubmit() {
     return;
   }
   logInfo("EntryInput.handleSubmit", `item="${item}" dur=${d}m dims=${JSON.stringify(dimValues.value)}`);
-  submitting = true;
+  submitting.value = true;
   try {
     emit("submit", item, d, { ...dimValues.value });
   } catch (e) {
     logInfo("EntryInput.emit", `error: ${e}`);
+  } finally {
+    submitting.value = false;
   }
-  // Clear after persistence confirmed by parent (see QuickEntry)
-  submitting = false;
 }
 
 function clearInput() {
@@ -404,7 +407,7 @@ function onInputBlur() {
       <button
         type="button"
         class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 text-sm font-medium"
-        :disabled="!input.trim()"
+        :disabled="!input.trim() || submitting"
         @click="handleSubmit"
       >
         Log

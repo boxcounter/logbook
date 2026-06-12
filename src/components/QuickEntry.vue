@@ -4,7 +4,6 @@ import { invoke } from "@tauri-apps/api/core";
 import { useStore } from "../stores/useStore";
 import EntryInput from "./EntryInput.vue";
 import DimensionPanel from "./DimensionPanel.vue";
-import type { DayFile } from "../types";
 import { logError, logInfo } from "../utils/errorLog";
 
 const emit = defineEmits<{
@@ -45,16 +44,14 @@ async function handleSubmit(item: string, durationMinutes: number, dimensions: R
     store.lastDimensions = { ...finalDimensions };
     dimValues.value = { ...finalDimensions };
     entryInputRef.value?.clearInput();
-    await refreshDay();
+    // Optimistic: append returned entry to store.today
+    if (store.today) {
+      store.today = { ...store.today, entries: [...store.today.entries, result as any] };
+    }
     emit("appended");
   } catch (e) {
     logError("QuickEntry.handleSubmit", e);
   }
-}
-
-async function refreshDay() {
-  const dayFile = (await invoke("get_entries", { rootPath: store.rootPath, date: store.currentDate })) as DayFile;
-  store.today = dayFile;
 }
 </script>
 

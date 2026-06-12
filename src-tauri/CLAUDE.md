@@ -11,7 +11,7 @@ cd src-tauri && cargo test -p tauri_app_lib   # 仅 lib tests
 pnpm tauri dev                                # 启动 GUI（在仓库根目录跑）
 ```
 
-Stop hook（自动）：`pnpm vue-tsc --noEmit && cargo check --manifest-path src-tauri/Cargo.toml && cargo test --manifest-path src-tauri/Cargo.toml`
+Stop hook（自动）：`pnpm vue-tsc --noEmit && cd src-tauri && cargo check && cargo test`
 
 ## 模块结构
 
@@ -22,7 +22,7 @@ src/
 ├── models.rs    // all structs/enums — Config, Dimension, MonthlyFile, Entry, etc.
 ├── files.rs     // path helpers, atomic I/O, root_path persistence, frontmatter parse
 ├── config.rs    // validate_config, validate_monthly, watch_files (notify crate)
-├── commands.rs  // 9 Tauri commands + parse_duration + validate_date_format
+├── commands.rs  // 12 Tauri commands + parse_duration + validate_date_format
 └── error_log.rs // init, log_error, log_frontend_error
 ```
 

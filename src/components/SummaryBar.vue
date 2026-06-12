@@ -2,6 +2,7 @@
 import { computed } from "vue";
 import type { Granularity, Entry } from "../types";
 import { formatDuration } from "../utils/format";
+import { parseDate } from "../utils/dates";
 
 const props = defineProps<{
   entries: Entry[];
@@ -28,7 +29,7 @@ const entryCount = computed(() => {
 });
 
 function dateLabel(dateStr: string): string {
-  const d = new Date(dateStr + "T00:00:00");
+  const d = parseDate(dateStr);
   return d.toLocaleDateString("en-US", { weekday: "short", day: "numeric" });
 }
 
@@ -45,7 +46,7 @@ const weekSummaries = computed(() => {
   if (props.granularity !== "month" || !props.periodEntries) return null;
   const weeks: Record<string, number> = {};
   for (const [date, entries] of Object.entries(props.periodEntries)) {
-    const d = new Date(date + "T00:00:00");
+    const d = parseDate(date);
     const day = d.getDay();
     const weekStart = new Date(d);
     weekStart.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
