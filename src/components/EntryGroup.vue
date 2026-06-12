@@ -13,6 +13,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   update: [entryId: string, item: string, durationMinutes: number];
   delete: [entryId: string];
+  updateDimensions: [entryId: string, dimensions: Record<string, string>];
 }>();
 
 const open = ref(props.defaultOpen ?? true);
@@ -38,6 +39,7 @@ const open = ref(props.defaultOpen ?? true);
         :index="index"
         @update="(entryId, item, dur) => emit('update', entryId, item, dur)"
         @delete="(entryId) => emit('delete', entryId)"
+        @update-dimensions="(entryId, dims) => emit('updateDimensions', entryId, dims)"
       />
     </div>
   </div>

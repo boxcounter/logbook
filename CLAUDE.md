@@ -14,12 +14,9 @@ Logbook — 个人工作时间记录工具。Tauri 2.x + Vue 3 + TypeScript。
 
 ### 文档一致性检查
 
-写 HANDOFF.md 之前，dispatch subagent 做全量交叉比对。范围：
+触发条件：写 HANDOFF.md 之前、Phase 结束时、用户说「检查一致性」/「文档同步」时。
 
-- **文档 ↔ 文档**：`CLAUDE.md` ↔ `src-tauri/CLAUDE.md` ↔ Vault `1_Projects/Logbook/README.md` ↔ `SPEC.md` ↔ `HANDOFF.md`
-- **文档 ↔ 代码**：上述文档 vs 实际 Rust 模块、Vue 组件、命令签名、数据结构
-
-Subagent 读全部文档和代码，报告不一致项。不要裁剪——命令、数据结构、组件树、约定、Phase 进度全部比。
+调用 `/check-consistency` skill。检查项目（文档 ↔ 文档 + 文档 ↔ 代码）已固化在 skill 定义中，不在此重复。
 
 ### 其他
 

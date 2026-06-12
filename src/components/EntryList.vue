@@ -13,6 +13,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   update: [entryId: string, item: string, durationMinutes: number];
   delete: [entryId: string];
+  updateDimensions: [entryId: string, dimensions: Record<string, string>];
 }>();
 
 interface Group {
@@ -79,6 +80,7 @@ const groups = computed<Group[]>(() => {
         :index="index"
         @update="(entryId, item, dur) => emit('update', entryId, item, dur)"
         @delete="(entryId) => emit('delete', entryId)"
+        @update-dimensions="(entryId, dims) => emit('updateDimensions', entryId, dims)"
       />
     </div>
     <!-- Week/Month: grouped -->
@@ -91,6 +93,7 @@ const groups = computed<Group[]>(() => {
       :defaultOpen="true"
       @update="(entryId, item, dur) => emit('update', entryId, item, dur)"
       @delete="(entryId) => emit('delete', entryId)"
+      @update-dimensions="(entryId, dims) => emit('updateDimensions', entryId, dims)"
     />
   </div>
 </template>

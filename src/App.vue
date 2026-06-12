@@ -1,37 +1,62 @@
 <script setup lang="ts">
-import { onMounted, ref, provide } from "vue";
+import { onMounted, onUnmounted, ref, provide } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useStore } from "./stores/useStore";
 import SetupScreen from "./components/SetupScreen.vue";
 import ConfigErrorBanner from "./components/ConfigErrorBanner.vue";
 import TodayView from "./components/TodayView.vue";
 import type { InitResult, ConfigErrorDetail } from "./types";
-import { logError } from "./utils/errorLog";
+import { logError, logInfo } from "./utils/errorLog";
 
 const store = useStore();
 const showUndoToast = ref(false);
 const undoAction = ref<(() => void) | null>(null);
 let undoTimer: ReturnType<typeof setTimeout> | null = null;
 
-onMounted(async () => {
-  await listen<ConfigErrorDetail[]>("config-changed", (event) => {
-    if (event.payload.length === 0) {
-      initApp();
-    } else {
-      store.configErrors = event.payload;
-      store.screen = "error";
-    }
-  });
+// #1: window focus → auto-focus input
+const focusRequestId = ref(0);
 
-  await listen<ConfigErrorDetail[]>("commitments-changed", () => {
-    initApp();
-  });
+// Store listener handles for cleanup (prevents HMR duplication)
+let unlistenConfig: (() => void) | null = null;
+let unlistenCommitments: (() => void) | null = null;
+let unlistenFocus: (() => void) | null = null;
+
+onMounted(async () => {
+  try {
+    unlistenConfig = await listen<ConfigErrorDetail[]>("config-changed", (event) => {
+      if (event.payload.length === 0) {
+        initApp();
+      } else {
+        store.configErrors = event.payload;
+        store.screen = "error";
+      }
+    });
+
+    unlistenCommitments = await listen<ConfigErrorDetail[]>("commitments-changed", () => {
+      initApp();
+    });
+
+    unlistenFocus = await getCurrentWindow().onFocusChanged(({ payload: focused }) => {
+      if (focused) focusRequestId.value++;
+    });
+  } catch (e) {
+    logError("App.onMounted", e);
+  }
 
   initApp();
 });
 
+onUnmounted(() => {
+  unlistenConfig?.();
+  unlistenCommitments?.();
+  unlistenFocus?.();
+  if (undoTimer) clearTimeout(undoTimer);
+});
+
 async function initApp() {
+  logInfo("App.initApp", "start");
   try {
     const result = (await invoke("init")) as InitResult;
     switch (result.status) {
@@ -43,12 +68,14 @@ async function initApp() {
         store.screen = "error";
         break;
       case "Ready":
+        store.rootPath = result.data.root_path;
         store.config = result.data.config;
         store.today = result.data.today;
         store.commitments = result.data.commitments;
         store.screen = "ready";
         break;
     }
+    logInfo("App.initApp", result.status);
   } catch (e) {
     logError("App.initApp", e);
     store.configErrors = [{ kind: "InitError", message: `Failed: ${e}` }];
@@ -80,6 +107,8 @@ function handleUndo() {
 
 // Provide undo trigger to descendants
 provide("triggerUndoToast", triggerUndoToast);
+// #1: window focus → auto-focus input
+provide("focusRequestId", focusRequestId);
 </script>
 
 <template>

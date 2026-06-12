@@ -16,7 +16,7 @@
 
 ## Rust 后端
 
-### 命令清单（9 个，已实现）
+### 命令清单（10 个，已实现）
 
 ```
 init(app: AppHandle) → InitResult
@@ -27,6 +27,7 @@ update_entry(root_path: String, date: String, entry_id: String, update: UpdateEn
 delete_entry(root_path: String, date: String, entry_id: String) → DayFile
 set_day_note(root_path: String, date: String, note: String) → DayFile
 get_commitments(root_path: String, year: i32, month: u32) → Vec<Commitment>
+open_in_editor(root_path: String, date: String) → Result<(), String>  // 用系统编辑器打开文件
 log_error(message: String)                              // 前端 error → error.log
 ```
 

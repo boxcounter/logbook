@@ -44,7 +44,7 @@ export type InitResult =
   | { status: "ConfigError"; data: ConfigErrorDetail[] }
   | {
       status: "Ready";
-      data: { config: Config; today: DayFile; commitments: Commitment[] };
+      data: { root_path: string; config: Config; today: DayFile; commitments: Commitment[] };
     };
 
 export interface ConfigErrorDetail {

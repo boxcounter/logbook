@@ -3,6 +3,7 @@ import { ref, watch, computed } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { useStore } from "../stores/useStore";
 import type { DayFile, Granularity } from "../types";
+import { logError } from "../utils/errorLog";
 
 const store = useStore();
 const emit = defineEmits<{ navigate: [] }>();
@@ -76,7 +77,7 @@ async function loadDay() {
     store.today = df;
     emit("navigate");
   } catch (e) {
-    console.error("get_entries failed:", e);
+    logError("DateNavigator.loadDay", e);
   }
 }
 
@@ -85,7 +86,7 @@ async function saveNote() {
   try {
     await invoke("set_day_note", { rootPath: store.rootPath, date: store.currentDate, note: text });
   } catch (e) {
-    console.error("set_day_note failed:", e);
+    logError("DateNavigator.saveNote", e);
   }
 }
 </script>

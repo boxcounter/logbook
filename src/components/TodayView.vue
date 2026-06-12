@@ -8,7 +8,8 @@ import QuickEntry from "./QuickEntry.vue";
 import EntryList from "./EntryList.vue";
 import SummaryBar from "./SummaryBar.vue";
 import type { Granularity, Entry, DayFile } from "../types";
-import { logError } from "../utils/errorLog";
+import { logError, logInfo } from "../utils/errorLog";
+import { computed } from "vue";
 
 function formatDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -47,7 +48,7 @@ async function loadPeriod() {
       const df = (await invoke("get_entries", { rootPath: store.rootPath, date })) as DayFile;
       map[date] = df.entries;
     } catch (e) {
-      console.error("loadPeriod failed for", date, e);
+      logError("TodayView.loadPeriod", e);
       map[date] = [];
     }
   }
@@ -60,6 +61,21 @@ const store = useStore();
 // Inject undo toast trigger from App.vue
 const triggerUndoToast = inject<(undoFn: () => void) => void>("triggerUndoToast", () => {});
 
+async function handleUpdateDimensions(entryId: string, dimensions: Record<string, string>) {
+  logInfo("TodayView.handleUpdateDimensions", `id=${entryId} dims=${JSON.stringify(dimensions)}`);
+  try {
+    const df = (await invoke("update_entry", {
+      rootPath: store.rootPath,
+      date: store.currentDate,
+      entryId,
+      update: { dimensions },
+    })) as DayFile;
+    store.today = df;
+  } catch (e) {
+    logError("TodayView.handleUpdateDimensions", e);
+  }
+}
+
 async function handleUpdateEntry(entryId: string, item: string, durationMinutes: number) {
   const entry = store.today?.entries.find(e => e.id === entryId);
   if (!entry) return;
@@ -71,6 +87,7 @@ async function handleUpdateEntry(entryId: string, item: string, durationMinutes:
 
   if (Object.keys(update).length === 0) return;
 
+  logInfo("TodayView.handleUpdateEntry", `id=${entryId} fields=${Object.keys(update).join(",")}`);
   try {
     const df = (await invoke("update_entry", {
       rootPath: store.rootPath,
@@ -81,7 +98,6 @@ async function handleUpdateEntry(entryId: string, item: string, durationMinutes:
     store.today = df;
   } catch (e) {
     logError("TodayView.handleUpdateEntry", e);
-    console.error("update_entry failed:", e);
   }
 }
 
@@ -104,7 +120,7 @@ async function handleDeleteEntry(entryId: string) {
       await invoke("delete_entry", { rootPath: store.rootPath, date: store.currentDate, entryId });
     } catch (e) {
       logError("TodayView.handleDeleteEntry", e);
-      console.error("delete_entry failed:", e);
+      logError("TodayView.handleDeleteEntry", e);
       entries.splice(idx, 0, removed); // restore on failure
     }
   }, 5000);
@@ -117,6 +133,30 @@ async function handleDeleteEntry(entryId: string) {
   });
 }
 
+// #5: file path + open in system editor
+const dayFilePath = computed(() => {
+  if (!store.rootPath) return "";
+  const d = store.currentDate;
+  const year = d.slice(0, 4);
+  const month = d.slice(5, 7);
+  return `${year}/${month}/${d}.md`;
+});
+
+const displayPath = computed(() => {
+  if (!store.rootPath) return "";
+  // Show last 3 segments: …/year/month/file.md
+  return `…/${dayFilePath.value}`;
+});
+
+async function openInEditor() {
+  if (!store.rootPath) return;
+  try {
+    await invoke("open_in_editor", { rootPath: store.rootPath, date: store.currentDate });
+  } catch (e) {
+    logError("TodayView.openInEditor", e);
+  }
+}
+
 // Only show QuickEntry on today's date
 const isToday = (): boolean => {
   const now = new Date();
@@ -126,7 +166,7 @@ const isToday = (): boolean => {
 </script>
 
 <template>
-  <div class="flex gap-4 p-4 max-w-4xl mx-auto items-start">
+  <div class="flex gap-4 p-4 max-w-7xl mx-auto items-start">
     <!-- Left 2/3 -->
     <div class="flex-[2] min-w-0 flex flex-col gap-3">
       <DateNavigator @navigate="loadPeriod" />
@@ -137,12 +177,23 @@ const isToday = (): boolean => {
         :periodEntries="store.periodEntries"
         @update="(entryId, item, dur) => handleUpdateEntry(entryId, item, dur)"
         @delete="(entryId) => handleDeleteEntry(entryId)"
+        @update-dimensions="(entryId, dims) => handleUpdateDimensions(entryId, dims)"
       />
       <SummaryBar
         :entries="store.today?.entries || []"
         :granularity="store.granularity"
         :periodEntries="store.periodEntries"
       />
+      <!-- #5: file path → click to open in system editor -->
+      <div v-if="store.rootPath" class="text-right">
+        <button
+          class="text-xs text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
+          :title="store.rootPath + '/' + dayFilePath"
+          @click="openInEditor"
+        >
+          {{ displayPath }}
+        </button>
+      </div>
     </div>
     <!-- Right 1/3 -->
     <div class="flex-1 min-w-[180px] flex flex-col gap-3 sticky top-4">

@@ -14,11 +14,13 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
+            error_log::install_panic_hook();
             let app_handle = app.handle().clone();
             let app_data_dir = app.path().app_local_data_dir().unwrap_or_else(|_| PathBuf::from("."));
             error_log::init(&app_data_dir);
             if let Some(root_path) = files::read_root_path(&app_data_dir) {
                 if root_path.exists() {
+                    files::cleanup_tmp_files(&root_path);
                     watch_files(app_handle, root_path);
                 }
             }
@@ -33,7 +35,9 @@ pub fn run() {
             commands::delete_entry,
             commands::set_day_note,
             commands::get_commitments,
+            commands::open_in_editor,
             commands::log_error,
+            commands::log_info,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,6 +1,22 @@
 use crate::models::{DayFile, Entry, MonthlyFile, Config};
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, LazyLock, Mutex};
+
+static FILE_LOCKS: LazyLock<Mutex<HashMap<PathBuf, Arc<Mutex<()>>>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+fn with_file_lock<T, F: FnOnce() -> Result<T, String>>(path: &Path, f: F) -> Result<T, String> {
+    let lock = {
+        let mut map = FILE_LOCKS.lock().map_err(|e| format!("Lock error: {}", e))?;
+        map.entry(path.to_path_buf())
+            .or_insert_with(|| Arc::new(Mutex::new(())))
+            .clone()
+    };
+    let _guard = lock.lock().map_err(|e| format!("File lock error: {}", e))?;
+    f()
+}
 
 /// Day file path: {root}/{year}/{month:02}/{date}.md
 /// date format: "2026-06-12". Date is canonical from filename, not stored in frontmatter.
@@ -55,11 +71,14 @@ pub fn write_day_file(root: &Path, date: &str, day_file: &DayFile) -> Result<(),
 
 /// Append an entry to a day file. Creates directories if needed.
 pub fn append_to_day_file(root: &Path, date: &str, entry: &Entry) -> Result<Entry, String> {
-    let mut day_file = read_day_file(root, date)?;
-    let entry = entry.clone();
-    day_file.entries.push(entry.clone());
-    write_day_file(root, date, &day_file)?;
-    Ok(entry)
+    let path = day_path(root, date);
+    with_file_lock(&path, || {
+        let mut day_file = read_day_file(root, date)?;
+        let entry = entry.clone();
+        day_file.entries.push(entry);
+        write_day_file(root, date, &day_file)?;
+        Ok(day_file.entries.last().unwrap().clone())
+    })
 }
 
 /// Append entry from NewEntry (for integration tests and internal use).
@@ -76,36 +95,45 @@ pub fn append_new_entry(root: &Path, date: &str, new_entry: &crate::models::NewE
 
 /// Update an entry by ID. Applies only the fields present in `update`.
 pub fn update_entry_in_file(root: &Path, date: &str, entry_id: &str, update: &crate::models::UpdateEntry) -> Result<DayFile, String> {
-    let mut day_file = read_day_file(root, date)?;
-    let pos = day_file.entries.iter().position(|e| e.id == entry_id)
-        .ok_or_else(|| format!("Entry {} not found", entry_id))?;
-    let entry = &mut day_file.entries[pos];
-    if let Some(ref item) = update.item { entry.item = item.clone(); }
-    if let Some(ref dur_str) = update.duration {
-        entry.duration = crate::commands::parse_duration(dur_str)
-            .map_err(|e| format!("Invalid duration: {}", e))?;
-    }
-    if let Some(ref dims) = update.dimensions { entry.dimensions = dims.clone(); }
-    write_day_file(root, date, &day_file)?;
-    Ok(day_file)
+    let path = day_path(root, date);
+    with_file_lock(&path, || {
+        let mut day_file = read_day_file(root, date)?;
+        let pos = day_file.entries.iter().position(|e| e.id == entry_id)
+            .ok_or_else(|| format!("Entry {} not found", entry_id))?;
+        let entry = &mut day_file.entries[pos];
+        if let Some(ref item) = update.item { entry.item = item.clone(); }
+        if let Some(ref dur_str) = update.duration {
+            entry.duration = crate::commands::parse_duration(dur_str)
+                .map_err(|e| format!("Invalid duration: {}", e))?;
+        }
+        if let Some(ref dims) = update.dimensions { entry.dimensions = dims.clone(); }
+        write_day_file(root, date, &day_file)?;
+        Ok(day_file)
+    })
 }
 
 /// Delete an entry by ID from a day file.
 pub fn delete_entry_from_file(root: &Path, date: &str, entry_id: &str) -> Result<DayFile, String> {
-    let mut day_file = read_day_file(root, date)?;
-    let pos = day_file.entries.iter().position(|e| e.id == entry_id)
-        .ok_or_else(|| format!("Entry {} not found", entry_id))?;
-    day_file.entries.remove(pos);
-    write_day_file(root, date, &day_file)?;
-    Ok(day_file)
+    let path = day_path(root, date);
+    with_file_lock(&path, || {
+        let mut day_file = read_day_file(root, date)?;
+        let pos = day_file.entries.iter().position(|e| e.id == entry_id)
+            .ok_or_else(|| format!("Entry {} not found", entry_id))?;
+        day_file.entries.remove(pos);
+        write_day_file(root, date, &day_file)?;
+        Ok(day_file)
+    })
 }
 
 /// Set the day note.
 pub fn set_day_note_in_file(root: &Path, date: &str, note: &str) -> Result<DayFile, String> {
-    let mut day_file = read_day_file(root, date)?;
-    day_file.note = if note.is_empty() { None } else { Some(note.to_string()) };
-    write_day_file(root, date, &day_file)?;
-    Ok(day_file)
+    let path = day_path(root, date);
+    with_file_lock(&path, || {
+        let mut day_file = read_day_file(root, date)?;
+        day_file.note = if note.is_empty() { None } else { Some(note.to_string()) };
+        write_day_file(root, date, &day_file)?;
+        Ok(day_file)
+    })
 }
 
 /// Read monthly file. Returns empty MonthlyFile if not found.
@@ -127,6 +155,22 @@ pub fn read_config(root: &Path) -> Result<Config, String> {
         .map_err(|e| format!("Failed to read {}: {}", path.display(), e))?;
     yaml_serde::from_str::<Config>(&content)
         .map_err(|e| format!("Failed to parse {}: {}", path.display(), e))
+}
+
+/// Remove orphaned .tmp files from the data tree (crashed mid-write).
+pub fn cleanup_tmp_files(root: &Path) {
+    fn recurse(dir: &Path) {
+        let Ok(entries) = std::fs::read_dir(dir) else { return };
+        for entry in entries.filter_map(|e| e.ok()) {
+            let path = entry.path();
+            if path.is_dir() {
+                recurse(&path);
+            } else if path.extension().map_or(false, |ext| ext == "tmp") {
+                let _ = std::fs::remove_file(&path);
+            }
+        }
+    }
+    recurse(root);
 }
 
 /// Root path persistence (atomic write)

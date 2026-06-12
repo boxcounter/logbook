@@ -83,6 +83,7 @@ pub enum InitResult {
     NeedsSetup,
     ConfigError(Vec<ConfigErrorDetail>),
     Ready {
+        root_path: String,
         config: Config,
         today: DayFile,
         commitments: Vec<Commitment>,

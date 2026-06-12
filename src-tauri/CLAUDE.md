@@ -11,7 +11,7 @@ cd src-tauri && cargo test -p tauri_app_lib   # 仅 lib tests
 pnpm tauri dev                                # 启动 GUI（在仓库根目录跑）
 ```
 
-Stop hook（自动）：`pnpm vue-tsc --noEmit && cd src-tauri && cargo check && cargo test`
+Stop hook（自动）：`pnpm vue-tsc --noEmit && cargo check --manifest-path src-tauri/Cargo.toml && cargo test --manifest-path src-tauri/Cargo.toml`
 
 ## 模块结构
 
