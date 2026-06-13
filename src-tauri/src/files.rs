@@ -87,6 +87,8 @@ pub fn append_to_day_file(root: &Path, date: &str, entry: &Entry) -> Result<Entr
 /// Append entry from NewEntry (for integration tests and internal use).
 pub fn append_new_entry(root: &Path, date: &str, new_entry: &crate::models::NewEntry) -> Result<Entry, String> {
     let duration = crate::commands::parse_duration(&new_entry.duration)?;
+    let config = read_config(root)?;
+    crate::commands::validate_required_dimensions(&config, &new_entry.dimensions)?;
     let entry = Entry {
         id: uuid::Uuid::new_v4().to_string(),
         item: new_entry.item.clone(),
@@ -109,7 +111,11 @@ pub fn update_entry_in_file(root: &Path, date: &str, entry_id: &str, update: &cr
             entry.duration = crate::commands::parse_duration(dur_str)
                 .map_err(|e| format!("Invalid duration: {}", e))?;
         }
-        if let Some(ref dims) = update.dimensions { entry.dimensions = dims.clone(); }
+        if let Some(ref dims) = update.dimensions {
+            let config = read_config(root)?;
+            crate::commands::validate_required_dimensions(&config, dims)?;
+            entry.dimensions = dims.clone();
+        }
         write_day_file(root, date, &day_file)?;
         Ok(day_file)
     })

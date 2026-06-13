@@ -241,6 +241,8 @@ pub fn append_entry(root_path: String, date: String, entry: NewEntry) -> Result<
     let root = std::path::Path::new(&root_path);
     validate_date_format(&date)?;
     let duration = parse_duration(&entry.duration)?;
+    let config = files::read_config(root)?;
+    validate_required_dimensions(&config, &entry.dimensions)?;
     let entry = Entry {
         id: uuid::Uuid::new_v4().to_string(),
         item: entry.item,
@@ -260,6 +262,10 @@ pub fn update_entry(root_path: String, date: String, entry_id: String, update: U
     validate_date_format(&date)?;
     if let Some(ref dur_str) = update.duration {
         parse_duration(dur_str)?;
+    }
+    if let Some(ref dims) = update.dimensions {
+        let config = files::read_config(root)?;
+        validate_required_dimensions(&config, dims)?;
     }
     let result = files::update_entry_in_file(root, &date, &entry_id, &update);
     let ok = result.is_ok();
