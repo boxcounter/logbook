@@ -1,15 +1,14 @@
 use crate::config::{validate_config, validate_monthly};
 use crate::error_log;
-use crate::files::{self, save_root_path, read_root_path};
+use crate::files::{self, read_root_path, save_root_path};
 use crate::models::*;
 use chrono::Datelike;
 use regex::Regex;
 use std::sync::LazyLock;
 use tauri::{AppHandle, Manager};
 
-static DURATION_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(\d+(?:\.\d+)?)\s*(h|m|H|M)?").unwrap()
-});
+static DURATION_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(\d+(?:\.\d+)?)\s*(h|m|H|M)?").unwrap());
 
 /// Read a day file, distinguishing "file not found" from "file found but corrupt".
 fn read_day_file_safe(root: &std::path::Path, date: &str) -> Result<DayFile, String> {
@@ -24,14 +23,21 @@ fn read_day_file_safe(root: &std::path::Path, date: &str) -> Result<DayFile, Str
                     path.display()
                 ))
             } else {
-                Ok(DayFile { note: None, entries: vec![] })
+                Ok(DayFile {
+                    note: None,
+                    entries: vec![],
+                })
             }
         }
     }
 }
 
 /// Read a monthly file, distinguishing "file not found" from "file found but corrupt".
-fn read_monthly_file_safe(root: &std::path::Path, year: i32, month: u32) -> Result<MonthlyFile, String> {
+fn read_monthly_file_safe(
+    root: &std::path::Path,
+    year: i32,
+    month: u32,
+) -> Result<MonthlyFile, String> {
     let path = files::monthly_path(root, year, month);
     match files::read_monthly_file(root, year, month) {
         Ok(mf) => Ok(mf),
@@ -43,7 +49,9 @@ fn read_monthly_file_safe(root: &std::path::Path, year: i32, month: u32) -> Resu
                     path.display()
                 ))
             } else {
-                Ok(MonthlyFile { commitments: vec![] })
+                Ok(MonthlyFile {
+                    commitments: vec![],
+                })
             }
         }
     }
@@ -59,13 +67,17 @@ pub fn parse_duration(input: &str) -> Result<u32, String> {
 
     // Try plain number first
     if let Ok(n) = input.parse::<u32>() {
-        if n > 0 { return Ok(n); }
+        if n > 0 {
+            return Ok(n);
+        }
         return Err("Duration must be positive".to_string());
     }
 
     // Try float (e.g. "1.5")
     if let Ok(n) = input.parse::<f64>() {
-        if n > 0.0 { return Ok(n.round() as u32); }
+        if n > 0.0 {
+            return Ok(n.round() as u32);
+        }
         return Err("Duration must be positive".to_string());
     }
 
@@ -76,20 +88,34 @@ pub fn parse_duration(input: &str) -> Result<u32, String> {
 
     for cap in re.captures_iter(input) {
         let value: f64 = cap[1].parse().unwrap_or(0.0);
-        let unit = cap.get(2).map(|m| m.as_str().to_lowercase()).unwrap_or_else(|| "m".to_string());
+        let unit = cap
+            .get(2)
+            .map(|m| m.as_str().to_lowercase())
+            .unwrap_or_else(|| "m".to_string());
         match unit.as_str() {
-            "h" => { total += value * 60.0; matched = true; }
-            "m" | "" => { total += value; matched = true; }
+            "h" => {
+                total += value * 60.0;
+                matched = true;
+            }
+            "m" | "" => {
+                total += value;
+                matched = true;
+            }
             _ => {}
         }
     }
 
     if !matched {
-        return Err(format!("Could not parse duration from '{}'. Examples: 1.5h, 30m, 45", input));
+        return Err(format!(
+            "Could not parse duration from '{}'. Examples: 1.5h, 30m, 45",
+            input
+        ));
     }
 
     let total = total.round() as u32;
-    if total == 0 { return Err("Parsed duration is zero".to_string()); }
+    if total == 0 {
+        return Err("Parsed duration is zero".to_string());
+    }
     Ok(total)
 }
 
@@ -110,7 +136,10 @@ pub fn validate_required_dimensions(
 #[tauri::command]
 pub fn init(app: AppHandle) -> InitResult {
     error_log::log_command_enter("init", "");
-    let app_data_dir = app.path().app_local_data_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+    let app_data_dir = app
+        .path()
+        .app_local_data_dir()
+        .unwrap_or_else(|_| std::path::PathBuf::from("."));
 
     let root_path = match read_root_path(&app_data_dir) {
         Some(p) => p,
@@ -128,7 +157,8 @@ pub fn init(app: AppHandle) -> InitResult {
             error_log::log_error("init: read_config", &e);
             error_log::log_command_exit("init", false, "ConfigReadError");
             return InitResult::ConfigError(vec![ConfigErrorDetail {
-                kind: "ConfigReadError".to_string(), message: e,
+                kind: "ConfigReadError".to_string(),
+                message: e,
             }]);
         }
     };
@@ -144,7 +174,9 @@ pub fn init(app: AppHandle) -> InitResult {
                 kind: "MonthlyFileCorrupt".to_string(),
                 message: e,
             });
-            MonthlyFile { commitments: vec![] }
+            MonthlyFile {
+                commitments: vec![],
+            }
         }
     };
     all_errors.extend(validate_monthly(&monthly));
@@ -158,26 +190,49 @@ pub fn init(app: AppHandle) -> InitResult {
                 kind: "DayFileCorrupt".to_string(),
                 message: e,
             });
-            DayFile { note: None, entries: vec![] }
+            DayFile {
+                note: None,
+                entries: vec![],
+            }
         }
     };
 
     if !all_errors.is_empty() {
-        error_log::log_command_exit("init", false, &format!("{} config errors", all_errors.len()));
+        error_log::log_command_exit(
+            "init",
+            false,
+            &format!("{} config errors", all_errors.len()),
+        );
         return InitResult::ConfigError(all_errors);
     }
 
-    error_log::log_command_exit("init", true, &format!("Ready, {} entries today", today.entries.len()));
-    InitResult::Ready { root_path: root_path.to_string_lossy().into_owned(), config, today, commitments: monthly.commitments }
+    error_log::log_command_exit(
+        "init",
+        true,
+        &format!("Ready, {} entries today", today.entries.len()),
+    );
+    InitResult::Ready {
+        root_path: root_path.to_string_lossy().into_owned(),
+        config,
+        today,
+        commitments: monthly.commitments,
+    }
 }
 
 #[tauri::command]
 pub fn set_root_path(app: AppHandle, path: String) -> Result<InitResult, String> {
     error_log::log_command_enter("set_root_path", &format!("path={}", path));
-    let app_data_dir = app.path().app_local_data_dir().map_err(|e| format!("Failed to get app data dir: {}", e))?;
+    let app_data_dir = app
+        .path()
+        .app_local_data_dir()
+        .map_err(|e| format!("Failed to get app data dir: {}", e))?;
     let root_path = std::path::Path::new(&path);
-    if !root_path.exists() { return Err(format!("Path does not exist: {}", path)); }
-    if !root_path.is_dir() { return Err(format!("Path is not a directory: {}", path)); }
+    if !root_path.exists() {
+        return Err(format!("Path does not exist: {}", path));
+    }
+    if !root_path.is_dir() {
+        return Err(format!("Path is not a directory: {}", path));
+    }
 
     save_root_path(&app_data_dir, root_path)?;
 
@@ -196,7 +251,9 @@ pub fn set_root_path(app: AppHandle, path: String) -> Result<InitResult, String>
                 kind: "MonthlyFileCorrupt".to_string(),
                 message: e,
             });
-            MonthlyFile { commitments: vec![] }
+            MonthlyFile {
+                commitments: vec![],
+            }
         }
     };
     all_errors.extend(validate_monthly(&monthly));
@@ -210,17 +267,29 @@ pub fn set_root_path(app: AppHandle, path: String) -> Result<InitResult, String>
                 kind: "DayFileCorrupt".to_string(),
                 message: e,
             });
-            DayFile { note: None, entries: vec![] }
+            DayFile {
+                note: None,
+                entries: vec![],
+            }
         }
     };
 
     if !all_errors.is_empty() {
-        error_log::log_command_exit("set_root_path", true, &format!("{} config errors", all_errors.len()));
+        error_log::log_command_exit(
+            "set_root_path",
+            true,
+            &format!("{} config errors", all_errors.len()),
+        );
         return Ok(InitResult::ConfigError(all_errors));
     }
 
     error_log::log_command_exit("set_root_path", true, "Ready");
-    Ok(InitResult::Ready { root_path: path.clone(), config, today, commitments: monthly.commitments })
+    Ok(InitResult::Ready {
+        root_path: path.clone(),
+        config,
+        today,
+        commitments: monthly.commitments,
+    })
 }
 
 #[tauri::command]
@@ -237,7 +306,10 @@ pub fn get_entries(root_path: String, date: String) -> Result<DayFile, String> {
 
 #[tauri::command]
 pub fn append_entry(root_path: String, date: String, entry: NewEntry) -> Result<Entry, String> {
-    error_log::log_command_enter("append_entry", &format!("date={} item={} dur={}", date, entry.item, entry.duration));
+    error_log::log_command_enter(
+        "append_entry",
+        &format!("date={} item={} dur={}", date, entry.item, entry.duration),
+    );
     let root = std::path::Path::new(&root_path);
     validate_date_format(&date)?;
     let duration = parse_duration(&entry.duration)?;
@@ -256,7 +328,12 @@ pub fn append_entry(root_path: String, date: String, entry: NewEntry) -> Result<
 }
 
 #[tauri::command]
-pub fn update_entry(root_path: String, date: String, entry_id: String, update: UpdateEntry) -> Result<DayFile, String> {
+pub fn update_entry(
+    root_path: String,
+    date: String,
+    entry_id: String,
+    update: UpdateEntry,
+) -> Result<DayFile, String> {
     error_log::log_command_enter("update_entry", &format!("date={} id={}", date, entry_id));
     let root = std::path::Path::new(&root_path);
     validate_date_format(&date)?;
@@ -269,7 +346,14 @@ pub fn update_entry(root_path: String, date: String, entry_id: String, update: U
     }
     let result = files::update_entry_in_file(root, &date, &entry_id, &update);
     let ok = result.is_ok();
-    error_log::log_command_exit("update_entry", ok, &format!("{} entries", result.as_ref().map(|d| d.entries.len()).unwrap_or(0)));
+    error_log::log_command_exit(
+        "update_entry",
+        ok,
+        &format!(
+            "{} entries",
+            result.as_ref().map(|d| d.entries.len()).unwrap_or(0)
+        ),
+    );
     result
 }
 
@@ -296,7 +380,11 @@ pub fn set_day_note(root_path: String, date: String, note: String) -> Result<Day
 }
 
 #[tauri::command]
-pub fn get_commitments(root_path: String, year: i32, month: u32) -> Result<Vec<Commitment>, String> {
+pub fn get_commitments(
+    root_path: String,
+    year: i32,
+    month: u32,
+) -> Result<Vec<Commitment>, String> {
     error_log::log_command_enter("get_commitments", &format!("{}-{:02}", year, month));
     let root = std::path::Path::new(&root_path);
     let result = files::read_monthly_file(root, year, month).map(|m| m.commitments);
@@ -325,11 +413,29 @@ pub fn open_in_editor(root_path: String, date: String) -> Result<(), String> {
         return Err(format!("File not found: {}", file_path.display()));
     }
     #[cfg(target_os = "macos")]
-    { Command::new("open").arg(&file_path).spawn().map_err(|e| format!("Failed to open: {}", e))?; }
+    {
+        Command::new("open")
+            .arg(&file_path)
+            .spawn()
+            .map_err(|e| format!("Failed to open: {}", e))?;
+    }
     #[cfg(target_os = "linux")]
-    { Command::new("xdg-open").arg(&file_path).spawn().map_err(|e| format!("Failed to open: {}", e))?; }
+    {
+        Command::new("xdg-open")
+            .arg(&file_path)
+            .spawn()
+            .map_err(|e| format!("Failed to open: {}", e))?;
+    }
     #[cfg(target_os = "windows")]
-    { Command::new("cmd").arg("/c").arg("start").arg("").arg(&file_path).spawn().map_err(|e| format!("Failed to open: {}", e))?; }
+    {
+        Command::new("cmd")
+            .arg("/c")
+            .arg("start")
+            .arg("")
+            .arg(&file_path)
+            .spawn()
+            .map_err(|e| format!("Failed to open: {}", e))?;
+    }
     error_log::log_command_exit("open_in_editor", true, "");
     Ok(())
 }
@@ -338,13 +444,15 @@ pub fn open_in_editor(root_path: String, date: String) -> Result<(), String> {
 pub fn create_starter_files(path: String) -> Result<(), String> {
     let root = std::path::Path::new(&path);
     if !root.exists() {
-        std::fs::create_dir_all(root)
-            .map_err(|e| format!("Failed to create directory: {}", e))?;
+        std::fs::create_dir_all(root).map_err(|e| format!("Failed to create directory: {}", e))?;
     }
     let config_path = root.join("config.yaml");
     if !config_path.exists() {
-        std::fs::write(&config_path, "dimensions:\n  - name: Goal\n    key: goal\n    source: monthly\n")
-            .map_err(|e| format!("Failed to write config.yaml: {}", e))?;
+        std::fs::write(
+            &config_path,
+            "dimensions:\n  - name: Goal\n    key: goal\n    source: monthly\n",
+        )
+        .map_err(|e| format!("Failed to write config.yaml: {}", e))?;
     }
     Ok(())
 }
@@ -364,19 +472,29 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_duration_plain_number() { assert_eq!(parse_duration("90").unwrap(), 90); }
+    fn test_parse_duration_plain_number() {
+        assert_eq!(parse_duration("90").unwrap(), 90);
+    }
 
     #[test]
-    fn test_parse_duration_float() { assert_eq!(parse_duration("1.5").unwrap(), 2); }
+    fn test_parse_duration_float() {
+        assert_eq!(parse_duration("1.5").unwrap(), 2);
+    }
 
     #[test]
-    fn test_parse_duration_hours() { assert_eq!(parse_duration("1.5h").unwrap(), 90); }
+    fn test_parse_duration_hours() {
+        assert_eq!(parse_duration("1.5h").unwrap(), 90);
+    }
 
     #[test]
-    fn test_parse_duration_minutes() { assert_eq!(parse_duration("30m").unwrap(), 30); }
+    fn test_parse_duration_minutes() {
+        assert_eq!(parse_duration("30m").unwrap(), 30);
+    }
 
     #[test]
-    fn test_parse_duration_compound() { assert_eq!(parse_duration("1h 30m").unwrap(), 90); }
+    fn test_parse_duration_compound() {
+        assert_eq!(parse_duration("1h 30m").unwrap(), 90);
+    }
 
     #[test]
     fn test_parse_duration_embedded_chinese() {
@@ -384,22 +502,34 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_duration_zero() { assert!(parse_duration("0").is_err()); }
+    fn test_parse_duration_zero() {
+        assert!(parse_duration("0").is_err());
+    }
 
     #[test]
-    fn test_parse_duration_empty() { assert!(parse_duration("").is_err()); }
+    fn test_parse_duration_empty() {
+        assert!(parse_duration("").is_err());
+    }
 
     #[test]
-    fn test_parse_duration_invalid() { assert!(parse_duration("no duration").is_err()); }
+    fn test_parse_duration_invalid() {
+        assert!(parse_duration("no duration").is_err());
+    }
 
     #[test]
-    fn test_validate_date_format_valid() { assert!(validate_date_format("2026-06-12").is_ok()); }
+    fn test_validate_date_format_valid() {
+        assert!(validate_date_format("2026-06-12").is_ok());
+    }
 
     #[test]
-    fn test_validate_date_format_invalid() { assert!(validate_date_format("bad").is_err()); }
+    fn test_validate_date_format_invalid() {
+        assert!(validate_date_format("bad").is_err());
+    }
 
     #[test]
-    fn test_validate_date_format_month_99() { assert!(validate_date_format("2026-99-12").is_err()); }
+    fn test_validate_date_format_month_99() {
+        assert!(validate_date_format("2026-99-12").is_err());
+    }
 
     #[test]
     fn test_read_day_file_safe_corrupt() {
@@ -439,16 +569,25 @@ mod tests {
         Config {
             dimensions: vec![
                 Dimension {
-                    name: "Biz".into(), key: "biz".into(), source: "static".into(),
-                    values: Some(vec!["A".into()]), required: required_keys.contains(&"biz"),
+                    name: "Biz".into(),
+                    key: "biz".into(),
+                    source: "static".into(),
+                    values: Some(vec!["A".into()]),
+                    required: required_keys.contains(&"biz"),
                 },
                 Dimension {
-                    name: "Cat".into(), key: "cat".into(), source: "static".into(),
-                    values: Some(vec!["X".into()]), required: required_keys.contains(&"cat"),
+                    name: "Cat".into(),
+                    key: "cat".into(),
+                    source: "static".into(),
+                    values: Some(vec!["X".into()]),
+                    required: required_keys.contains(&"cat"),
                 },
                 Dimension {
-                    name: "Goal".into(), key: "goal".into(), source: "monthly".into(),
-                    values: None, required: required_keys.contains(&"goal"),
+                    name: "Goal".into(),
+                    key: "goal".into(),
+                    source: "monthly".into(),
+                    values: None,
+                    required: required_keys.contains(&"goal"),
                 },
             ],
         }
@@ -469,7 +608,11 @@ mod tests {
         dims.insert("biz".to_string(), "A".to_string());
         // cat is missing
         let err = validate_required_dimensions(&config, &dims).unwrap_err();
-        assert!(err.contains("Cat"), "expected error to mention 'Cat', got: {}", err);
+        assert!(
+            err.contains("Cat"),
+            "expected error to mention 'Cat', got: {}",
+            err
+        );
         assert!(err.contains("Missing required dimension"));
     }
 
@@ -486,5 +629,125 @@ mod tests {
         let dims = HashMap::new();
         let err = validate_required_dimensions(&config, &dims).unwrap_err();
         assert!(err.contains("Biz"));
+    }
+
+    #[test]
+    fn test_get_commitment_progress_empty_month() {
+        use std::fs;
+        let tmp = std::env::temp_dir().join("logbook_test_cp_empty");
+        let _ = fs::remove_dir_all(&tmp);
+
+        // Create directory structure with _monthly.md but no day files
+        let monthly_dir = tmp.join("2026").join("06");
+        fs::create_dir_all(&monthly_dir).unwrap();
+        fs::write(
+            monthly_dir.join("_monthly.md"),
+            "---\ncommitments:\n  - role: Dev\n    allocation: 40\n    goals:\n      - Ship it\n---\n",
+        )
+        .unwrap();
+
+        let result = get_commitment_progress(tmp.to_string_lossy().into_owned(), 2026, 6).unwrap();
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].role, "Dev");
+        assert_eq!(result[0].allocation_minutes, 2400); // 40 * 60
+        assert_eq!(result[0].spent_minutes, 0);
+        assert_eq!(result[0].goals.len(), 1);
+        assert_eq!(result[0].goals[0].name, "Ship it");
+        assert_eq!(result[0].goals[0].spent_minutes, 0);
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_get_commitment_progress_aggregates_spent() {
+        use std::fs;
+        let tmp = std::env::temp_dir().join("logbook_test_cp_agg");
+        let _ = fs::remove_dir_all(&tmp);
+
+        // Create _monthly.md
+        let monthly_dir = tmp.join("2026").join("06");
+        fs::create_dir_all(&monthly_dir).unwrap();
+        fs::write(
+            monthly_dir.join("_monthly.md"),
+            "---\ncommitments:\n  - role: Dev\n    allocation: 40\n    goals:\n      - Ship it\n      - Review\n  - role: PM\n    allocation: 10\n    goals:\n      - Planning\n---\n",
+        )
+        .unwrap();
+
+        // Create day file with entries matching goals
+        fs::write(
+            monthly_dir.join("2026-06-01.md"),
+            "---\nentries:\n  - id: e1\n    item: Code\n    duration: 60\n    dimensions:\n      goal: Ship it\n  - id: e2\n    item: PR\n    duration: 30\n    dimensions:\n      goal: Review\n---\n",
+        )
+        .unwrap();
+
+        fs::write(
+            monthly_dir.join("2026-06-02.md"),
+            "---\nentries:\n  - id: e3\n    item: Plan\n    duration: 45\n    dimensions:\n      goal: Planning\n---\n",
+        )
+        .unwrap();
+
+        let result = get_commitment_progress(tmp.to_string_lossy().into_owned(), 2026, 6).unwrap();
+
+        // Dev: Ship it(60) + Review(30) = 90 spent
+        let dev = result.iter().find(|c| c.role == "Dev").unwrap();
+        assert_eq!(dev.spent_minutes, 90);
+        assert_eq!(dev.allocation_minutes, 2400);
+
+        // PM: Planning(45) = 45 spent
+        let pm = result.iter().find(|c| c.role == "PM").unwrap();
+        assert_eq!(pm.spent_minutes, 45);
+        assert_eq!(pm.allocation_minutes, 600); // 10 * 60
+
+        // Goal-level check
+        let ship_it = dev.goals.iter().find(|g| g.name == "Ship it").unwrap();
+        assert_eq!(ship_it.spent_minutes, 60);
+        let review = dev.goals.iter().find(|g| g.name == "Review").unwrap();
+        assert_eq!(review.spent_minutes, 30);
+        let planning = pm.goals.iter().find(|g| g.name == "Planning").unwrap();
+        assert_eq!(planning.spent_minutes, 45);
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_get_commitment_progress_ignores_unmatched_goals() {
+        use std::fs;
+        let tmp = std::env::temp_dir().join("logbook_test_cp_unmatch");
+        let _ = fs::remove_dir_all(&tmp);
+
+        let monthly_dir = tmp.join("2026").join("06");
+        fs::create_dir_all(&monthly_dir).unwrap();
+        fs::write(
+            monthly_dir.join("_monthly.md"),
+            "---\ncommitments:\n  - role: Dev\n    allocation: 40\n    goals:\n      - Ship it\n---\n",
+        )
+        .unwrap();
+
+        // Entry with a goal NOT in any commitment
+        fs::write(
+            monthly_dir.join("2026-06-01.md"),
+            "---\nentries:\n  - id: e1\n    item: Unknown task\n    duration: 60\n    dimensions:\n      goal: Not a goal\n---\n",
+        )
+        .unwrap();
+
+        let result = get_commitment_progress(tmp.to_string_lossy().into_owned(), 2026, 6).unwrap();
+
+        assert_eq!(result[0].spent_minutes, 0);
+        assert_eq!(result[0].goals[0].spent_minutes, 0);
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_get_commitment_progress_no_monthly_file() {
+        let tmp = std::env::temp_dir().join("logbook_test_cp_nofile");
+        let _ = std::fs::remove_dir_all(&tmp);
+
+        let result = get_commitment_progress(tmp.to_string_lossy().into_owned(), 2026, 6).unwrap();
+
+        assert!(result.is_empty());
+
+        let _ = std::fs::remove_dir_all(&tmp);
     }
 }
