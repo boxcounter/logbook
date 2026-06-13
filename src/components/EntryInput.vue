@@ -54,6 +54,24 @@ const goalOptions = computed(() => {
   return [...goals];
 });
 
+const allRequiredFilled = computed(() => {
+  return props.dimensions
+    .filter(d => d.required)
+    .every(d => dimValues.value[d.key]);
+});
+
+const requiredRemaining = computed(() => {
+  return props.dimensions
+    .filter(d => d.required && !dimValues.value[d.key])
+    .length;
+});
+
+const missingRequired = computed(() => {
+  return props.dimensions
+    .filter(d => d.required && !dimValues.value[d.key])
+    .map(d => ({ key: d.key, name: d.name }));
+});
+
 const chipClass = (key: string): string => {
   const map: Record<string, string> = {
     goal: "bg-blue-50 text-blue-800",
@@ -70,6 +88,7 @@ interface MenuItem {
   sub?: string | null;
   key?: string;
   value?: string;
+  required?: boolean;
 }
 
 const menuVisible = ref(false);
@@ -83,7 +102,12 @@ function getMenuItems(): MenuItem[] {
   if (menuPhase.value === "dim") {
     return props.dimensions
       .filter((d) => d.name.toLowerCase().includes(q) || d.key.toLowerCase().includes(q))
-      .map((d) => ({ label: d.name, sub: DIM_ALIASES.value[d.key] || d.key, key: d.key }));
+      .map((d) => ({
+        label: d.name,
+        sub: DIM_ALIASES.value[d.key] || d.key,
+        key: d.key,
+        required: d.required,
+      }));
   }
   if (menuPhase.value === "val" && activeDimKey.value) {
     if (activeDimKey.value === monthlyDimension.value?.key) {
@@ -106,6 +130,25 @@ function openDimMenu() {
   selectedIndex.value = 0;
   filterText.value = "";
   menuVisible.value = true;
+}
+
+/// Open the @ menu directly at value selection for a specific dimension.
+/// Used when clicking a missing-required red chip — no @mention to replace.
+function openValMenuDirect(dimKey: string) {
+  menuPhase.value = "val";
+  activeDimKey.value = dimKey;
+  selectedIndex.value = 0;
+  filterText.value = "";
+  menuVisible.value = true;
+  // Focus the input so keyboard navigation works
+  inputEl.value?.focus();
+}
+
+/// Insert a bare @ at cursor position, so `extractFilterFromInput`
+/// can still extract filter text when the menu loops back to dim phase.
+function insertAtChar() {
+  const cursorPos = inputEl.value?.selectionStart ?? input.value.length;
+  input.value = input.value.slice(0, cursorPos) + "@" + input.value.slice(cursorPos);
 }
 
 function replaceMentionWithDimKey(dimKey: string) {
@@ -143,12 +186,23 @@ function confirmSelection() {
   if (items.length === 0) return;
   const item = items[selectedIndex.value];
   if (menuPhase.value === "dim" && item.key) {
-    openValMenu(item.key);
+    if (allRequiredFilled.value) {
+      removeMentionFromInput();
+      closeMenu();
+      inputEl.value?.focus();
+    } else {
+      openValMenu(item.key);
+    }
   } else if (menuPhase.value === "val" && activeDimKey.value && item.value) {
     dimValues.value = { ...dimValues.value, [activeDimKey.value]: item.value };
     removeMentionFromInput();
-    closeMenu();
-    inputEl.value?.focus();
+    if (allRequiredFilled.value) {
+      closeMenu();
+      inputEl.value?.focus();
+    } else {
+      insertAtChar();     // re-insert @ so filter works in dim phase
+      openDimMenu();      // loop back to dimension list
+    }
   }
 }
 
@@ -161,8 +215,13 @@ function selectByIndex(idx: number) {
   } else if (menuPhase.value === "val" && activeDimKey.value) {
     dimValues.value = { ...dimValues.value, [activeDimKey.value]: items[idx].value || items[idx].label };
     removeMentionFromInput();
-    closeMenu();
-    inputEl.value?.focus();
+    if (allRequiredFilled.value) {
+      closeMenu();
+      inputEl.value?.focus();
+    } else {
+      insertAtChar();
+      openDimMenu();
+    }
   }
 }
 
@@ -436,11 +495,21 @@ function onInputBlur() {
               :class="i === selectedIndex ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-400'"
             >{{ i + 1 }}</span>
             <span class="flex-1">{{ item.label }}</span>
+            <span v-if="menuPhase === 'dim' && item.required && !dimValues[item.key || '']" class="text-[10px] text-red-400">required</span>
+            <span v-else-if="menuPhase === 'dim' && item.required && dimValues[item.key || '']" class="text-[10px] text-green-500">{{ dimValues[item.key || ''] }} ✓</span>
             <span v-if="menuPhase === 'dim' && item.sub" class="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{{ item.sub }}</span>
           </div>
         </template>
         <div v-if="getMenuItems().length === 0" class="px-3 py-2 text-gray-400 text-xs">
           No matches
+        </div>
+        <div
+          v-if="menuPhase === 'dim'"
+          class="px-3 py-1 text-[10px] border-t border-gray-100"
+          :class="allRequiredFilled ? 'text-green-600' : 'text-gray-400'"
+        >
+          <template v-if="allRequiredFilled">All required ✓ · Enter to confirm</template>
+          <template v-else>{{ requiredRemaining }} required remaining</template>
         </div>
       </div>
     </div>
@@ -463,7 +532,16 @@ function onInputBlur() {
         {{ dim.name }}: {{ dimValues[dim.key] }}
         <span class="opacity-40 hover:opacity-100 leading-none">&times;</span>
       </span>
-      <span v-if="Object.values(dimValues).every(v => !v)" class="text-xs text-gray-400 italic">
+      <!-- Missing required chips (red dashed) -->
+      <span
+        v-for="m in missingRequired"
+        :key="'missing-' + m.key"
+        class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs cursor-pointer border border-dashed border-red-400 bg-red-50 text-red-700"
+        @click="openValMenuDirect(m.key)"
+      >
+        + {{ m.name }}
+      </span>
+      <span v-if="Object.values(dimValues).every(v => !v) && missingRequired.length === 0" class="text-xs text-gray-400 italic">
         @ to set dimensions
       </span>
     </div>
