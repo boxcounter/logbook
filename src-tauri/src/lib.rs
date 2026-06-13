@@ -3,6 +3,7 @@ pub mod config;
 mod error_log;
 pub mod files;
 pub mod models;
+mod window_state;
 
 use config::watch_files;
 use std::path::PathBuf;
