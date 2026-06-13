@@ -23,12 +23,8 @@ pub fn run() {
                 .unwrap_or_else(|_| PathBuf::from("."));
             error_log::init(&app_data_dir);
 
-            // Resolve initial geometry BEFORE creating the window so
-            // WebviewWindowBuilder can pass it to the OS at creation time.
-            // This avoids the async set_size message race on macOS.
-            let (width, height, x, y) =
-                window_state::resolve_initial_geometry(&app_handle, &app_data_dir);
-            let window = tauri::WebviewWindowBuilder::new(
+            let (width, height, x, y) = window_state::default_window_geometry(&app_handle);
+            let _window = tauri::WebviewWindowBuilder::new(
                 app,
                 "main",
                 tauri::WebviewUrl::App("index.html".into()),
@@ -38,8 +34,6 @@ pub fn run() {
             .position(x as f64, y as f64)
             .build()
             .expect("failed to create main window");
-
-            window_state::register_state_tracking(&window);
 
             if let Some(root_path) = files::read_root_path(&app_data_dir) {
                 if root_path.exists() {
@@ -64,15 +58,6 @@ pub fn run() {
             commands::log_error,
             commands::log_info,
         ])
-        .build(tauri::generate_context!())
-        .expect("error while building tauri application")
-        .run(|app_handle, event| {
-            if let tauri::RunEvent::Exit = event {
-                let app_data_dir = app_handle
-                    .path()
-                    .app_local_data_dir()
-                    .unwrap_or_else(|_| PathBuf::from("."));
-                window_state::flush_to_disk(&app_data_dir);
-            }
-        });
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
 }
