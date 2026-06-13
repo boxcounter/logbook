@@ -215,13 +215,7 @@ function confirmSelection() {
   if (items.length === 0) return;
   const item = items[selectedIndex.value];
   if (menuPhase.value === "dim" && item.key) {
-    if (allRequiredFilled.value) {
-      removeMentionFromInput();
-      closeMenu();
-      inputEl.value?.focus();
-    } else {
-      openValMenu(item.key);
-    }
+    openValMenu(item.key);
   } else if (menuPhase.value === "val" && activeDimKey.value && item.value) {
     dimValues.value = { ...dimValues.value, [activeDimKey.value]: item.value };
     removeMentionFromInput();
@@ -565,7 +559,7 @@ function onInputBlur() {
           :class="allRequiredFilled ? 'text-green-600' : 'text-gray-400'"
         >
           <template v-if="allRequiredFilled">
-            All required ✓ · Enter to confirm
+            All required ✓
           </template>
           <template v-else>
             <span
