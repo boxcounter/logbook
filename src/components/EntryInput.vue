@@ -277,6 +277,10 @@ const submitting = ref(false);
 function handleSubmit() {
   if (submitting.value) return;
   error.value = "";
+  if (!allRequiredFilled.value) {
+    error.value = `Missing required: ${missingRequired.value.map(m => m.name).join(", ")}`;
+    return;
+  }
   const trimmed = input.value.trim();
   if (!trimmed) return;
   let d: number | null;
