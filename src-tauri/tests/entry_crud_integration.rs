@@ -147,3 +147,123 @@ fn test_parse_duration_via_append() {
 
     teardown(suffix);
 }
+
+// --- Required dimension validation tests ---
+
+#[test]
+fn test_append_entry_rejects_missing_required_dimension() {
+    let suffix = "req_missing";
+    setup(suffix);
+    let root = test_root(suffix);
+
+    fs::write(
+        root.join("config.yaml"),
+        "dimensions:\n  - name: Biz\n    key: biz\n    source: static\n    values: [A, B]\n    required: true\n  - name: Goal\n    key: goal\n    source: monthly\n",
+    )
+    .unwrap();
+
+    let date = "2026-06-12";
+    let new_entry = NewEntry {
+        item: "Missing required dim".to_string(),
+        duration: "30".to_string(),
+        dimensions: HashMap::new(), // biz is required but missing
+    };
+
+    let result = tauri_app_lib::files::append_new_entry(&root, date, &new_entry);
+    assert!(
+        result.is_err(),
+        "should reject entry with missing required dimension"
+    );
+    let err = result.unwrap_err();
+    assert!(
+        err.contains("Missing required dimension"),
+        "error should mention missing required dimension, got: {}",
+        err
+    );
+
+    teardown(suffix);
+}
+
+#[test]
+fn test_append_entry_accepts_when_required_dimensions_present() {
+    let suffix = "req_ok";
+    setup(suffix);
+    let root = test_root(suffix);
+
+    fs::write(
+        root.join("config.yaml"),
+        "dimensions:\n  - name: Biz\n    key: biz\n    source: static\n    values: [A, B]\n    required: true\n  - name: Goal\n    key: goal\n    source: monthly\n",
+    )
+    .unwrap();
+
+    let date = "2026-06-12";
+    let mut dims = HashMap::new();
+    dims.insert("biz".to_string(), "A".to_string());
+
+    let new_entry = NewEntry {
+        item: "Has required dim".to_string(),
+        duration: "30".to_string(),
+        dimensions: dims,
+    };
+
+    let result = tauri_app_lib::files::append_new_entry(&root, date, &new_entry);
+    assert!(
+        result.is_ok(),
+        "should accept entry with required dimensions present"
+    );
+
+    // Verify it was written
+    let day_file = tauri_app_lib::files::read_day_file(&root, date).unwrap();
+    assert_eq!(day_file.entries.len(), 1);
+    assert_eq!(day_file.entries[0].dimensions.get("biz").unwrap(), "A");
+
+    teardown(suffix);
+}
+
+#[test]
+fn test_update_entry_rejects_clearing_required_dimension() {
+    let suffix = "req_update";
+    setup(suffix);
+    let root = test_root(suffix);
+
+    fs::write(
+        root.join("config.yaml"),
+        "dimensions:\n  - name: Biz\n    key: biz\n    source: static\n    values: [A, B]\n    required: true\n  - name: Goal\n    key: goal\n    source: monthly\n",
+    )
+    .unwrap();
+
+    let date = "2026-06-12";
+    let mut dims = HashMap::new();
+    dims.insert("biz".to_string(), "A".to_string());
+
+    let entry = tauri_app_lib::files::append_new_entry(
+        &root,
+        date,
+        &NewEntry {
+            item: "Original".into(),
+            duration: "30".into(),
+            dimensions: dims,
+        },
+    )
+    .unwrap();
+
+    // Try to update with empty dimensions (clearing required dim)
+    let update = UpdateEntry {
+        item: None,
+        duration: None,
+        dimensions: Some(HashMap::new()), // clears biz
+    };
+
+    let result =
+        tauri_app_lib::files::update_entry_in_file(&root, date, &entry.id, &update);
+    assert!(
+        result.is_err(),
+        "should reject update that clears required dimension"
+    );
+
+    // Verify original entry unchanged
+    let day_file = tauri_app_lib::files::read_day_file(&root, date).unwrap();
+    assert_eq!(day_file.entries[0].dimensions.get("biz").unwrap(), "A");
+
+    teardown(suffix);
+}
