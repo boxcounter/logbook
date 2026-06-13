@@ -1,115 +1,179 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { mount } from "@vue/test-utils";
 import CommitmentsPanel from "../../components/CommitmentsPanel.vue";
-import { makeCommitment, makeEntry } from "../mocks/fixtures";
+import { makeCommitmentProgress } from "../mocks/fixtures";
+import type { CommitmentProgress } from "../../types";
 
-const devCommitment = makeCommitment({
-  role: "Developer",
-  allocation: 40,
-  goals: ["Ship feature X", "Code review"],
-});
-
-const dirCommitment = makeCommitment({
-  role: "Director",
-  allocation: 20,
-  goals: ["Hiring"],
-});
-
-function mountPanel(commitments: typeof devCommitment[], entries: ReturnType<typeof makeEntry>[]) {
+function mountPanel(progress: CommitmentProgress[], selectedYear = 2026, selectedMonth = 6) {
   return mount(CommitmentsPanel, {
-    props: { commitments, entries },
+    props: { progress, selectedYear, selectedMonth },
   });
 }
 
-// Helper: create an entry with a goal dimension set
-function goalEntry(goalName: string, durationMinutes: number) {
-  return makeEntry({ dimensions: { goal: goalName }, duration: durationMinutes });
+// Helper to create a progress entry with specific spent values
+function goalProgress(name: string, spentMinutes: number) {
+  return { name, spent_minutes: spentMinutes };
 }
 
 // ============================================================
 
 describe("CommitmentsPanel", () => {
-  it("renders nothing when commitments empty", () => {
-    const wrapper = mountPanel([], []);
+  it("renders nothing when progress empty", () => {
+    const wrapper = mountPanel([]);
     expect(wrapper.find(".bg-white").exists()).toBe(false);
   });
 
   it("renders each commitment role", () => {
-    const wrapper = mountPanel([devCommitment, dirCommitment], []);
+    const progress = [
+      makeCommitmentProgress({ role: "Developer" }),
+      makeCommitmentProgress({ role: "Director" }),
+    ];
+    const wrapper = mountPanel(progress);
     const text = wrapper.text();
     expect(text).toContain("Developer");
     expect(text).toContain("Director");
   });
 
-  it("computes daily allocation correctly (40h/month → 120 min/day)", () => {
-    const wrapper = mountPanel([devCommitment], []);
-    // 40 * 60 / 20 = 120 minutes = 2h/day
-    expect(wrapper.text()).toContain("2.0h");
+  it("shows monthly allocation in hours", () => {
+    // 2400 minutes = 40.0h
+    const progress = [makeCommitmentProgress({ allocation_minutes: 2400 })];
+    const wrapper = mountPanel(progress);
+    expect(wrapper.text()).toContain("40.0h");
   });
 
   it("shows spent / allocation ratio text", () => {
-    const wrapper = mountPanel([devCommitment], []);
-    // formatDuration(0) = "0m"
-    expect(wrapper.text()).toContain("0m");
-    expect(wrapper.text()).toContain("2.0h");
+    const progress = [makeCommitmentProgress({ spent_minutes: 150, allocation_minutes: 2400 })];
+    const wrapper = mountPanel(progress);
+    // formatDuration(150) = "2h 30m"
+    expect(wrapper.text()).toContain("2h 30m");
   });
 
   it("progress bar width reflects percentage", () => {
-    // 60 minutes spent out of 120 allocated = 50%
-    const entry = goalEntry("Code review", 60);
-    const wrapper = mountPanel([devCommitment], [entry]);
+    // 1200 spent out of 2400 allocated = 50%
+    const progress = [makeCommitmentProgress({ spent_minutes: 1200, allocation_minutes: 2400 })];
+    const wrapper = mountPanel(progress);
     const bar = wrapper.find(".h-1\\.5 > div");
     expect(bar.attributes("style")).toContain("width: 50%");
   });
 
-  it("green bar when spent < 80% of allocation", () => {
-    // 60/120 = 50% < 80% → green
-    const entry = goalEntry("Code review", 60);
-    const wrapper = mountPanel([devCommitment], [entry]);
+  it("clamps progress bar width to 100%", () => {
+    // 3000 spent > 2400 allocated → clamped to 100%
+    const progress = [makeCommitmentProgress({ spent_minutes: 3000, allocation_minutes: 2400 })];
+    const wrapper = mountPanel(progress);
     const bar = wrapper.find(".h-1\\.5 > div");
-    expect(bar.classes()).toContain("bg-green-500");
+    expect(bar.attributes("style")).toContain("width: 100%");
   });
 
-  it("yellow bar when spent between 80-100%", () => {
-    // 100/120 ≈ 83% → yellow
-    const entry = goalEntry("Code review", 100);
-    const wrapper = mountPanel([devCommitment], [entry]);
-    const bar = wrapper.find(".h-1\\.5 > div");
-    expect(bar.classes()).toContain("bg-yellow-500");
-  });
-
-  it("red bar when spent > 100% of allocation", () => {
-    const entry = goalEntry("Code review", 150);
-    const wrapper = mountPanel([devCommitment], [entry]);
+  it("red bar when spent > allocation", () => {
+    const progress = [makeCommitmentProgress({ spent_minutes: 3000, allocation_minutes: 2400 })];
+    const wrapper = mountPanel(progress);
     const bar = wrapper.find(".h-1\\.5 > div");
     expect(bar.classes()).toContain("bg-red-500");
   });
 
   it("renders goal breakdown with names and times", () => {
-    const e1 = goalEntry("Code review", 30);
-    const e2 = goalEntry("Code review", 15);
-    const wrapper = mountPanel([devCommitment], [e1, e2]);
+    const progress = [
+      makeCommitmentProgress({
+        goals: [
+          goalProgress("Code review", 75),
+          goalProgress("Ship feature X", 120),
+        ],
+      }),
+    ];
+    const wrapper = mountPanel(progress);
     const text = wrapper.text();
     expect(text).toContain("Code review");
+    expect(text).toContain("1h 15m");
     expect(text).toContain("Ship feature X");
-    // Code review total = 45m
-    expect(text).toContain("45m");
+    expect(text).toContain("2h 0m");
+  });
+
+  it("shows zero goal as '0m' with gray text", () => {
+    const progress = [makeCommitmentProgress()];
+    const wrapper = mountPanel(progress);
+    const text = wrapper.text();
+    expect(text).toContain("0m");
+
+    // Find the goal with 0 spent — should have text-gray-300 class
+    const goalRow = wrapper.find(".text-gray-300");
+    expect(goalRow.exists()).toBe(true);
+    expect(goalRow.text()).toContain("0m");
   });
 
   it("zero allocation shows 0% width and gray bar", () => {
-    const zeroAlloc = makeCommitment({ role: "Advisor", allocation: 0, goals: [] });
-    const entry = goalEntry("Code review", 60);
-    const wrapper = mountPanel([zeroAlloc], [entry]);
+    const progress = [makeCommitmentProgress({ allocation_minutes: 0, spent_minutes: 60 })];
+    const wrapper = mountPanel(progress);
     const bar = wrapper.find(".h-1\\.5 > div");
     expect(bar.attributes("style")).toContain("width: 0%");
     expect(bar.classes()).toContain("bg-gray-300");
   });
 
-  it("clamps progress bar width to 100%", () => {
-    // 200/120 > 100% → clamped to 100%
-    const entry = goalEntry("Code review", 200);
-    const wrapper = mountPanel([devCommitment], [entry]);
+  it("orange bar when spent significantly behind elapsed time (current month)", () => {
+    // Mock date to June 15 (50% elapsed), spent is 0 → way behind → orange
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 5, 15)); // month is 0-indexed: 5 = June
+
+    const progress = [makeCommitmentProgress({
+      spent_minutes: 0,
+      allocation_minutes: 2400, // 40h
+    })];
+    const wrapper = mountPanel(progress, 2026, 6);
     const bar = wrapper.find(".h-1\\.5 > div");
-    expect(bar.attributes("style")).toContain("width: 100%");
+    expect(bar.classes()).toContain("bg-orange-500");
+
+    vi.useRealTimers();
+  });
+
+  it("green bar when spent is in sync with elapsed time (current month)", () => {
+    vi.useFakeTimers();
+    // June 15: ~50% elapsed. 1200/2400 = 50% → within [50%*0.6, 50%*1.4] = [30%, 70%] → green
+    vi.setSystemTime(new Date(2026, 5, 15));
+
+    const progress = [makeCommitmentProgress({
+      spent_minutes: 1200,
+      allocation_minutes: 2400,
+    })];
+    const wrapper = mountPanel(progress, 2026, 6);
+    const bar = wrapper.find(".h-1\\.5 > div");
+    expect(bar.classes()).toContain("bg-green-500");
+
+    vi.useRealTimers();
+  });
+
+  it("yellow bar when spent is ahead of elapsed time (current month)", () => {
+    vi.useFakeTimers();
+    // June 5: ~17% elapsed. 40% spent → > 17% * 1.4 = 23.3% → yellow
+    vi.setSystemTime(new Date(2026, 5, 5));
+
+    const progress = [makeCommitmentProgress({
+      spent_minutes: 960, // 40% of 2400
+      allocation_minutes: 2400,
+    })];
+    const wrapper = mountPanel(progress, 2026, 6);
+    const bar = wrapper.find(".h-1\\.5 > div");
+    expect(bar.classes()).toContain("bg-yellow-500");
+
+    vi.useRealTimers();
+  });
+
+  it("historical month uses 100% elapsed (color based on total completion)", () => {
+    // May 2026 — historical month. elapsed = 100%.
+    // 50% spent < 60% elapsed → orange
+    const progress = [makeCommitmentProgress({
+      spent_minutes: 1200, // 50% of 2400
+      allocation_minutes: 2400,
+    })];
+    const wrapper = mountPanel(progress, 2026, 5);
+    const bar = wrapper.find(".h-1\\.5 > div");
+    expect(bar.classes()).toContain("bg-orange-500");
+
+    // 95% spent → within [60%, 140%] → green
+    const progress2 = [makeCommitmentProgress({
+      spent_minutes: 2280, // 95%
+      allocation_minutes: 2400,
+    })];
+    const wrapper2 = mountPanel(progress2, 2026, 5);
+    const bar2 = wrapper2.find(".h-1\\.5 > div");
+    expect(bar2.classes()).toContain("bg-green-500");
   });
 });
