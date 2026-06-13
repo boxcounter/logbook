@@ -7,12 +7,13 @@ import CommitmentsPanel from "./CommitmentsPanel.vue";
 import QuickEntry from "./QuickEntry.vue";
 import EntryList from "./EntryList.vue";
 import SummaryBar from "./SummaryBar.vue";
-import type { Entry, DayFile } from "../types";
+import type { Entry, DayFile, CommitmentProgress } from "../types";
 import { logError, logInfo } from "../utils/errorLog";
 import { computed } from "vue";
 import { datesInPeriod } from "../utils/dates";
 
 async function loadPeriod() {
+  const progressPromise = loadCommitmentProgress();
   const dates = datesInPeriod(store.currentDate, store.granularity);
   const map: Record<string, Entry[]> = {};
   for (const date of dates) {
@@ -28,12 +29,29 @@ async function loadPeriod() {
   if (store.currentDate in map) {
     store.today = { note: null, entries: map[store.currentDate] };
   }
+  await progressPromise;
 }
 
 const store = useStore();
 
 const selectedYear = computed(() => parseInt(store.currentDate.slice(0, 4), 10));
 const selectedMonth = computed(() => parseInt(store.currentDate.slice(5, 7), 10));
+
+async function loadCommitmentProgress() {
+  const d = store.currentDate;
+  const year = parseInt(d.slice(0, 4), 10);
+  const month = parseInt(d.slice(5, 7), 10);
+  try {
+    store.commitmentProgress = (await invoke("get_commitment_progress", {
+      rootPath: store.rootPath,
+      year,
+      month,
+    })) as CommitmentProgress[];
+  } catch (e) {
+    logError("TodayView.loadCommitmentProgress", e);
+    store.commitmentProgress = [];
+  }
+}
 
 // Inject undo toast trigger from App.vue
 const triggerUndoToast = inject<(undoFn: () => void) => void>("triggerUndoToast", () => {});
@@ -48,6 +66,7 @@ async function handleUpdateDimensions(entryId: string, dimensions: Record<string
       update: { dimensions },
     })) as DayFile;
     store.today = df;
+    await loadCommitmentProgress();
   } catch (e) {
     logError("TodayView.handleUpdateDimensions", e);
   }
@@ -73,6 +92,7 @@ async function handleUpdateEntry(entryId: string, item: string, durationMinutes:
       update,
     })) as DayFile;
     store.today = df;
+    await loadCommitmentProgress();
   } catch (e) {
     logError("TodayView.handleUpdateEntry", e);
   }
@@ -95,6 +115,7 @@ async function handleDeleteEntry(entryId: string) {
     if (cancelled) return;
     try {
       await invoke("delete_entry", { rootPath: store.rootPath, date: store.currentDate, entryId });
+      await loadCommitmentProgress();
     } catch (e) {
       logError("TodayView.handleDeleteEntry", e);
       // Re-insert at original position if still valid

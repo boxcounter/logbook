@@ -82,6 +82,7 @@ async function initApp() {
         store.today = result.data.today;
         store.commitments = result.data.commitments;
         store.screen = "ready";
+        await loadCommitmentProgress();
         break;
     }
     logInfo("App.initApp", result.status);
@@ -89,6 +90,22 @@ async function initApp() {
     logError("App.initApp", e);
     store.configErrors = [{ kind: "InitError", message: `Failed: ${e}` }];
     store.screen = "error";
+  }
+}
+
+async function loadCommitmentProgress() {
+  if (store.screen !== "ready" || !store.rootPath) return;
+  const d = store.currentDate;
+  const year = parseInt(d.slice(0, 4));
+  const month = parseInt(d.slice(5, 7));
+  try {
+    store.commitmentProgress = (await invoke("get_commitment_progress", {
+      rootPath: store.rootPath,
+      year,
+      month,
+    })) as import("./types").CommitmentProgress[];
+  } catch (e) {
+    logError("App.loadCommitmentProgress", e);
   }
 }
 
