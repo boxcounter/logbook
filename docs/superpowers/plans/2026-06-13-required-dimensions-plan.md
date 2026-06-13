@@ -1,6 +1,8 @@
 # Required Dimensions — Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+>
+> **TDD split:** Rust backend tasks are split into test-writer / implementer pairs — a dedicated agent writes failing tests, then a different agent implements to make them pass. Frontend tasks are single-agent (no component test infra).
 
 **Goal:** Add required/optional flag to Entry dimensions — required dimensions must be filled before submission, enforced by both backend validation and frontend UX.
 
@@ -24,15 +26,28 @@
 
 ---
 
-### Task 1: Rust Dimension model — add `required` field
+### Task 1: Test-Writer — add `required` field to Dimension + write failing tests for `validate_required_dimensions`
+
+**Role:** Test-Writer. Add the `required` field (1 line in models.rs — prerequisite so tests compile), then write tests. Do NOT implement `validate_required_dimensions`. The unit tests MUST fail to compile because the function doesn't exist.
 
 **Files:**
-- Modify: `src-tauri/src/models.rs:11-19`
-- Modify: `src-tauri/src/config.rs:189-262` (tests only — add `required: false`)
+- Modify: `src-tauri/src/models.rs` (add `required` field only — no other changes)
+- Modify: `src-tauri/src/config.rs` (add serde deserialization tests)
+- Modify: `src-tauri/src/commands.rs` (add unit tests for `validate_required_dimensions`)
 
-- [ ] **Step 1: Add `required` field to Dimension struct**
+**Contract for the implementer (Task 2):**
 
-In `src-tauri/src/models.rs`, change the Dimension struct:
+```rust
+// Function to implement in commands.rs:
+// pub fn validate_required_dimensions(
+//     config: &Config,
+//     dimensions: &std::collections::HashMap<String, String>,
+// ) -> Result<(), String>
+```
+
+- [ ] **Step 1: Add `required` field to Dimension struct (prerequisite)**
+
+In `src-tauri/src/models.rs`:
 
 ```rust
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -48,28 +63,11 @@ pub struct Dimension {
 }
 ```
 
-- [ ] **Step 2: Update config.rs unit tests to add `required: false`**
+This 1-line change enables tests to reference `required: true`. Existing tests will break (missing field) — that's the implementer's job in Task 2.
 
-Every `Dimension { ... }` literal in `config.rs` tests needs `required: false` added (since struct has a new field). There are 7 Dimension literals across 7 test functions. Example:
+- [ ] **Step 2: Write serde deserialization tests for `required` field**
 
-```rust
-// Before:
-Dimension { name: "Biz".into(), key: "biz".into(), source: "static".into(), values: Some(vec!["X".into()]) },
-// After:
-Dimension { name: "Biz".into(), key: "biz".into(), source: "static".into(), values: Some(vec!["X".into()]), required: false },
-```
-
-- [ ] **Step 3: Run Rust tests to confirm compilation and backward compatibility**
-
-```bash
-cd src-tauri && cargo test
-```
-
-Expected: All tests PASS. No compilation errors.
-
-- [ ] **Step 4: Write a unit test for serde deserialization of `required`**
-
-Add to `src-tauri/src/config.rs` `#[cfg(test)] mod tests`:
+Add to `src-tauri/src/config.rs`, inside `#[cfg(test)] mod tests`:
 
 ```rust
 #[test]
@@ -87,34 +85,13 @@ fn test_dimension_required_true() {
 }
 ```
 
-- [ ] **Step 5: Run tests to verify**
+- [ ] **Step 3: Write unit tests for `validate_required_dimensions`**
 
-```bash
-cd src-tauri && cargo test config::tests::test_dimension_required
-```
-
-Expected: Both new tests PASS.
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add src-tauri/src/models.rs src-tauri/src/config.rs
-git commit -m "feat: add required field to Dimension model"
-```
-
----
-
-### Task 2: Backend — `validate_required_dimensions` function
-
-**Files:**
-- Modify: `src-tauri/src/commands.rs` (add function + unit tests)
-
-- [ ] **Step 1: Write failing unit tests for `validate_required_dimensions`**
-
-Add to `src-tauri/src/commands.rs` `#[cfg(test)] mod tests`:
+Add to `src-tauri/src/commands.rs`, inside `#[cfg(test)] mod tests`:
 
 ```rust
 use crate::models::{Config, Dimension};
+use std::collections::HashMap;
 
 fn make_config(required_keys: &[&str]) -> Config {
     Config {
@@ -170,21 +147,59 @@ fn test_validate_required_empty_dimensions() {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [ ] **Step 4: Verify tests fail**
 
 ```bash
-cd src-tauri && cargo test commands::tests::test_validate_required
+cd src-tauri && cargo test 2>&1 | grep -E "error|FAILED|cannot find"
 ```
 
-Expected: Compilation error — `validate_required_dimensions` not found.
+Expected: Only `validate_required_dimensions` not found (serde tests should compile and pass since `required` field exists). The existing tests in `config.rs` will have compilation errors from the new `required` field — that's expected and will be fixed by the implementer in Task 2.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src-tauri/src/models.rs src-tauri/src/config.rs src-tauri/src/commands.rs
+git commit -m "test: add Dimension.required field + failing tests for validate_required_dimensions"
+```
+
+---
+
+### Task 2: Implementer — fix existing tests + implement `validate_required_dimensions`
+
+**Role:** Implementer. The `required` field already exists on Dimension (Task 1). Your job: fix existing tests that broke, then implement `validate_required_dimensions` to make the 4 new unit tests pass.
+
+**Files:**
+- Modify: `src-tauri/src/config.rs` (fix existing test compilation — add `required: false`)
+- Modify: `src-tauri/src/commands.rs` (add `validate_required_dimensions` function)
+
+- [ ] **Step 1: Read the failing test output to understand what needs fixing**
+
+```bash
+cd src-tauri && cargo test 2>&1 | head -60
+```
+
+You'll see:
+- `config.rs` existing tests: `Dimension` struct literals missing field `required`
+- `commands.rs` new tests: function `validate_required_dimensions` not found
+
+- [ ] **Step 2: Fix existing Dimension literals in config.rs tests**
+
+Every `Dimension { ... }` literal in `config.rs`'s test module needs `required: false`. There are ~7 literals. Example:
+
+```rust
+// Before:
+Dimension { name: "Biz".into(), key: "biz".into(), source: "static".into(), values: Some(vec!["X".into()]) },
+// After:
+Dimension { name: "Biz".into(), key: "biz".into(), source: "static".into(), values: Some(vec!["X".into()]), required: false },
+```
 
 - [ ] **Step 3: Implement `validate_required_dimensions`**
 
-Add to `src-tauri/src/commands.rs`, after the `parse_duration` function and before `#[tauri::command] pub fn init`:
+Add to `src-tauri/src/commands.rs`, after `parse_duration` and before `#[tauri::command] pub fn init`:
 
 ```rust
 /// Validate that all required dimensions have values in the entry.
-/// Returns Ok(()) or Err with a human-readable message listing the first missing required dimension.
+/// Returns Ok(()) or Err with a human-readable message naming the first missing required dimension.
 pub fn validate_required_dimensions(
     config: &Config,
     dimensions: &std::collections::HashMap<String, String>,
@@ -198,32 +213,35 @@ pub fn validate_required_dimensions(
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [ ] **Step 4: Run all tests to verify they pass**
 
 ```bash
-cd src-tauri && cargo test commands::tests::test_validate_required
+cd src-tauri && cargo test
 ```
 
-Expected: All 4 tests PASS.
+Expected: ALL tests PASS — both existing tests (fixed in Step 2) and the 6 new tests from Task 1.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src-tauri/src/commands.rs
-git commit -m "feat: add validate_required_dimensions with unit tests"
+git add src-tauri/src/commands.rs src-tauri/src/config.rs
+git commit -m "feat: implement validate_required_dimensions, fix existing tests"
 ```
 
 ---
 
-### Task 3: Integrate validation into `append_entry` and `update_entry`
+### Task 3: Test-Writer — integration tests for required dimension validation
+
+**Role:** Test-Writer. Write ONLY integration tests. They MUST fail because `append_entry` and `update_entry` don't validate required dimensions yet.
 
 **Files:**
-- Modify: `src-tauri/src/commands.rs:225-254` (append_entry, update_entry)
-- Modify: `src-tauri/tests/entry_crud_integration.rs` (integration tests)
+- Modify: `src-tauri/tests/entry_crud_integration.rs`
 
-- [ ] **Step 1: Write failing integration test for `append_new_entry` with missing required dim**
+**Contract:** The implementer (Task 4) will modify `commands.rs` so that:
+- `append_entry` calls `validate_required_dimensions(&config, &entry.dimensions)?` before writing
+- `update_entry` calls `validate_required_dimensions(&config, dims)?` only when `update.dimensions` is `Some`
 
-In `src-tauri/tests/entry_crud_integration.rs`, add:
+- [ ] **Step 1: Write integration test — append rejects missing required dimension**
 
 ```rust
 #[test]
@@ -232,7 +250,6 @@ fn test_append_entry_rejects_missing_required_dimension() {
     setup(suffix);
     let root = test_root(suffix);
 
-    // Write config with a required dimension
     fs::write(
         root.join("config.yaml"),
         "dimensions:\n  - name: Biz\n    key: biz\n    source: static\n    values: [A, B]\n    required: true\n  - name: Goal\n    key: goal\n    source: monthly\n",
@@ -259,79 +276,7 @@ fn test_append_entry_rejects_missing_required_dimension() {
 }
 ```
 
-- [ ] **Step 2: Run integration test to verify it fails**
-
-```bash
-cd src-tauri && cargo test test_append_entry_rejects_missing_required_dimension
-```
-
-Expected: FAIL — entry is appended without validation.
-
-- [ ] **Step 3: Wire validation into `append_entry` command**
-
-In `src-tauri/src/commands.rs`, modify `append_entry`:
-
-```rust
-#[tauri::command]
-pub fn append_entry(root_path: String, date: String, entry: NewEntry) -> Result<Entry, String> {
-    error_log::log_command_enter("append_entry", &format!("date={} item={} dur={}", date, entry.item, entry.duration));
-    let root = std::path::Path::new(&root_path);
-    validate_date_format(&date)?;
-    let duration = parse_duration(&entry.duration)?;
-
-    // --- NEW: validate required dimensions ---
-    let config = files::read_config(root)?;
-    validate_required_dimensions(&config, &entry.dimensions)?;
-    // --- END NEW ---
-
-    let entry = Entry {
-        id: uuid::Uuid::new_v4().to_string(),
-        item: entry.item,
-        duration,
-        dimensions: entry.dimensions,
-    };
-    let result = files::append_to_day_file(root, &date, &entry);
-    let ok = result.is_ok();
-    error_log::log_command_exit("append_entry", ok, &format!("id={}", entry.id));
-    result
-}
-```
-
-Also modify `update_entry` — add validation when dimensions are being changed:
-
-```rust
-#[tauri::command]
-pub fn update_entry(root_path: String, date: String, entry_id: String, update: UpdateEntry) -> Result<DayFile, String> {
-    error_log::log_command_enter("update_entry", &format!("date={} id={}", date, entry_id));
-    let root = std::path::Path::new(&root_path);
-    validate_date_format(&date)?;
-    if let Some(ref dur_str) = update.duration {
-        parse_duration(dur_str)?;
-    }
-    // --- NEW: validate required dimensions when dimensions are being updated ---
-    if let Some(ref dims) = update.dimensions {
-        let config = files::read_config(root)?;
-        validate_required_dimensions(&config, dims)?;
-    }
-    // --- END NEW ---
-    let result = files::update_entry_in_file(root, &date, &entry_id, &update);
-    let ok = result.is_ok();
-    error_log::log_command_exit("update_entry", ok, &format!("{} entries", result.as_ref().map(|d| d.entries.len()).unwrap_or(0)));
-    result
-}
-```
-
-- [ ] **Step 4: Run the integration test to verify it passes**
-
-```bash
-cd src-tauri && cargo test test_append_entry_rejects_missing_required_dimension
-```
-
-Expected: PASS.
-
-- [ ] **Step 5: Write integration test for valid append with required dimensions**
-
-In `src-tauri/tests/entry_crud_integration.rs`:
+- [ ] **Step 2: Write integration test — append accepts when required dimensions present**
 
 ```rust
 #[test]
@@ -368,7 +313,7 @@ fn test_append_entry_accepts_when_required_dimensions_present() {
 }
 ```
 
-- [ ] **Step 6: Write integration test for update_entry clearing a required dim**
+- [ ] **Step 3: Write integration test — update rejects clearing required dimension**
 
 ```rust
 #[test]
@@ -410,15 +355,115 @@ fn test_update_entry_rejects_clearing_required_dimension() {
 }
 ```
 
-- [ ] **Step 7: Run all integration tests**
+- [ ] **Step 4: Verify tests fail**
+
+```bash
+cd src-tauri && cargo test --test entry_crud_integration test_append_entry_rejects
+```
+
+Expected: FAIL — `append_new_entry` succeeds, test expects error.
+
+```bash
+cd src-tauri && cargo test --test entry_crud_integration test_append_entry_accepts
+```
+
+Expected: PASS — this one should pass even without validation (required dim is present, written to file).
+
+```bash
+cd src-tauri && cargo test --test entry_crud_integration test_update_entry_rejects
+```
+
+Expected: FAIL — `update_entry_in_file` succeeds, test expects error.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src-tauri/tests/entry_crud_integration.rs
+git commit -m "test: failing integration tests for required dimension validation in commands"
+```
+
+---
+
+### Task 4: Implementer — wire validation into `append_entry` and `update_entry`
+
+**Role:** Implementer. Read the integration tests from Task 3. Modify `commands.rs` to make the 2 failing tests pass. The "accepts" test (Step 2) should already pass.
+
+**Files:**
+- Modify: `src-tauri/src/commands.rs` (append_entry, update_entry)
+
+- [ ] **Step 1: Verify which tests fail and which pass**
+
+```bash
+cd src-tauri && cargo test --test entry_crud_integration 2>&1 | grep -E "test |FAILED|ok"
+```
+
+Expected: `test_append_entry_rejects...` FAILED, `test_update_entry_rejects...` FAILED, `test_append_entry_accepts...` ok.
+
+- [ ] **Step 2: Wire validation into `append_entry`**
+
+In `src-tauri/src/commands.rs`, modify `append_entry`:
+
+```rust
+#[tauri::command]
+pub fn append_entry(root_path: String, date: String, entry: NewEntry) -> Result<Entry, String> {
+    error_log::log_command_enter("append_entry", &format!("date={} item={} dur={}", date, entry.item, entry.duration));
+    let root = std::path::Path::new(&root_path);
+    validate_date_format(&date)?;
+    let duration = parse_duration(&entry.duration)?;
+
+    // --- NEW: validate required dimensions ---
+    let config = files::read_config(root)?;
+    validate_required_dimensions(&config, &entry.dimensions)?;
+    // --- END NEW ---
+
+    let entry = Entry {
+        id: uuid::Uuid::new_v4().to_string(),
+        item: entry.item,
+        duration,
+        dimensions: entry.dimensions,
+    };
+    let result = files::append_to_day_file(root, &date, &entry);
+    let ok = result.is_ok();
+    error_log::log_command_exit("append_entry", ok, &format!("id={}", entry.id));
+    result
+}
+```
+
+- [ ] **Step 3: Wire validation into `update_entry`**
+
+Same file, modify `update_entry`:
+
+```rust
+#[tauri::command]
+pub fn update_entry(root_path: String, date: String, entry_id: String, update: UpdateEntry) -> Result<DayFile, String> {
+    error_log::log_command_enter("update_entry", &format!("date={} id={}", date, entry_id));
+    let root = std::path::Path::new(&root_path);
+    validate_date_format(&date)?;
+    if let Some(ref dur_str) = update.duration {
+        parse_duration(dur_str)?;
+    }
+    // --- NEW: validate required dimensions when dimensions are being updated ---
+    if let Some(ref dims) = update.dimensions {
+        let config = files::read_config(root)?;
+        validate_required_dimensions(&config, dims)?;
+    }
+    // --- END NEW ---
+    let result = files::update_entry_in_file(root, &date, &entry_id, &update);
+    let ok = result.is_ok();
+    error_log::log_command_exit("update_entry", ok, &format!("{} entries", result.as_ref().map(|d| d.entries.len()).unwrap_or(0)));
+    result
+}
+```
+
+- [ ] **Step 4: Run integration tests to verify all pass**
 
 ```bash
 cd src-tauri && cargo test --test entry_crud_integration
 ```
 
-Expected: All integration tests PASS.
+Expected: ALL integration tests PASS.
 
-- [ ] **Step 8: Run full Rust test suite**
+- [ ] **Step 5: Run full Rust test suite**
 
 ```bash
 cd src-tauri && cargo test
@@ -426,19 +471,21 @@ cd src-tauri && cargo test
 
 Expected: ALL tests PASS.
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add src-tauri/src/commands.rs src-tauri/tests/entry_crud_integration.rs
+git add src-tauri/src/commands.rs
 git commit -m "feat: validate required dimensions in append_entry and update_entry"
 ```
 
 ---
 
-### Task 4: TypeScript Dimension interface
+### Task 5: TypeScript Dimension interface
+
+**Role:** Single agent. Mechanical type change — add `required: boolean`.
 
 **Files:**
-- Modify: `src/types.ts:1-6`
+- Modify: `src/types.ts`
 
 - [ ] **Step 1: Add `required` field**
 
@@ -455,12 +502,10 @@ export interface Dimension {
 - [ ] **Step 2: Verify type check passes**
 
 ```bash
-cd /Users/boxcounter/Code/Boxcounter/logbook && npx vue-tsc --noEmit 2>&1 | head -30
+cd /Users/boxcounter/Code/Boxcounter/logbook && npx vue-tsc --noEmit
 ```
 
-The type system will flag any existing code that constructs Dimension objects without `required`. Fix any compilation errors by adding `required: false` or `required: d.required` as appropriate. (The Dimension objects come from the Rust backend via `get_entries` / `init`, so they're deserialized from JSON — no manual construction in frontend code. This should pass clean.)
-
-Expected: Type check passes.
+Expected: Clean type check. (Dimension objects come from Rust backend via JSON deserialization — no manual construction in frontend code.)
 
 - [ ] **Step 3: Commit**
 
@@ -471,18 +516,21 @@ git commit -m "feat: add required field to TypeScript Dimension interface"
 
 ---
 
-### Task 5: EntryInput.vue — @ menu loop + missing required chips
+### Task 6: EntryInput.vue — @ menu loop + missing required chips
+
+**Role:** Single agent. Frontend component changes — no component test infra, uses manual verification.
 
 **Files:**
 - Modify: `src/components/EntryInput.vue`
 
-This is the largest change. It covers:
+This task covers:
 - Computed properties for required dimension state
-- Modified `confirmSelection()` for loop behavior
-- Modified dim-phase Enter to close when all required filled
-- New `openValMenuDirect()` for red chip click
+- `insertAtChar()` helper for filter continuity when looping
+- `openValMenuDirect()` for red chip click
+- Modified `confirmSelection()` — val-phase loop back to dim list; dim-phase Enter closes when all required filled
+- Modified `selectByIndex()` — val-phase loop (dim-phase unchanged — number keys always go to value list)
 - Red dashed chip display in template
-- Menu footer state display
+- Menu footer + dim list item badges
 
 - [ ] **Step 1: Add computed properties for required dimension tracking**
 
@@ -508,7 +556,7 @@ const missingRequired = computed(() => {
 });
 ```
 
-- [ ] **Step 2: Add `openValMenuDirect` function for red chip click**
+- [ ] **Step 2: Add helper functions — `openValMenuDirect` and `insertAtChar`**
 
 After `openDimMenu()` (line ~109), add:
 
@@ -521,27 +569,24 @@ function openValMenuDirect(dimKey: string) {
   selectedIndex.value = 0;
   filterText.value = "";
   menuVisible.value = true;
+  // Focus the input so keyboard navigation works
+  inputEl.value?.focus();
 }
-```
 
-- [ ] **Step 2b: Add `insertAtChar` helper**
-
-After `openDimMenu()`, add a small helper that injects `@` at the current cursor position. Needed so `extractFilterFromInput` can still extract filter text when the menu loops back to dim phase:
-
-```typescript
-/// Insert a bare @ at cursor position, so the dim-phase filter can pick up.
+/// Insert a bare @ at cursor position, so `extractFilterFromInput`
+/// can still extract filter text when the menu loops back to dim phase.
 function insertAtChar() {
   const cursorPos = inputEl.value?.selectionStart ?? input.value.length;
   input.value = input.value.slice(0, cursorPos) + "@" + input.value.slice(cursorPos);
 }
 ```
 
-- [ ] **Step 3: Modify `confirmSelection()` — loop back to dim list after value selection**
+- [ ] **Step 3: Modify `confirmSelection()` — val-phase loop, dim-phase close**
 
-In `confirmSelection()` (lines ~141-153), change the val-phase branch:
+In `confirmSelection()`, change the val-phase block:
 
 ```typescript
-// REPLACE the val-phase block:
+// REPLACE:
   } else if (menuPhase.value === "val" && activeDimKey.value && item.value) {
     dimValues.value = { ...dimValues.value, [activeDimKey.value]: item.value };
     removeMentionFromInput();
@@ -563,9 +608,7 @@ In `confirmSelection()` (lines ~141-153), change the val-phase branch:
   }
 ```
 
-- [ ] **Step 4: Modify `confirmSelection()` — dim-phase Enter closes when all required filled**
-
-In `confirmSelection()`, change the dim-phase block:
+Change the dim-phase block:
 
 ```typescript
 // REPLACE:
@@ -585,11 +628,9 @@ In `confirmSelection()`, change the dim-phase block:
   }
 ```
 
-- [ ] **Step 5: Modify `selectByIndex()` — val-phase loop, dim-phase unchanged**
+- [ ] **Step 4: Modify `selectByIndex()` — val-phase loop, dim-phase unchanged**
 
-Number keys (1-9) in dim phase always open the value list (unchanged — user may want to select an optional dim or change a filled one). Only Enter is the "close" key. But val phase must ALSO loop (like `confirmSelection`):
-
-In `selectByIndex()` (lines ~155-167), change only the val-phase branch:
+Number keys (1-9) in dim phase **always** open the value list (unchanged). Only val phase needs the loop:
 
 ```typescript
 // REPLACE val-phase block:
@@ -608,36 +649,33 @@ In `selectByIndex()` (lines ~155-167), change only the val-phase branch:
       closeMenu();
       inputEl.value?.focus();
     } else {
-      insertAtChar();     // re-insert @ so filter works
-      openDimMenu();      // loop back to dimension list
+      insertAtChar();
+      openDimMenu();
     }
   }
 ```
 
-- [ ] **Step 6: Add missing-required red dashed chips to template**
+Do NOT change the dim-phase branch of `selectByIndex` — number keys always navigate to value list.
 
-In the template, find the chips row div (around line ~454: `<div class="flex flex-wrap gap-1.5 mt-2 min-h-[24px] items-center">`). Add the missing-required chips inside this row, after the existing chip loop ends and before the italic placeholder `@ to set dimensions`:
+- [ ] **Step 5: Add missing-required red dashed chips to template**
+
+In the chips row `<div>` (around line ~454), after the `v-for="dim in dimensions"` loop's closing `</span>` and before the `@ to set dimensions` placeholder, add:
 
 ```html
 <!-- Missing required chips (red dashed) -->
 <span
   v-for="m in missingRequired"
   :key="'missing-' + m.key"
-  class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs cursor-pointer border border-dashed"
-  :class="{
-    'border-red-400 bg-red-50 text-red-700': true,
-  }"
+  class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs cursor-pointer border border-dashed border-red-400 bg-red-50 text-red-700"
   @click="openValMenuDirect(m.key)"
 >
   + {{ m.name }}
 </span>
 ```
 
-This goes inside the chips row `<div>`, after the existing `v-for="dim in dimensions"` loop's `</span>` and before the `<span v-if="Object.values(dimValues).every(v => !v)">`.
+- [ ] **Step 6: Add menu footer for required-remaining state**
 
-- [ ] **Step 7: Add menu footer showing required-remaining state**
-
-In the template, inside the menu `<div ref="menuEl">`, after `<div v-if="getMenuItems().length === 0">No matches</div>`, add:
+Inside the menu `<div ref="menuEl">`, after the "No matches" empty state `<div>`, add:
 
 ```html
 <div
@@ -650,14 +688,11 @@ In the template, inside the menu `<div ref="menuEl">`, after `<div v-if="getMenu
 </div>
 ```
 
-- [ ] **Step 8: Update the menu header to show `*` for required dims in dim list**
+- [ ] **Step 7: Add required/✓ badges to dim list items in menu**
 
-In the menu header, the subtitle already shows dimension name. No change needed for the header — the dim list items already show properly. But let's add required/optional badges to the dim items themselves.
-
-In the template, find `getMenuItems()` section for `menuPhase === 'dim'`. After `<span class="flex-1">{{ item.label }}</span>`, add a required badge. The dim items in the menu are rendered via `getMenuItems()`, which returns `MenuItem` objects. The `MenuItem` interface needs a `required` field added:
+Extend `MenuItem` interface (around line 68):
 
 ```typescript
-// In the MenuItem interface (around line 68):
 interface MenuItem {
   label: string;
   sub?: string | null;
@@ -665,44 +700,52 @@ interface MenuItem {
   value?: string;
   required?: boolean;
 }
-
-// In getMenuItems(), add required to the dim phase return:
-if (menuPhase.value === "dim") {
-  return props.dimensions
-    .filter(...)
-    .map((d) => ({ label: d.name, sub: DIM_ALIASES.value[d.key] || d.key, key: d.key, required: d.required }));
-}
 ```
 
-Then in the template, in the dim-phase items, after `<span class="flex-1">{{ item.label }}</span>`, add:
+In `getMenuItems()`, add `required` to the dim phase return:
+
+```typescript
+// In the dim-phase branch of getMenuItems():
+return props.dimensions
+  .filter(...)
+  .map((d) => ({
+    label: d.name,
+    sub: DIM_ALIASES.value[d.key] || d.key,
+    key: d.key,
+    required: d.required,
+  }));
+```
+
+In the template, inside the dim-phase menu item, after `<span class="flex-1">{{ item.label }}</span>`, add:
 
 ```html
 <span v-if="menuPhase === 'dim' && item.required && !dimValues[item.key || '']" class="text-[10px] text-red-400">required</span>
 <span v-else-if="menuPhase === 'dim' && item.required && dimValues[item.key || '']" class="text-[10px] text-green-500">{{ dimValues[item.key || ''] }} ✓</span>
 ```
 
-- [ ] **Step 9: Run type check**
+- [ ] **Step 8: Run type check**
 
 ```bash
-cd /Users/boxcounter/Code/Boxcounter/logbook && npx vue-tsc --noEmit 2>&1 | head -30
+cd /Users/boxcounter/Code/Boxcounter/logbook && npx vue-tsc --noEmit
 ```
 
-Expected: Clean type check.
+Expected: Clean.
 
-- [ ] **Step 10: Manual verification checklist**
+- [ ] **Step 9: Manual verification**
 
-Since Vue component behavior is hard to unit-test without component testing infrastructure, verify manually:
+Launch the app and verify:
 
-1. Type `@` → see dimension list with required badges
-2. Select a required dim → see value list → pick value → menu returns to dim list (not closed)
-3. Dim list now shows `Value ✓` for the filled dim
-4. After filling all required dims → footer shows `All required ✓ · Enter to confirm`
-5. Press Enter → menu closes, chips show all values
-6. Type `@thing 30m` and click Log without setting required dims → red dashed chips appear
-7. Click red chip `+ Business line` → value list opens for Business line
-8. Pick value → if more required dims remaining, returns to dim list
+1. Type `@` → dim list shows required badges, filled dims show `Value ✓`
+2. Pick a required dim → value list → pick value → menu returns to dim list (not closed)
+3. After filling all required dims → footer: `All required ✓ · Enter to confirm`
+4. Press Enter → menu closes; chips show all values
+5. Type an entry without setting required dims, click Log → red dashed chips appear below input
+6. Click red chip `+ Business line` → value list opens for Business line
+7. Pick value → if more required dims remaining, returns to dim list; otherwise closes
+8. Number keys (1-9) in dim phase always navigate to value list (even when all required are filled)
+9. Press Esc anytime → menu closes (even with missing required dims — red chips handle that flow)
 
-- [ ] **Step 11: Commit**
+- [ ] **Step 10: Commit**
 
 ```bash
 git add src/components/EntryInput.vue
@@ -711,14 +754,16 @@ git commit -m "feat: @ menu loop + missing required chips in EntryInput"
 
 ---
 
-### Task 6: DimensionPanel.vue — required `*` indicator
+### Task 7: DimensionPanel.vue — required `*` indicator
+
+**Role:** Single agent. Small template change.
 
 **Files:**
 - Modify: `src/components/DimensionPanel.vue`
 
 - [ ] **Step 1: Add `*` to required dimension labels**
 
-In the template, find the `<label>` for `effectiveDimensions` (the static dimensions loop):
+For `effectiveDimensions` loop:
 
 ```html
 <!-- REPLACE: -->
@@ -730,7 +775,7 @@ In the template, find the `<label>` for `effectiveDimensions` (the static dimens
 </label>
 ```
 
-Also update the `monthlyDimension` label if present — though monthly dims are typically not required. Keep consistent:
+For `monthlyDimension`:
 
 ```html
 <!-- REPLACE: -->
@@ -742,9 +787,9 @@ Also update the `monthlyDimension` label if present — though monthly dims are 
 </label>
 ```
 
-- [ ] **Step 2: Add `* required` legend at the bottom**
+- [ ] **Step 2: Add `* required` legend**
 
-After the last select element (the `</div>` that closes `flex flex-col gap-2`), add:
+After the closing `</div>` of `flex flex-col gap-2`:
 
 ```html
 <div class="text-[10px] text-gray-400 mt-1">
@@ -769,7 +814,9 @@ git commit -m "feat: add required * indicator to DimensionPanel labels"
 
 ---
 
-### Task 7: Final verification — full stack
+### Task 8: Final verification — full stack
+
+**Role:** Any agent. Integration check across all changes.
 
 - [ ] **Step 1: Run full Rust test suite**
 
