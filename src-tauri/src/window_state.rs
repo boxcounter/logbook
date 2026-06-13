@@ -77,11 +77,15 @@ pub fn restore_window_state(window: &tauri::WebviewWindow, app_data_dir: &std::p
         _ => {
             if let Ok(Some(monitor)) = window.primary_monitor() {
                 let size = monitor.size();
-                let _ = window.set_size(tauri::PhysicalSize::new(
-                    (size.width as f64 * 0.9) as u32,
-                    (size.height as f64 * 0.9) as u32,
-                ));
-                // window is centered by default via tauri.conf.json "center": true
+                let new_width = (size.width as f64 * 0.9) as u32;
+                let new_height = (size.height as f64 * 0.9) as u32;
+                let mon_pos = monitor.position();
+                // Center on the monitor — set_size does not re-center,
+                // so we must calculate the centered position manually.
+                let x = mon_pos.x + (size.width as i32 - new_width as i32) / 2;
+                let y = mon_pos.y + (size.height as i32 - new_height as i32) / 2;
+                let _ = window.set_size(tauri::PhysicalSize::new(new_width, new_height));
+                let _ = window.set_position(tauri::PhysicalPosition::new(x, y));
             }
         }
     }
@@ -111,11 +115,13 @@ pub fn save_window_state(window: &tauri::WebviewWindow, app_data_dir: &std::path
     }
 }
 
-/// Register a close handler that persists window state on destroy.
+/// Register a close handler that persists window state before the window is destroyed.
+/// Uses CloseRequested (not Destroyed) because outer_size/outer_position are
+/// still valid before the window closes.
 pub fn register_save_on_close(window: &tauri::WebviewWindow, app_data_dir: PathBuf) {
     let w = window.clone();
     w.clone().on_window_event(move |event| {
-        if let tauri::WindowEvent::Destroyed = event {
+        if let tauri::WindowEvent::CloseRequested { .. } = event {
             save_window_state(&w, &app_data_dir);
         }
     });
