@@ -71,24 +71,49 @@ pub fn restore_window_state(window: &tauri::WebviewWindow, app_data_dir: &std::p
         .ok()
         .and_then(|s| serde_json::from_str::<WindowState>(&s).ok());
 
+    let scale = window.scale_factor().unwrap_or(1.0);
     let monitors = current_monitors(window);
+    crate::error_log::log_info(
+        "RESTORE",
+        &format!(
+            "saved={:?}, scale={:.1}, monitor_count={}",
+            saved_state,
+            scale,
+            monitors.len()
+        ),
+    );
 
     match saved_state {
-        Some(state)
+        Some(ref state)
             if is_position_valid(&monitors, state.x, state.y, state.width, state.height) =>
         {
-            let _ = window.set_size(tauri::LogicalSize::new(
+            crate::error_log::log_info(
+                "RESTORE",
+                &format!(
+                    "RESTORING {}x{} at ({},{})",
+                    state.width, state.height, state.x, state.y
+                ),
+            );
+            let size_res = window.set_size(tauri::LogicalSize::new(
                 state.width as f64,
                 state.height as f64,
             ));
-            let _ = window.set_position(tauri::LogicalPosition::new(
+            let pos_res = window.set_position(tauri::LogicalPosition::new(
                 state.x as f64,
                 state.y as f64,
             ));
+            crate::error_log::log_info(
+                "RESTORE",
+                &format!("set_size={:?}, set_position={:?}", size_res, pos_res),
+            );
+            let _ = window.show();
         }
         _ => {
-            if let Ok(Some(monitor)) = window.primary_monitor() {
-                let scale = window.scale_factor().unwrap_or(1.0);
+            let valid = saved_state.as_ref()
+                .map_or(false, |s| is_position_valid(&monitors, s.x, s.y, s.width, s.height));
+            crate::error_log::log_info("RESTORE", &format!("FALLBACK, valid={}", valid));
+            let monitor_res = window.primary_monitor();
+            if let Ok(Some(monitor)) = monitor_res {
                 let size = monitor.size();
                 let logical_w = size.width as f64 / scale;
                 let logical_h = size.height as f64 / scale;
@@ -100,8 +125,15 @@ pub fn restore_window_state(window: &tauri::WebviewWindow, app_data_dir: &std::p
                 let new_h = logical_h * 0.9;
                 let x = logical_mx + (logical_w - new_w) / 2.0;
                 let y = logical_my + (logical_h - new_h) / 2.0;
+                crate::error_log::log_info(
+                    "RESTORE",
+                    &format!("FALLBACK size={:.0}x{:.0} at ({:.0},{:.0})", new_w, new_h, x, y),
+                );
                 let _ = window.set_size(tauri::LogicalSize::new(new_w, new_h));
                 let _ = window.set_position(tauri::LogicalPosition::new(x, y));
+                let _ = window.show();
+            } else {
+                crate::error_log::log_error("RESTORE", "primary_monitor returned None/Err");
             }
         }
     }
