@@ -43,7 +43,10 @@ describe("TodayView", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
-    mockInvoke.mockResolvedValue(makeDayFile());
+    mockInvoke.mockImplementation(async (cmd: string) => {
+      if (cmd === "get_commitment_progress") return [];
+      return makeDayFile();
+    });
   });
 
   afterEach(() => {
@@ -88,6 +91,35 @@ describe("TodayView", () => {
 
     expect(store.periodEntries[todayStr]).toBeDefined();
     expect(store.periodEntries[todayStr].length).toBe(1);
+  });
+
+  it("loadPeriod: calls get_commitment_progress after loading entries", async () => {
+    const { wrapper } = mountToday({ currentDate: todayStr, granularity: "day" });
+    const nav = wrapper.findComponent({ name: "DateNavigator" });
+    await nav.vm.$emit("navigate");
+
+    expect(mockInvoke).toHaveBeenCalledWith("get_commitment_progress", expect.objectContaining({
+      rootPath: "/test",
+      year: TODAY.getFullYear(),
+      month: TODAY.getMonth() + 1,
+    }));
+  });
+
+  it("loadPeriod: stores commitment progress in store", async () => {
+    mockInvoke.mockImplementation(async (cmd: string) => {
+      if (cmd === "get_commitment_progress") return [
+        { role: "Dev", allocation_minutes: 1800, spent_minutes: 300, goals: [] },
+      ];
+      return makeDayFile();
+    });
+
+    const { wrapper, store } = mountToday({ currentDate: todayStr, granularity: "day" });
+    const nav = wrapper.findComponent({ name: "DateNavigator" });
+    await nav.vm.$emit("navigate");
+
+    expect(store.commitmentProgress).toEqual([
+      { role: "Dev", allocation_minutes: 1800, spent_minutes: 300, goals: [] },
+    ]);
   });
 
   it("handleUpdateEntry: calls invoke with only changed fields", async () => {
@@ -248,5 +280,15 @@ describe("TodayView", () => {
   it("hides file path button when no rootPath", () => {
     const { wrapper } = mountToday({ rootPath: "" });
     expect(wrapper.find(".text-right button").exists()).toBe(false);
+  });
+
+  it("passes commitmentProgress and selected date to CommitmentsPanel", () => {
+    const progress = [{ role: "Dev", allocation_minutes: 1800, spent_minutes: 300, goals: [] }];
+    const { wrapper } = mountToday({ commitmentProgress: progress });
+
+    const panel = wrapper.findComponent({ name: "CommitmentsPanel" });
+    expect(panel.props("progress")).toEqual(progress);
+    expect(panel.props("selectedYear")).toBe(TODAY.getFullYear());
+    expect(panel.props("selectedMonth")).toBe(TODAY.getMonth() + 1);
   });
 });
