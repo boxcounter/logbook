@@ -71,9 +71,6 @@ const totalRequiredDims = computed(() =>
   props.dimensions.filter(d => d.required).length
 );
 
-// Satisfy noUnusedLocals until template integration in subsequent phases
-void [dimBarColor, getValueCount, totalRequiredDims as unknown, goBackToDim as unknown];
-
 const missingRequired = computed(() => {
   return props.dimensions
     .filter(d => d.required && !dimValues.value[d.key])
@@ -515,9 +512,21 @@ function onInputBlur() {
         style="top: 100%; margin-top: 4px;"
         @mousedown="onMenuMouseDown"
       >
-        <div class="px-3 py-1.5 text-[10px] text-gray-400 uppercase tracking-wide border-b border-gray-100">
-          <template v-if="menuPhase === 'dim'">Pick a dimension</template>
-          <template v-else>Pick a value for <b>{{ activeDimKey ? (DIM_ALIASES[activeDimKey] || activeDimKey) : '' }}</b></template>
+        <!-- dim phase header -->
+        <div
+          v-if="menuPhase === 'dim'"
+          class="px-3 py-1.5 text-[10px] uppercase tracking-wide border-b border-gray-100 bg-gray-800 text-gray-200 flex items-center gap-2"
+        >
+          <span class="bg-gray-600 px-1.5 py-0.5 rounded text-[9px] font-medium">DIM</span>
+          Pick a dimension
+        </div>
+        <!-- val phase header -->
+        <div
+          v-else-if="menuPhase === 'val'"
+          class="px-3 py-1.5 text-[10px] border-b border-gray-100 bg-blue-50 text-blue-600 flex items-center gap-2"
+        >
+          <button type="button" class="font-bold text-xs hover:text-blue-800 leading-none" @click="goBackToDim">&larr;</button>
+          <span>Pick a value for <b class="text-blue-800">{{ activeDimKey ? (DIM_ALIASES[activeDimKey] || activeDimKey) : '' }}</b></span>
         </div>
         <template v-for="(item, i) in getMenuItems()" :key="i">
           <div
@@ -525,26 +534,55 @@ function onInputBlur() {
             :class="{ 'bg-blue-50': i === selectedIndex }"
             :data-idx="i"
           >
+            <!-- Dim phase: colored bar; Val phase: no bar -->
             <span
-              class="text-[10px] rounded w-[18px] h-[18px] inline-flex items-center justify-center flex-shrink-0 tabular-nums"
-              :class="i === selectedIndex ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-400'"
-            >{{ i + 1 }}</span>
-            <span class="flex-1">{{ item.label }}</span>
-            <span v-if="menuPhase === 'dim' && item.required && !dimValues[item.key || '']" class="text-[10px] text-red-400">required</span>
-            <span v-else-if="menuPhase === 'dim' && item.required && dimValues[item.key || '']" class="text-[10px] text-green-500">{{ dimValues[item.key || ''] }} ✓</span>
-            <span v-if="menuPhase === 'dim' && item.sub" class="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{{ item.sub }}</span>
+              v-if="menuPhase === 'dim'"
+              class="w-[3px] h-[22px] rounded-full flex-shrink-0"
+              :class="dimBarColor(item.key || '')"
+            ></span>
+            <span
+              class="flex-1"
+              :class="{ 'pl-1': menuPhase === 'val' }"
+            >{{ item.label }}</span>
+            <!-- Dim phase right-side info: value count or filled checkmark -->
+            <span
+              v-if="menuPhase === 'dim' && item.required && !dimValues[item.key || '']"
+              class="text-[10px] text-gray-400"
+            >{{ getValueCount(props.dimensions, item.key || '', goalOptions) }} values</span>
+            <span
+              v-else-if="menuPhase === 'dim' && item.required && dimValues[item.key || '']"
+              class="text-[10px] text-green-500"
+            >{{ dimValues[item.key || ''] }} ✓</span>
           </div>
         </template>
         <div v-if="getMenuItems().length === 0" class="px-3 py-2 text-gray-400 text-xs">
           No matches
         </div>
+        <!-- Dim phase footer: dot progress indicator -->
         <div
-          v-if="menuPhase === 'dim'"
-          class="px-3 py-1 text-[10px] border-t border-gray-100"
+          v-if="menuPhase === 'dim' && totalRequiredDims > 0"
+          class="px-3 py-1.5 text-[10px] border-t border-gray-100 flex items-center gap-1"
           :class="allRequiredFilled ? 'text-green-600' : 'text-gray-400'"
         >
-          <template v-if="allRequiredFilled">All required ✓ · Enter to confirm</template>
-          <template v-else>{{ requiredRemaining }} required remaining</template>
+          <template v-if="allRequiredFilled">
+            All required ✓ · Enter to confirm
+          </template>
+          <template v-else>
+            <span
+              v-for="n in totalRequiredDims"
+              :key="n"
+              class="inline-block w-[6px] h-[6px] rounded-full"
+              :class="n <= (totalRequiredDims - requiredRemaining) ? 'bg-green-400' : 'bg-gray-300'"
+            ></span>
+            <span class="ml-1">{{ requiredRemaining }} to go</span>
+          </template>
+        </div>
+        <!-- Val phase footer: navigation hint -->
+        <div
+          v-if="menuPhase === 'val'"
+          class="px-3 py-1.5 text-[10px] text-gray-400 border-t border-gray-100"
+        >
+          &larr; Back to dimensions · Type to filter
         </div>
       </div>
     </div>
