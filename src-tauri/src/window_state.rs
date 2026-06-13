@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 
-/// Persisted window geometry.
+/// Persisted window geometry — stored in logical (DPI-independent) coordinates.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WindowState {
     pub x: i32,
@@ -13,7 +13,7 @@ pub struct WindowState {
 /// In-memory cache updated on every move/resize. Written to disk on app exit.
 static CACHED_STATE: Mutex<Option<WindowState>> = Mutex::new(None);
 
-/// A monitor's bounds in physical coordinates. Used for position validation.
+/// A monitor's bounds in logical coordinates. Used for position validation.
 #[derive(Debug, PartialEq)]
 struct MonitorRect {
     x: i32,
@@ -44,6 +44,7 @@ fn is_position_valid(monitors: &[MonitorRect], x: i32, y: i32, width: u32, heigh
 }
 
 fn current_monitors(window: &tauri::WebviewWindow) -> Vec<MonitorRect> {
+    let scale = window.scale_factor().unwrap_or(1.0);
     window
         .available_monitors()
         .map(|ms| {
@@ -52,10 +53,10 @@ fn current_monitors(window: &tauri::WebviewWindow) -> Vec<MonitorRect> {
                     let pos = m.position();
                     let size = m.size();
                     MonitorRect {
-                        x: pos.x,
-                        y: pos.y,
-                        width: size.width,
-                        height: size.height,
+                        x: (pos.x as f64 / scale) as i32,
+                        y: (pos.y as f64 / scale) as i32,
+                        width: (size.width as f64 / scale) as u32,
+                        height: (size.height as f64 / scale) as u32,
                     }
                 })
                 .collect()
@@ -76,19 +77,31 @@ pub fn restore_window_state(window: &tauri::WebviewWindow, app_data_dir: &std::p
         Some(state)
             if is_position_valid(&monitors, state.x, state.y, state.width, state.height) =>
         {
-            let _ = window.set_size(tauri::PhysicalSize::new(state.width, state.height));
-            let _ = window.set_position(tauri::PhysicalPosition::new(state.x, state.y));
+            let _ = window.set_size(tauri::LogicalSize::new(
+                state.width as f64,
+                state.height as f64,
+            ));
+            let _ = window.set_position(tauri::LogicalPosition::new(
+                state.x as f64,
+                state.y as f64,
+            ));
         }
         _ => {
             if let Ok(Some(monitor)) = window.primary_monitor() {
+                let scale = window.scale_factor().unwrap_or(1.0);
                 let size = monitor.size();
-                let new_width = (size.width as f64 * 0.9) as u32;
-                let new_height = (size.height as f64 * 0.9) as u32;
+                let logical_w = size.width as f64 / scale;
+                let logical_h = size.height as f64 / scale;
                 let mon_pos = monitor.position();
-                let x = mon_pos.x + (size.width as i32 - new_width as i32) / 2;
-                let y = mon_pos.y + (size.height as i32 - new_height as i32) / 2;
-                let _ = window.set_size(tauri::PhysicalSize::new(new_width, new_height));
-                let _ = window.set_position(tauri::PhysicalPosition::new(x, y));
+                let logical_mx = mon_pos.x as f64 / scale;
+                let logical_my = mon_pos.y as f64 / scale;
+
+                let new_w = logical_w * 0.9;
+                let new_h = logical_h * 0.9;
+                let x = logical_mx + (logical_w - new_w) / 2.0;
+                let y = logical_my + (logical_h - new_h) / 2.0;
+                let _ = window.set_size(tauri::LogicalSize::new(new_w, new_h));
+                let _ = window.set_position(tauri::LogicalPosition::new(x, y));
             }
         }
     }
@@ -108,17 +121,18 @@ pub fn register_state_tracking(window: &tauri::WebviewWindow) {
     });
 }
 
-/// Read current window geometry into the static cache.
+/// Read current window geometry (physical) and convert to logical for the cache.
 fn update_cache(window: &tauri::WebviewWindow) {
     if let Ok(true) = window.is_maximized() {
         return; // don't cache maximized state
     }
+    let scale = window.scale_factor().unwrap_or(1.0);
     if let (Ok(size), Ok(position)) = (window.outer_size(), window.outer_position()) {
         let state = WindowState {
-            x: position.x,
-            y: position.y,
-            width: size.width,
-            height: size.height,
+            x: (position.x as f64 / scale) as i32,
+            y: (position.y as f64 / scale) as i32,
+            width: (size.width as f64 / scale) as u32,
+            height: (size.height as f64 / scale) as u32,
         };
         if let Ok(mut cache) = CACHED_STATE.lock() {
             *cache = Some(state);
