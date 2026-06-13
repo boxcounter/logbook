@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::sync::Mutex;
 
 /// Persisted window geometry.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WindowState {
     pub x: i32,
     pub y: i32,
@@ -10,8 +10,10 @@ pub struct WindowState {
     pub height: u32,
 }
 
+/// In-memory cache updated on every move/resize. Written to disk on app exit.
+static CACHED_STATE: Mutex<Option<WindowState>> = Mutex::new(None);
+
 /// A monitor's bounds in physical coordinates. Used for position validation.
-/// Exists for testability — separates geometry math from Tauri types.
 #[derive(Debug, PartialEq)]
 struct MonitorRect {
     x: i32,
@@ -21,7 +23,6 @@ struct MonitorRect {
 }
 
 /// Check whether a window rect overlaps at least one monitor.
-/// Pure function — unit-testable.
 fn is_position_valid(monitors: &[MonitorRect], x: i32, y: i32, width: u32, height: u32) -> bool {
     let window_left = x;
     let window_right = x + width as i32;
@@ -42,14 +43,8 @@ fn is_position_valid(monitors: &[MonitorRect], x: i32, y: i32, width: u32, heigh
     false
 }
 
-/// Restore saved window state, or fall back to 90% of primary monitor.
-pub fn restore_window_state(window: &tauri::WebviewWindow, app_data_dir: &std::path::Path) {
-    let state_path = app_data_dir.join("window_state.json");
-    let saved_state = std::fs::read_to_string(&state_path)
-        .ok()
-        .and_then(|s| serde_json::from_str::<WindowState>(&s).ok());
-
-    let monitors: Vec<MonitorRect> = window
+fn current_monitors(window: &tauri::WebviewWindow) -> Vec<MonitorRect> {
+    window
         .available_monitors()
         .map(|ms| {
             ms.iter()
@@ -65,7 +60,17 @@ pub fn restore_window_state(window: &tauri::WebviewWindow, app_data_dir: &std::p
                 })
                 .collect()
         })
-        .unwrap_or_default();
+        .unwrap_or_default()
+}
+
+/// Restore saved window state from disk, or fall back to 90% of primary monitor.
+pub fn restore_window_state(window: &tauri::WebviewWindow, app_data_dir: &std::path::Path) {
+    let state_path = app_data_dir.join("window_state.json");
+    let saved_state = std::fs::read_to_string(&state_path)
+        .ok()
+        .and_then(|s| serde_json::from_str::<WindowState>(&s).ok());
+
+    let monitors = current_monitors(window);
 
     match saved_state {
         Some(state)
@@ -80,8 +85,6 @@ pub fn restore_window_state(window: &tauri::WebviewWindow, app_data_dir: &std::p
                 let new_width = (size.width as f64 * 0.9) as u32;
                 let new_height = (size.height as f64 * 0.9) as u32;
                 let mon_pos = monitor.position();
-                // Center on the monitor — set_size does not re-center,
-                // so we must calculate the centered position manually.
                 let x = mon_pos.x + (size.width as i32 - new_width as i32) / 2;
                 let y = mon_pos.y + (size.height as i32 - new_height as i32) / 2;
                 let _ = window.set_size(tauri::PhysicalSize::new(new_width, new_height));
@@ -91,40 +94,50 @@ pub fn restore_window_state(window: &tauri::WebviewWindow, app_data_dir: &std::p
     }
 }
 
-/// Save current window geometry to disk. No-op if window is maximized
-/// (to preserve the pre-maximized state).
-pub fn save_window_state(window: &tauri::WebviewWindow, app_data_dir: &std::path::Path) {
-    if window.is_maximized().unwrap_or(false) {
-        return;
+/// Start tracking window geometry changes. Updates the in-memory cache
+/// on every move/resize so the latest state is available at exit time.
+pub fn register_state_tracking(window: &tauri::WebviewWindow) {
+    let w = window.clone();
+    w.clone().on_window_event(move |event| {
+        match event {
+            tauri::WindowEvent::Moved(_) | tauri::WindowEvent::Resized(_) => {
+                update_cache(&w);
+            }
+            _ => {}
+        }
+    });
+}
+
+/// Read current window geometry into the static cache.
+fn update_cache(window: &tauri::WebviewWindow) {
+    if let Ok(true) = window.is_maximized() {
+        return; // don't cache maximized state
     }
-
-    let (Ok(size), Ok(position)) = (window.outer_size(), window.outer_position()) else {
-        return;
-    };
-
-    let state = WindowState {
-        x: position.x,
-        y: position.y,
-        width: size.width,
-        height: size.height,
-    };
-
-    if let Ok(json) = serde_json::to_string(&state) {
-        let path = app_data_dir.join("window_state.json");
-        let _ = std::fs::write(&path, json);
+    if let (Ok(size), Ok(position)) = (window.outer_size(), window.outer_position()) {
+        let state = WindowState {
+            x: position.x,
+            y: position.y,
+            width: size.width,
+            height: size.height,
+        };
+        if let Ok(mut cache) = CACHED_STATE.lock() {
+            *cache = Some(state);
+        }
     }
 }
 
-/// Register a close handler that persists window state before the window is destroyed.
-/// Uses CloseRequested (not Destroyed) because outer_size/outer_position are
-/// still valid before the window closes.
-pub fn register_save_on_close(window: &tauri::WebviewWindow, app_data_dir: PathBuf) {
-    let w = window.clone();
-    w.clone().on_window_event(move |event| {
-        if let tauri::WindowEvent::CloseRequested { .. } = event {
-            save_window_state(&w, &app_data_dir);
+/// Write the cached window state to disk. Called on app exit.
+pub fn flush_to_disk(app_data_dir: &std::path::Path) {
+    let state = CACHED_STATE
+        .lock()
+        .ok()
+        .and_then(|c| c.clone());
+    if let Some(state) = state {
+        if let Ok(json) = serde_json::to_string(&state) {
+            let path = app_data_dir.join("window_state.json");
+            let _ = std::fs::write(&path, json);
         }
-    });
+    }
 }
 
 #[cfg(test)]
@@ -150,7 +163,6 @@ mod tests {
             width: 1920,
             height: 1080,
         }];
-        // window entirely to the right of the monitor
         assert!(!is_position_valid(&monitors, 2000, 100, 800, 600));
     }
 
@@ -162,7 +174,6 @@ mod tests {
             width: 1920,
             height: 1080,
         }];
-        // window partially off right edge
         assert!(is_position_valid(&monitors, 1500, 100, 800, 600));
     }
 
@@ -182,14 +193,11 @@ mod tests {
                 height: 900,
             },
         ];
-        // window on second monitor
         assert!(is_position_valid(&monitors, 2000, 100, 800, 600));
     }
 
     #[test]
     fn test_position_valid_no_monitors() {
-        // If we can't enumerate monitors, assume position is valid
-        // (handled by caller — is_position_valid with empty vec returns false)
         assert!(!is_position_valid(&[], 100, 100, 800, 600));
     }
 
@@ -201,7 +209,6 @@ mod tests {
             width: 1920,
             height: 1080,
         }];
-        // window filling the entire monitor
         assert!(is_position_valid(&monitors, 0, 0, 1920, 1080));
     }
 }

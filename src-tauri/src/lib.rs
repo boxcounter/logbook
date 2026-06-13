@@ -22,10 +22,10 @@ pub fn run() {
                 .app_local_data_dir()
                 .unwrap_or_else(|_| PathBuf::from("."));
             error_log::init(&app_data_dir);
-            // Restore window geometry (or 90% default) and persist on close
+            // Restore window geometry (or 90% default) and track changes
             if let Some(window) = app.get_webview_window("main") {
                 window_state::restore_window_state(&window, &app_data_dir);
-                window_state::register_save_on_close(&window, app_data_dir.clone());
+                window_state::register_state_tracking(&window);
             }
             if let Some(root_path) = files::read_root_path(&app_data_dir) {
                 if root_path.exists() {
@@ -50,6 +50,15 @@ pub fn run() {
             commands::log_error,
             commands::log_info,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app_handle, event| {
+            if let tauri::RunEvent::Exit = event {
+                let app_data_dir = app_handle
+                    .path()
+                    .app_local_data_dir()
+                    .unwrap_or_else(|_| PathBuf::from("."));
+                window_state::flush_to_disk(&app_data_dir);
+            }
+        });
 }
