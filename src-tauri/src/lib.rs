@@ -22,11 +22,25 @@ pub fn run() {
                 .app_local_data_dir()
                 .unwrap_or_else(|_| PathBuf::from("."));
             error_log::init(&app_data_dir);
-            // Restore window geometry (or 90% default) and track changes
-            if let Some(window) = app.get_webview_window("main") {
-                window_state::restore_window_state(&window, &app_data_dir);
-                window_state::register_state_tracking(&window);
-            }
+
+            // Resolve initial geometry BEFORE creating the window so
+            // WebviewWindowBuilder can pass it to the OS at creation time.
+            // This avoids the async set_size message race on macOS.
+            let (width, height, x, y) =
+                window_state::resolve_initial_geometry(&app_handle, &app_data_dir);
+            let window = tauri::WebviewWindowBuilder::new(
+                app,
+                "main",
+                tauri::WebviewUrl::App("index.html".into()),
+            )
+            .title("Logbook")
+            .inner_size(width as f64, height as f64)
+            .position(x as f64, y as f64)
+            .build()
+            .expect("failed to create main window");
+
+            window_state::register_state_tracking(&window);
+
             if let Some(root_path) = files::read_root_path(&app_data_dir) {
                 if root_path.exists() {
                     files::cleanup_tmp_files(&root_path);

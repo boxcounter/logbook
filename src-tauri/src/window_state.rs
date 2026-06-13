@@ -22,7 +22,6 @@ struct MonitorRect {
     height: u32,
 }
 
-/// Check whether a window rect overlaps at least one monitor.
 fn is_position_valid(monitors: &[MonitorRect], x: i32, y: i32, width: u32, height: u32) -> bool {
     let window_left = x;
     let window_right = x + width as i32;
@@ -43,13 +42,25 @@ fn is_position_valid(monitors: &[MonitorRect], x: i32, y: i32, width: u32, heigh
     false
 }
 
-fn current_monitors(window: &tauri::WebviewWindow) -> Vec<MonitorRect> {
-    let scale = window.scale_factor().unwrap_or(1.0);
-    window
+/// Read saved state and compute initial window geometry in logical coordinates.
+/// Returns (width, height, x, y). Called before the window is created so
+/// the builder can set the size at creation time — avoiding the async
+/// set_size message race that plagues the post-creation approach on macOS.
+pub fn resolve_initial_geometry(
+    app_handle: &tauri::AppHandle,
+    app_data_dir: &std::path::Path,
+) -> (u32, u32, i32, i32) {
+    let state_path = app_data_dir.join("window_state.json");
+    let saved_state = std::fs::read_to_string(&state_path)
+        .ok()
+        .and_then(|s| serde_json::from_str::<WindowState>(&s).ok());
+
+    let monitors: Vec<MonitorRect> = app_handle
         .available_monitors()
         .map(|ms| {
             ms.iter()
                 .map(|m| {
+                    let scale = m.scale_factor();
                     let pos = m.position();
                     let size = m.size();
                     MonitorRect {
@@ -61,82 +72,46 @@ fn current_monitors(window: &tauri::WebviewWindow) -> Vec<MonitorRect> {
                 })
                 .collect()
         })
-        .unwrap_or_default()
-}
+        .unwrap_or_default();
 
-/// Restore saved window state from disk, or fall back to 90% of primary monitor.
-pub fn restore_window_state(window: &tauri::WebviewWindow, app_data_dir: &std::path::Path) {
-    let state_path = app_data_dir.join("window_state.json");
-    let saved_state = std::fs::read_to_string(&state_path)
-        .ok()
-        .and_then(|s| serde_json::from_str::<WindowState>(&s).ok());
-
-    let scale = window.scale_factor().unwrap_or(1.0);
-    let monitors = current_monitors(window);
-    crate::error_log::log_info(
-        "RESTORE",
-        &format!(
-            "saved={:?}, scale={:.1}, monitor_count={}",
-            saved_state,
-            scale,
-            monitors.len()
-        ),
-    );
-
-    match saved_state {
-        Some(ref state)
-            if is_position_valid(&monitors, state.x, state.y, state.width, state.height) =>
-        {
+    // Try saved state first
+    if let Some(ref state) = saved_state {
+        if is_position_valid(&monitors, state.x, state.y, state.width, state.height) {
             crate::error_log::log_info(
                 "RESTORE",
                 &format!(
-                    "RESTORING {}x{} at ({},{})",
+                    "using saved: {}x{} at ({},{})",
                     state.width, state.height, state.x, state.y
                 ),
             );
-            let size_res = window.set_size(tauri::LogicalSize::new(
-                state.width as f64,
-                state.height as f64,
-            ));
-            let pos_res = window.set_position(tauri::LogicalPosition::new(
-                state.x as f64,
-                state.y as f64,
-            ));
-            crate::error_log::log_info(
-                "RESTORE",
-                &format!("set_size={:?}, set_position={:?}", size_res, pos_res),
-            );
-            let _ = window.show();
-        }
-        _ => {
-            let valid = saved_state.as_ref()
-                .map_or(false, |s| is_position_valid(&monitors, s.x, s.y, s.width, s.height));
-            crate::error_log::log_info("RESTORE", &format!("FALLBACK, valid={}", valid));
-            let monitor_res = window.primary_monitor();
-            if let Ok(Some(monitor)) = monitor_res {
-                let size = monitor.size();
-                let logical_w = size.width as f64 / scale;
-                let logical_h = size.height as f64 / scale;
-                let mon_pos = monitor.position();
-                let logical_mx = mon_pos.x as f64 / scale;
-                let logical_my = mon_pos.y as f64 / scale;
-
-                let new_w = logical_w * 0.9;
-                let new_h = logical_h * 0.9;
-                let x = logical_mx + (logical_w - new_w) / 2.0;
-                let y = logical_my + (logical_h - new_h) / 2.0;
-                crate::error_log::log_info(
-                    "RESTORE",
-                    &format!("FALLBACK size={:.0}x{:.0} at ({:.0},{:.0})", new_w, new_h, x, y),
-                );
-                let _ = window.set_size(tauri::LogicalSize::new(new_w, new_h));
-                let _ = window.set_position(tauri::LogicalPosition::new(x, y));
-                let _ = window.show();
-            } else {
-                crate::error_log::log_error("RESTORE", "primary_monitor returned None/Err");
-            }
+            return (state.width, state.height, state.x, state.y);
         }
     }
+
+    // Fallback: 90% of primary monitor, centered
+    if let Ok(Some(monitor)) = app_handle.primary_monitor() {
+        let scale = monitor.scale_factor();
+        let size = monitor.size();
+        let pos = monitor.position();
+        let logical_w = size.width as f64 / scale;
+        let logical_h = size.height as f64 / scale;
+        let logical_x = pos.x as f64 / scale;
+        let logical_y = pos.y as f64 / scale;
+
+        let w = (logical_w * 0.9) as u32;
+        let h = (logical_h * 0.9) as u32;
+        let x = (logical_x + (logical_w - w as f64) / 2.0) as i32;
+        let y = (logical_y + (logical_h - h as f64) / 2.0) as i32;
+        crate::error_log::log_info(
+            "RESTORE",
+            &format!("fallback 90%: {}x{} at ({},{})", w, h, x, y),
+        );
+        return (w, h, x, y);
+    }
+
+    // Absolute fallback
+    crate::error_log::log_info("RESTORE", "fallback: default 800x600");
+    (800, 600, 0, 0)
 }
 
 /// Start tracking window geometry changes. Updates the in-memory cache
@@ -153,7 +128,6 @@ pub fn register_state_tracking(window: &tauri::WebviewWindow) {
     });
 }
 
-/// Read current window geometry (physical) and convert to logical for the cache.
 fn update_cache(window: &tauri::WebviewWindow) {
     if let Ok(true) = window.is_maximized() {
         return; // don't cache maximized state
@@ -174,10 +148,7 @@ fn update_cache(window: &tauri::WebviewWindow) {
 
 /// Write the cached window state to disk. Called on app exit.
 pub fn flush_to_disk(app_data_dir: &std::path::Path) {
-    let state = CACHED_STATE
-        .lock()
-        .ok()
-        .and_then(|c| c.clone());
+    let state = CACHED_STATE.lock().ok().and_then(|c| c.clone());
     if let Some(state) = state {
         if let Ok(json) = serde_json::to_string(&state) {
             let path = app_data_dir.join("window_state.json");
