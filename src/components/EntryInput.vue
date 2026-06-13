@@ -3,6 +3,7 @@ import { ref, computed, inject, watch, nextTick, type Ref } from "vue";
 import type { Dimension, Commitment } from "../types";
 import { parseDurationFromText, stripDurations, formatDuration } from "../utils/format";
 import { logInfo } from "../utils/errorLog";
+import { dimBarColor, getValueCount, firstUnfilledRequiredIndex } from '../utils/mentionHelpers';
 
 const props = defineProps<{
   dimensions: Dimension[];
@@ -66,6 +67,13 @@ const requiredRemaining = computed(() => {
     .length;
 });
 
+const totalRequiredDims = computed(() =>
+  props.dimensions.filter(d => d.required).length
+);
+
+// Satisfy noUnusedLocals until template integration in subsequent phases
+void [dimBarColor, getValueCount, totalRequiredDims as unknown, goBackToDim as unknown];
+
 const missingRequired = computed(() => {
   return props.dimensions
     .filter(d => d.required && !dimValues.value[d.key])
@@ -124,12 +132,17 @@ function getMenuItems(): MenuItem[] {
   return [];
 }
 
-function openDimMenu() {
-  menuPhase.value = "dim";
+function openDimMenu(skipFilled: boolean = false) {
+  menuPhase.value = 'dim';
   activeDimKey.value = null;
-  selectedIndex.value = 0;
-  filterText.value = "";
+  filterText.value = '';
   menuVisible.value = true;
+  if (skipFilled) {
+    const items = getMenuItems();
+    selectedIndex.value = firstUnfilledRequiredIndex(items, dimValues.value);
+  } else {
+    selectedIndex.value = 0;
+  }
 }
 
 /// Open the @ menu directly at value selection for a specific dimension.
@@ -181,6 +194,25 @@ function closeMenu() {
   filterText.value = "";
 }
 
+/// Go back from val phase to dim phase (reverse of replaceMentionWithDimKey)
+function goBackToDim() {
+  const val = input.value;
+  const cursorPos = inputEl.value?.selectionStart ?? val.length;
+  const textBefore = val.slice(0, cursorPos);
+  const lastAt = textBefore.lastIndexOf('@');
+  if (lastAt === -1) return;
+  const afterAt = val.slice(lastAt);
+  const spaceIdx = afterAt.indexOf(' ');
+  if (spaceIdx !== -1) {
+    // Remove dimKey and space: "@dimKey rest" → "@rest"
+    input.value = val.slice(0, lastAt) + '@' + afterAt.slice(spaceIdx + 1);
+  }
+  menuPhase.value = 'dim';
+  activeDimKey.value = null;
+  filterText.value = '';
+  selectedIndex.value = 0;
+}
+
 function confirmSelection() {
   const items = getMenuItems();
   if (items.length === 0) return;
@@ -201,7 +233,7 @@ function confirmSelection() {
       inputEl.value?.focus();
     } else {
       insertAtChar();     // re-insert @ so filter works in dim phase
-      openDimMenu();      // loop back to dimension list
+      openDimMenu(true);      // loop back to dimension list
     }
   }
 }
@@ -220,7 +252,7 @@ function selectByIndex(idx: number) {
       inputEl.value?.focus();
     } else {
       insertAtChar();
-      openDimMenu();
+      openDimMenu(true);
     }
   }
 }
@@ -382,13 +414,6 @@ function onKeydown(e: KeyboardEvent) {
       inputEl.value?.focus();
       return;
     }
-  }
-
-  // Number keys: quick-select (1-9)
-  if (e.key >= "1" && e.key <= "9" && !e.ctrlKey && !e.metaKey) {
-    e.preventDefault();
-    selectByIndex(parseInt(e.key) - 1);
-    return;
   }
 
   // Enter / Tab: confirm
