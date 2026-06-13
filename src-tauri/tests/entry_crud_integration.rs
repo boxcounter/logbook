@@ -97,8 +97,8 @@ fn test_set_and_clear_day_note() {
     let df = tauri_app_lib::files::read_day_file(&root, date).unwrap();
     assert_eq!(df.note, Some("测试笔记".to_string()));
 
-    let df = tauri_app_lib::files::set_day_note_in_file(&root, date, "")
-        .expect("clear note failed");
+    let df =
+        tauri_app_lib::files::set_day_note_in_file(&root, date, "").expect("clear note failed");
     assert_eq!(df.note, None);
 
     teardown(suffix);
@@ -139,7 +139,11 @@ fn test_parse_duration_via_append() {
         };
         let entry = tauri_app_lib::files::append_new_entry(&root, date, &new_entry)
             .expect(&format!("append failed for '{}'", input));
-        assert_eq!(entry.duration, *expected, "duration mismatch for '{}'", input);
+        assert_eq!(
+            entry.duration, *expected,
+            "duration mismatch for '{}'",
+            input
+        );
     }
 
     let day_file = tauri_app_lib::files::read_day_file(&root, date).unwrap();
@@ -254,8 +258,7 @@ fn test_update_entry_rejects_clearing_required_dimension() {
         dimensions: Some(HashMap::new()), // clears biz
     };
 
-    let result =
-        tauri_app_lib::files::update_entry_in_file(&root, date, &entry.id, &update);
+    let result = tauri_app_lib::files::update_entry_in_file(&root, date, &entry.id, &update);
     assert!(
         result.is_err(),
         "should reject update that clears required dimension"

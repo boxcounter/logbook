@@ -14,12 +14,16 @@ fn fixture_root() -> std::path::PathBuf {
 #[test]
 fn test_read_and_validate_config() {
     let root = fixture_root();
-    let config = tauri_app_lib::files::read_config(&root)
-        .expect("read_config should succeed");
+    let config = tauri_app_lib::files::read_config(&root).expect("read_config should succeed");
     let errors = tauri_app_lib::config::validate_config(&config);
-    assert!(errors.is_empty(),
+    assert!(
+        errors.is_empty(),
         "Config validation failed:\n{}",
-        errors.iter().map(|e| format!("  [{}] {}", e.kind, e.message)).collect::<Vec<_>>().join("\n")
+        errors
+            .iter()
+            .map(|e| format!("  [{}] {}", e.kind, e.message))
+            .collect::<Vec<_>>()
+            .join("\n")
     );
 }
 
@@ -29,9 +33,14 @@ fn test_read_and_validate_monthly() {
     let monthly = tauri_app_lib::files::read_monthly_file(&root, 2026, 6)
         .expect("read_monthly_file should succeed");
     let errors = tauri_app_lib::config::validate_monthly(&monthly);
-    assert!(errors.is_empty(),
+    assert!(
+        errors.is_empty(),
         "Monthly validation failed:\n{}",
-        errors.iter().map(|e| format!("  [{}] {}", e.kind, e.message)).collect::<Vec<_>>().join("\n")
+        errors
+            .iter()
+            .map(|e| format!("  [{}] {}", e.kind, e.message))
+            .collect::<Vec<_>>()
+            .join("\n")
     );
 }
 

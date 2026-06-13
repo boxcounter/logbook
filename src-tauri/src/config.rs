@@ -1,14 +1,15 @@
-use crate::models::{Config, ConfigErrorDetail, MonthlyFile};
 use crate::files;
+use crate::models::{Config, ConfigErrorDetail, MonthlyFile};
 use chrono::Datelike;
-use notify::{Event, EventKind, RecursiveMode, Watcher, Config as NotifyConfig};
+use notify::{Config as NotifyConfig, Event, EventKind, RecursiveMode, Watcher};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter};
 
 fn is_valid_key(key: &str) -> bool {
-    key.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+    key.chars()
+        .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
 }
 
 pub fn validate_config(config: &Config) -> Vec<ConfigErrorDetail> {
@@ -37,32 +38,42 @@ pub fn validate_config(config: &Config) -> Vec<ConfigErrorDetail> {
             });
         }
         match dim.source.as_str() {
-            "static" => {
-                match &dim.values {
-                    None => errors.push(ConfigErrorDetail {
-                        kind: "MissingValues".to_string(),
-                        message: format!("Dimension '{}' (key: {}): source is 'static' but values is not set", dim.name, dim.key),
-                    }),
-                    Some(vals) if vals.is_empty() => errors.push(ConfigErrorDetail {
-                        kind: "ValuesEmpty".to_string(),
-                        message: format!("Dimension '{}' (key: {}): values list is empty", dim.name, dim.key),
-                    }),
-                    _ => {}
-                }
-            }
+            "static" => match &dim.values {
+                None => errors.push(ConfigErrorDetail {
+                    kind: "MissingValues".to_string(),
+                    message: format!(
+                        "Dimension '{}' (key: {}): source is 'static' but values is not set",
+                        dim.name, dim.key
+                    ),
+                }),
+                Some(vals) if vals.is_empty() => errors.push(ConfigErrorDetail {
+                    kind: "ValuesEmpty".to_string(),
+                    message: format!(
+                        "Dimension '{}' (key: {}): values list is empty",
+                        dim.name, dim.key
+                    ),
+                }),
+                _ => {}
+            },
             "monthly" => {
                 monthly_count += 1;
                 if monthly_count > 1 {
                     errors.push(ConfigErrorDetail {
                         kind: "MultipleMonthly".to_string(),
-                        message: format!("Dimension '{}': only one dimension may have source: monthly", dim.name),
+                        message: format!(
+                            "Dimension '{}': only one dimension may have source: monthly",
+                            dim.name
+                        ),
                     });
                 }
             }
             other => {
                 errors.push(ConfigErrorDetail {
                     kind: "InvalidSource".to_string(),
-                    message: format!("Dimension '{}': invalid source '{}' (expected 'static' or 'monthly')", dim.name, other),
+                    message: format!(
+                        "Dimension '{}': invalid source '{}' (expected 'static' or 'monthly')",
+                        dim.name, other
+                    ),
                 });
             }
         }
@@ -84,14 +95,20 @@ pub fn validate_monthly(monthly: &MonthlyFile) -> Vec<ConfigErrorDetail> {
         if c.allocation == 0 {
             errors.push(ConfigErrorDetail {
                 kind: "ZeroAllocation".to_string(),
-                message: format!("Commitment '{}': allocation is 0 (should be hours per month)", c.role),
+                message: format!(
+                    "Commitment '{}': allocation is 0 (should be hours per month)",
+                    c.role
+                ),
             });
         }
         for goal in &c.goals {
             if !seen_goals.insert(goal.clone()) {
                 errors.push(ConfigErrorDetail {
                     kind: "DuplicateGoal".to_string(),
-                    message: format!("Goal '{}' appears in multiple commitments (each goal must be unique)", goal),
+                    message: format!(
+                        "Goal '{}' appears in multiple commitments (each goal must be unique)",
+                        goal
+                    ),
                 });
             }
         }
@@ -104,19 +121,21 @@ pub fn watch_files(app_handle: AppHandle, root_path: PathBuf) {
     std::thread::spawn(move || {
         let (tx, rx) = std::sync::mpsc::channel();
 
-        let mut watcher = notify::recommended_watcher(move |res: Result<Event, notify::Error>| {
-            match res {
+        let mut watcher =
+            notify::recommended_watcher(move |res: Result<Event, notify::Error>| match res {
                 Ok(event) => {
                     if let Err(e) = tx.send(event) {
-                        crate::error_log::log_error("file_watcher", &format!("send error: {:?}", e));
+                        crate::error_log::log_error(
+                            "file_watcher",
+                            &format!("send error: {:?}", e),
+                        );
                     }
                 }
                 Err(e) => {
                     crate::error_log::log_error("file_watcher", &format!("notify error: {}", e));
                 }
-            }
-        })
-        .expect("Failed to create file watcher");
+            })
+            .expect("Failed to create file watcher");
 
         watcher
             .configure(NotifyConfig::default())
@@ -133,7 +152,9 @@ pub fn watch_files(app_handle: AppHandle, root_path: PathBuf) {
 
         for event in rx {
             let is_modify = matches!(event.kind, EventKind::Modify(_) | EventKind::Create(_));
-            if !is_modify { continue; }
+            if !is_modify {
+                continue;
+            }
 
             for path in &event.paths {
                 // Debounce: skip if same path fired within 300ms
@@ -151,14 +172,24 @@ pub fn watch_files(app_handle: AppHandle, root_path: PathBuf) {
                         Ok(config) => {
                             let errors = validate_config(&config);
                             if let Err(e) = app_handle.emit("config-changed", &errors) {
-                                crate::error_log::log_error("file_watcher", &format!("emit config-changed failed: {}", e));
+                                crate::error_log::log_error(
+                                    "file_watcher",
+                                    &format!("emit config-changed failed: {}", e),
+                                );
                             }
                         }
                         Err(e) => {
-                            if let Err(e2) = app_handle.emit("config-changed", &vec![ConfigErrorDetail {
-                                kind: "ParseError".to_string(), message: e,
-                            }]) {
-                                crate::error_log::log_error("file_watcher", &format!("emit config-changed failed: {}", e2));
+                            if let Err(e2) = app_handle.emit(
+                                "config-changed",
+                                &vec![ConfigErrorDetail {
+                                    kind: "ParseError".to_string(),
+                                    message: e,
+                                }],
+                            ) {
+                                crate::error_log::log_error(
+                                    "file_watcher",
+                                    &format!("emit config-changed failed: {}", e2),
+                                );
                             }
                         }
                     }
@@ -169,14 +200,24 @@ pub fn watch_files(app_handle: AppHandle, root_path: PathBuf) {
                         Ok(monthly) => {
                             let errors = validate_monthly(&monthly);
                             if let Err(e) = app_handle.emit("commitments-changed", &errors) {
-                                crate::error_log::log_error("file_watcher", &format!("emit commitments-changed failed: {}", e));
+                                crate::error_log::log_error(
+                                    "file_watcher",
+                                    &format!("emit commitments-changed failed: {}", e),
+                                );
                             }
                         }
                         Err(e) => {
-                            if let Err(e2) = app_handle.emit("commitments-changed", &vec![ConfigErrorDetail {
-                                kind: "ParseError".to_string(), message: e,
-                            }]) {
-                                crate::error_log::log_error("file_watcher", &format!("emit commitments-changed failed: {}", e2));
+                            if let Err(e2) = app_handle.emit(
+                                "commitments-changed",
+                                &vec![ConfigErrorDetail {
+                                    kind: "ParseError".to_string(),
+                                    message: e,
+                                }],
+                            ) {
+                                crate::error_log::log_error(
+                                    "file_watcher",
+                                    &format!("emit commitments-changed failed: {}", e2),
+                                );
                             }
                         }
                     }
@@ -189,7 +230,7 @@ pub fn watch_files(app_handle: AppHandle, root_path: PathBuf) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::{Config, Dimension, MonthlyFile, Commitment};
+    use crate::models::{Commitment, Config, Dimension, MonthlyFile};
 
     #[test]
     fn test_dimension_required_defaults_to_false() {
@@ -209,8 +250,20 @@ mod tests {
     fn test_validate_config_valid() {
         let config = Config {
             dimensions: vec![
-                Dimension { name: "Biz".into(), key: "biz".into(), source: "static".into(), values: Some(vec!["X".into()]), required: false },
-                Dimension { name: "Goal".into(), key: "goal".into(), source: "monthly".into(), values: None, required: false },
+                Dimension {
+                    name: "Biz".into(),
+                    key: "biz".into(),
+                    source: "static".into(),
+                    values: Some(vec!["X".into()]),
+                    required: false,
+                },
+                Dimension {
+                    name: "Goal".into(),
+                    key: "goal".into(),
+                    source: "monthly".into(),
+                    values: None,
+                    required: false,
+                },
             ],
         };
         assert!(validate_config(&config).is_empty());
@@ -220,7 +273,11 @@ mod tests {
     fn test_validate_config_missing_values() {
         let config = Config {
             dimensions: vec![Dimension {
-                name: "Cat".into(), key: "cat".into(), source: "static".into(), values: None, required: false,
+                name: "Cat".into(),
+                key: "cat".into(),
+                source: "static".into(),
+                values: None,
+                required: false,
             }],
         };
         let errors = validate_config(&config);
@@ -232,7 +289,11 @@ mod tests {
     fn test_validate_config_empty_values() {
         let config = Config {
             dimensions: vec![Dimension {
-                name: "Cat".into(), key: "cat".into(), source: "static".into(), values: Some(vec![]), required: false,
+                name: "Cat".into(),
+                key: "cat".into(),
+                source: "static".into(),
+                values: Some(vec![]),
+                required: false,
             }],
         };
         let errors = validate_config(&config);
@@ -244,7 +305,11 @@ mod tests {
     fn test_validate_config_invalid_key() {
         let config = Config {
             dimensions: vec![Dimension {
-                name: "Bad".into(), key: "bad key!".into(), source: "static".into(), values: Some(vec!["x".into()]), required: false,
+                name: "Bad".into(),
+                key: "bad key!".into(),
+                source: "static".into(),
+                values: Some(vec!["x".into()]),
+                required: false,
             }],
         };
         let errors = validate_config(&config);
@@ -256,8 +321,20 @@ mod tests {
     fn test_validate_config_multiple_monthly() {
         let config = Config {
             dimensions: vec![
-                Dimension { name: "G1".into(), key: "g1".into(), source: "monthly".into(), values: None, required: false },
-                Dimension { name: "G2".into(), key: "g2".into(), source: "monthly".into(), values: None, required: false },
+                Dimension {
+                    name: "G1".into(),
+                    key: "g1".into(),
+                    source: "monthly".into(),
+                    values: None,
+                    required: false,
+                },
+                Dimension {
+                    name: "G2".into(),
+                    key: "g2".into(),
+                    source: "monthly".into(),
+                    values: None,
+                    required: false,
+                },
             ],
         };
         let errors = validate_config(&config);
@@ -269,7 +346,11 @@ mod tests {
     fn test_validate_config_invalid_source() {
         let config = Config {
             dimensions: vec![Dimension {
-                name: "Bad".into(), key: "bad".into(), source: "dynamic".into(), values: None, required: false,
+                name: "Bad".into(),
+                key: "bad".into(),
+                source: "dynamic".into(),
+                values: None,
+                required: false,
             }],
         };
         let errors = validate_config(&config);
@@ -280,7 +361,11 @@ mod tests {
     #[test]
     fn test_validate_monthly_valid() {
         let monthly = MonthlyFile {
-            commitments: vec![Commitment { role: "Dev".into(), allocation: 40, goals: vec!["Ship X".into()] }],
+            commitments: vec![Commitment {
+                role: "Dev".into(),
+                allocation: 40,
+                goals: vec!["Ship X".into()],
+            }],
         };
         assert!(validate_monthly(&monthly).is_empty());
     }
@@ -288,7 +373,11 @@ mod tests {
     #[test]
     fn test_validate_monthly_empty_role() {
         let monthly = MonthlyFile {
-            commitments: vec![Commitment { role: "".into(), allocation: 10, goals: vec![] }],
+            commitments: vec![Commitment {
+                role: "".into(),
+                allocation: 10,
+                goals: vec![],
+            }],
         };
         let errors = validate_monthly(&monthly);
         assert_eq!(errors.len(), 1);
@@ -298,7 +387,11 @@ mod tests {
     #[test]
     fn test_validate_monthly_zero_allocation() {
         let monthly = MonthlyFile {
-            commitments: vec![Commitment { role: "Dev".into(), allocation: 0, goals: vec![] }],
+            commitments: vec![Commitment {
+                role: "Dev".into(),
+                allocation: 0,
+                goals: vec![],
+            }],
         };
         let errors = validate_monthly(&monthly);
         assert_eq!(errors.len(), 1);
@@ -309,8 +402,16 @@ mod tests {
     fn test_validate_monthly_duplicate_goal() {
         let monthly = MonthlyFile {
             commitments: vec![
-                Commitment { role: "Dev".into(), allocation: 20, goals: vec!["Shared".into()] },
-                Commitment { role: "PM".into(), allocation: 10, goals: vec!["Shared".into()] },
+                Commitment {
+                    role: "Dev".into(),
+                    allocation: 20,
+                    goals: vec!["Shared".into()],
+                },
+                Commitment {
+                    role: "PM".into(),
+                    allocation: 10,
+                    goals: vec!["Shared".into()],
+                },
             ],
         };
         let errors = validate_monthly(&monthly);

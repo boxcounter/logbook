@@ -1,4 +1,4 @@
-use crate::models::{DayFile, Entry, MonthlyFile, Config};
+use crate::models::{Config, DayFile, Entry, MonthlyFile};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -9,7 +9,9 @@ static FILE_LOCKS: LazyLock<Mutex<HashMap<PathBuf, Arc<Mutex<()>>>>> =
 
 fn with_file_lock<T, F: FnOnce() -> Result<T, String>>(path: &Path, f: F) -> Result<T, String> {
     let lock = {
-        let mut map = FILE_LOCKS.lock().map_err(|e| format!("Lock error: {}", e))?;
+        let mut map = FILE_LOCKS
+            .lock()
+            .map_err(|e| format!("Lock error: {}", e))?;
         map.entry(path.to_path_buf())
             .or_insert_with(|| Arc::new(Mutex::new(())))
             .clone()
@@ -46,7 +48,10 @@ pub fn config_path(root: &Path) -> PathBuf {
 pub fn read_day_file(root: &Path, date: &str) -> Result<DayFile, String> {
     let path = day_path(root, date)?;
     if !path.exists() {
-        return Ok(DayFile { note: None, entries: vec![] });
+        return Ok(DayFile {
+            note: None,
+            entries: vec![],
+        });
     }
     let content = fs::read_to_string(&path)
         .map_err(|e| format!("Failed to read {}: {}", path.display(), e))?;
@@ -58,17 +63,14 @@ pub fn read_day_file(root: &Path, date: &str) -> Result<DayFile, String> {
 pub fn write_day_file(root: &Path, date: &str, day_file: &DayFile) -> Result<(), String> {
     let path = day_path(root, date)?;
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|e| format!("Failed to create directory: {}", e))?;
+        fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {}", e))?;
     }
-    let yaml_body = yaml_serde::to_string(day_file)
-        .map_err(|e| format!("Failed to serialize: {}", e))?;
+    let yaml_body =
+        yaml_serde::to_string(day_file).map_err(|e| format!("Failed to serialize: {}", e))?;
     let content = format!("---\n{}---\n", yaml_body);
     let tmp_path = path.with_extension("tmp");
-    fs::write(&tmp_path, &content)
-        .map_err(|e| format!("Failed to write temp file: {}", e))?;
-    fs::rename(&tmp_path, &path)
-        .map_err(|e| format!("Failed to rename temp file: {}", e))?;
+    fs::write(&tmp_path, &content).map_err(|e| format!("Failed to write temp file: {}", e))?;
+    fs::rename(&tmp_path, &path).map_err(|e| format!("Failed to rename temp file: {}", e))?;
     Ok(())
 }
 
@@ -85,7 +87,11 @@ pub fn append_to_day_file(root: &Path, date: &str, entry: &Entry) -> Result<Entr
 }
 
 /// Append entry from NewEntry (for integration tests and internal use).
-pub fn append_new_entry(root: &Path, date: &str, new_entry: &crate::models::NewEntry) -> Result<Entry, String> {
+pub fn append_new_entry(
+    root: &Path,
+    date: &str,
+    new_entry: &crate::models::NewEntry,
+) -> Result<Entry, String> {
     let duration = crate::commands::parse_duration(&new_entry.duration)?;
     let config = read_config(root)?;
     crate::commands::validate_required_dimensions(&config, &new_entry.dimensions)?;
@@ -99,14 +105,24 @@ pub fn append_new_entry(root: &Path, date: &str, new_entry: &crate::models::NewE
 }
 
 /// Update an entry by ID. Applies only the fields present in `update`.
-pub fn update_entry_in_file(root: &Path, date: &str, entry_id: &str, update: &crate::models::UpdateEntry) -> Result<DayFile, String> {
+pub fn update_entry_in_file(
+    root: &Path,
+    date: &str,
+    entry_id: &str,
+    update: &crate::models::UpdateEntry,
+) -> Result<DayFile, String> {
     let path = day_path(root, date)?;
     with_file_lock(&path, || {
         let mut day_file = read_day_file(root, date)?;
-        let pos = day_file.entries.iter().position(|e| e.id == entry_id)
+        let pos = day_file
+            .entries
+            .iter()
+            .position(|e| e.id == entry_id)
             .ok_or_else(|| format!("Entry {} not found", entry_id))?;
         let entry = &mut day_file.entries[pos];
-        if let Some(ref item) = update.item { entry.item = item.clone(); }
+        if let Some(ref item) = update.item {
+            entry.item = item.clone();
+        }
         if let Some(ref dur_str) = update.duration {
             entry.duration = crate::commands::parse_duration(dur_str)
                 .map_err(|e| format!("Invalid duration: {}", e))?;
@@ -126,7 +142,10 @@ pub fn delete_entry_from_file(root: &Path, date: &str, entry_id: &str) -> Result
     let path = day_path(root, date)?;
     with_file_lock(&path, || {
         let mut day_file = read_day_file(root, date)?;
-        let pos = day_file.entries.iter().position(|e| e.id == entry_id)
+        let pos = day_file
+            .entries
+            .iter()
+            .position(|e| e.id == entry_id)
             .ok_or_else(|| format!("Entry {} not found", entry_id))?;
         day_file.entries.remove(pos);
         write_day_file(root, date, &day_file)?;
@@ -139,7 +158,11 @@ pub fn set_day_note_in_file(root: &Path, date: &str, note: &str) -> Result<DayFi
     let path = day_path(root, date)?;
     with_file_lock(&path, || {
         let mut day_file = read_day_file(root, date)?;
-        day_file.note = if note.is_empty() { None } else { Some(note.to_string()) };
+        day_file.note = if note.is_empty() {
+            None
+        } else {
+            Some(note.to_string())
+        };
         write_day_file(root, date, &day_file)?;
         Ok(day_file)
     })
@@ -149,7 +172,9 @@ pub fn set_day_note_in_file(root: &Path, date: &str, note: &str) -> Result<DayFi
 pub fn read_monthly_file(root: &Path, year: i32, month: u32) -> Result<MonthlyFile, String> {
     let path = monthly_path(root, year, month);
     if !path.exists() {
-        return Ok(MonthlyFile { commitments: vec![] });
+        return Ok(MonthlyFile {
+            commitments: vec![],
+        });
     }
     let content = fs::read_to_string(&path)
         .map_err(|e| format!("Failed to read {}: {}", path.display(), e))?;
@@ -169,7 +194,9 @@ pub fn read_config(root: &Path) -> Result<Config, String> {
 /// Remove orphaned .tmp files from the data tree (crashed mid-write).
 pub fn cleanup_tmp_files(root: &Path) {
     fn recurse(dir: &Path) {
-        let Ok(entries) = std::fs::read_dir(dir) else { return };
+        let Ok(entries) = std::fs::read_dir(dir) else {
+            return;
+        };
         for entry in entries.filter_map(|e| e.ok()) {
             let path = entry.path();
             if path.is_dir() {
@@ -188,8 +215,7 @@ pub fn save_root_path(app_data_dir: &Path, root_path: &Path) -> Result<(), Strin
     let tmp = path.with_extension("tmp");
     fs::write(&tmp, root_path.to_string_lossy().as_ref())
         .map_err(|e| format!("Failed to save root path: {}", e))?;
-    fs::rename(&tmp, &path)
-        .map_err(|e| format!("Failed to rename root path file: {}", e))
+    fs::rename(&tmp, &path).map_err(|e| format!("Failed to rename root path file: {}", e))
 }
 
 /// Read persisted root path
@@ -215,7 +241,11 @@ fn parse_frontmatter<T: serde::de::DeserializeOwned>(content: &str) -> Result<T,
     let after_first = &content[3..];
     // Find `\n---` (second delimiter at line start) or end of string
     let end = after_first.find("\n---").unwrap_or_else(|| {
-        if after_first.starts_with("---") { 0 } else { after_first.len() }
+        if after_first.starts_with("---") {
+            0
+        } else {
+            after_first.len()
+        }
     });
     let yaml_str = if end == 0 { "" } else { &after_first[..end] }.trim();
     if yaml_str.is_empty() {
@@ -305,12 +335,26 @@ mod tests {
         let tmp = std::env::temp_dir().join("logbook_test_update");
         let _ = fs::remove_dir_all(&tmp);
 
-        let e1 = Entry { id: "id-a".into(), item: "A".into(), duration: 10, dimensions: HashMap::new() };
-        let e2 = Entry { id: "id-b".into(), item: "B".into(), duration: 20, dimensions: HashMap::new() };
+        let e1 = Entry {
+            id: "id-a".into(),
+            item: "A".into(),
+            duration: 10,
+            dimensions: HashMap::new(),
+        };
+        let e2 = Entry {
+            id: "id-b".into(),
+            item: "B".into(),
+            duration: 20,
+            dimensions: HashMap::new(),
+        };
         append_to_day_file(&tmp, "2026-06-12", &e1).unwrap();
         append_to_day_file(&tmp, "2026-06-12", &e2).unwrap();
 
-        let update = crate::models::UpdateEntry { item: Some("B-modified".into()), duration: None, dimensions: None };
+        let update = crate::models::UpdateEntry {
+            item: Some("B-modified".into()),
+            duration: None,
+            dimensions: None,
+        };
         let df = update_entry_in_file(&tmp, "2026-06-12", "id-b", &update).unwrap();
         assert_eq!(df.entries[1].item, "B-modified");
         assert_eq!(df.entries[1].duration, 20); // unchanged
@@ -323,8 +367,18 @@ mod tests {
         let tmp = std::env::temp_dir().join("logbook_test_delete");
         let _ = fs::remove_dir_all(&tmp);
 
-        let e1 = Entry { id: "id-a".into(), item: "A".into(), duration: 10, dimensions: HashMap::new() };
-        let e2 = Entry { id: "id-b".into(), item: "B".into(), duration: 20, dimensions: HashMap::new() };
+        let e1 = Entry {
+            id: "id-a".into(),
+            item: "A".into(),
+            duration: 10,
+            dimensions: HashMap::new(),
+        };
+        let e2 = Entry {
+            id: "id-b".into(),
+            item: "B".into(),
+            duration: 20,
+            dimensions: HashMap::new(),
+        };
         append_to_day_file(&tmp, "2026-06-12", &e1).unwrap();
         append_to_day_file(&tmp, "2026-06-12", &e2).unwrap();
 

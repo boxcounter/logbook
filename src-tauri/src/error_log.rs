@@ -18,7 +18,9 @@ pub fn init(app_data_dir: &std::path::Path) {
 
 /// Append a line to the log. Non-blocking, best-effort.
 fn append_log(level: &str, context: &str, message: &str) -> Result<(), String> {
-    let path = LOG_PATH.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let path = LOG_PATH
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let path = path.as_ref().ok_or("Log not initialized")?;
     if let Some(parent) = path.parent() {
         let _ = fs::create_dir_all(parent);
@@ -29,9 +31,17 @@ fn append_log(level: &str, context: &str, message: &str) -> Result<(), String> {
         .open(path)
         .map_err(|e| format!("Failed to open log file: {}", e))?;
     let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
-    let context_str = if context.is_empty() { String::new() } else { format!("[{}] ", context) };
-    writeln!(file, "[{}] [{:<5}] {}{}", timestamp, level, context_str, message)
-        .map_err(|e| format!("Failed to write log: {}", e))?;
+    let context_str = if context.is_empty() {
+        String::new()
+    } else {
+        format!("[{}] ", context)
+    };
+    writeln!(
+        file,
+        "[{}] [{:<5}] {}{}",
+        timestamp, level, context_str, message
+    )
+    .map_err(|e| format!("Failed to write log: {}", e))?;
     Ok(())
 }
 
@@ -81,7 +91,8 @@ pub fn install_panic_hook() {
         if let Some(ref log_path) = path {
             let _ = (|| -> Result<(), String> {
                 let mut file = std::fs::OpenOptions::new()
-                    .create(true).append(true)
+                    .create(true)
+                    .append(true)
                     .open(log_path)
                     .map_err(|e| format!("{e}"))?;
                 let ts = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
