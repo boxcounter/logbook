@@ -6,35 +6,64 @@
 
 ## 方案
 
-启动时窗口按主显示器尺寸的 90% 自动调整，之后用户手动 resize 不做动态适配。
+**首次启动**（无保存状态）：窗口按主显示器尺寸的 90% 打开。
 
-## 改动
+**后续启动**：恢复上次关闭时的窗口位置和大小。关闭时保存窗口状态到文件，启动时读取并恢复。
 
-### 1. `src-tauri/src/lib.rs` — setup 钩子中设置窗口尺寸
+## 数据存储
 
-```rust
-let window = app.get_webview_window("main").unwrap();
-if let Ok(Some(monitor)) = window.primary_monitor() {
-    let size = monitor.size();
-    let _ = window.set_size(tauri::LogicalSize::new(
-        size.width as f64 * 0.9,
-        size.height as f64 * 0.9,
-    ));
+窗口状态保存为 JSON 文件：`<app_local_data_dir>/window_state.json`
+
+```json
+{
+  "x": 100,
+  "y": 80,
+  "width": 1512,
+  "height": 864
 }
 ```
 
-### 2. `src-tauri/tauri.conf.json` — 删除固定 width/height
+## 行为细节
 
-移除 `app.windows[0]` 中的 `"width": 800` 和 `"height": 600`。窗口先以默认尺寸短暂闪现，setup 中立即调整为 90%。加 `"center": true` 确保居中。
+### 恢复（`setup` 钩子中）
+
+1. 尝试读 `window_state.json`
+2. 如果存在且位置有效（至少部分在当前连接的某个显示器区域内），恢复该尺寸和位置
+3. 如果不存在或无效（如上次用外接显示器、现已断开），fallback 到 90% 主显示器尺寸并居中
+
+### 保存（关闭时）
+
+1. 监听窗口关闭事件（`destroyed`）
+2. 记录当前尺寸和位置写入 `window_state.json`
+3. 如果窗口处于最大化状态，不覆盖保存（避免下次启动直接最大化——还是恢复之前的窗口模式尺寸）
+
+## 改动
+
+### 1. `src-tauri/src/lib.rs` — setup 钩子 + 窗口事件
+
+- 在 `setup` 中调用 `restore_window_state(app_handle)` 恢复窗口
+- 注册窗口关闭事件，保存状态
+
+### 2. 新增 `src-tauri/src/window_state.rs` — 窗口状态管理模块
+
+- `restore_window_state(app_handle)` — 读取文件、验证位置有效性、恢复或 fallback
+- `save_window_state(window)` — 获取当前尺寸/位置，写入文件
+- `is_position_valid(x, y, width, height)` — 检查窗口是否至少部分可见
+
+### 3. `src-tauri/tauri.conf.json`
+
+- 删除固定 `width` / `height`
+- 保留 `"center": true` 作为未保存状态时的后备
 
 ## 涉及文件
 
 | 文件 | 改动 |
 |------|------|
-| `src-tauri/src/lib.rs` | 在 `setup` 闭包内添加窗口尺寸设置逻辑 |
-| `src-tauri/tauri.conf.json` | 删除固定 width/height，添加 center: true |
+| `src-tauri/src/lib.rs` | setup 中调用 restore，注册关闭事件 |
+| `src-tauri/src/window_state.rs` | 新增，保存/恢复/验证逻辑 |
+| `src-tauri/tauri.conf.json` | 删除固定 width/height |
 
 ## 不做的
 
-- 不监听 `tauri::window` 事件做多显示器动态适配
-- 不保存/恢复上次窗口尺寸
+- 不监听 resize/move 做实时保存（仅关闭时保存一次）
+- 不监听多显示器动态适配
