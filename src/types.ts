@@ -3,6 +3,7 @@ export interface Dimension {
   key: string;
   source: "static" | "monthly";
   values?: string[];
+  required: boolean;
 }
 
 export interface Config {
