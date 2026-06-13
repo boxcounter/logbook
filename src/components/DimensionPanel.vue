@@ -58,7 +58,9 @@ const activeChips = computed(() => {
     <!-- Selects (toggleable) -->
     <div class="flex flex-col gap-2">
       <div v-for="dim in effectiveDimensions" :key="dim.key" class="flex items-center gap-2">
-        <label class="text-xs text-gray-500 w-16 shrink-0">{{ dim.name }}</label>
+        <label class="text-xs text-gray-500 w-16 shrink-0">
+          {{ dim.name }}<span v-if="dim.required" class="text-red-500"> *</span>
+        </label>
         <select
           :value="values[dim.key] || ''"
           class="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -69,7 +71,9 @@ const activeChips = computed(() => {
         </select>
       </div>
       <div v-if="monthlyDimension" class="flex items-center gap-2">
-        <label class="text-xs text-gray-500 w-16 shrink-0">{{ monthlyDimension.name }}</label>
+        <label class="text-xs text-gray-500 w-16 shrink-0">
+          {{ monthlyDimension.name }}<span v-if="monthlyDimension.required" class="text-red-500"> *</span>
+        </label>
         <select
           :value="values[monthlyDimension.key] || ''"
           class="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -78,6 +82,9 @@ const activeChips = computed(() => {
           <option value="">--</option>
           <option v-for="g in goalOptions" :key="g" :value="g">{{ g }}</option>
         </select>
+      </div>
+      <div class="text-[10px] text-gray-400 mt-1">
+        <span class="text-red-500">*</span> required
       </div>
     </div>
   </div>
