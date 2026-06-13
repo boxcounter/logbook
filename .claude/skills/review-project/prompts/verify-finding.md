@@ -39,11 +39,13 @@
 {
   "finding_id": "<index>",
   "real": true,
-  "explanation": "得出结论的理由。引用相关代码路径。如果 real: false，说明为什么 Reviewer 误判了。"
+  "explanation": "得出结论的理由。引用相关代码路径。如果 real: false，说明为什么 Reviewer 误判了。",
+  "adjusted_severity": "HIGH"
 }
 ```
 
-`real` 为布尔值，`explanation` 为字符串。
+- `real` 为布尔值，`explanation` 为字符串
+- `adjusted_severity` 为可选字段，取值 `"CRITICAL" | "HIGH" | "MEDIUM" | "LOW"`。仅在你认为 reviewer 的严重度判定有明显错误时提供：reviewer 标了 CRITICAL 但实际是罕见边界情况应降为 MEDIUM；reviewer 标了 LOW 但会导致静默数据丢失应升为 CRITICAL。严重度判断合理则省略此字段
 
 ## 交付协议
 

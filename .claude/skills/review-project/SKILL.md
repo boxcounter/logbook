@@ -6,7 +6,7 @@
 
 ```
 ┌─ 第一阶段：审查 ──────────────────────────────────────────┐
-│  6 个 teammate 并行执行。各自通读整个项目，产出结构化       │
+│  7 个 teammate 并行执行。各自通读整个项目，产出结构化       │
 │  findings。通过 TaskCreate/TaskUpdate 协调。                │
 │  主 Agent 在所有 task completed 后才进入下一阶段。          │
 └──────────────────────────┬──────────────────────────────────┘
@@ -70,6 +70,18 @@
 6. 部分完成 → 不做任何事，结束 turn，等下一批通知
 7. 如果一个 reviewer 的 task 标记 `completed` 但 5 分钟内没有 findings 消息 → 将该维度视为 `failed`，用剩余 findings 继续
 
+### 进度汇报
+
+每完成一个 phase，主 Agent 向用户发送进度摘要后再进入下一 phase。摘要包含该 phase 的关键数字和下一步动作。
+
+| Phase | 汇报内容 |
+|-------|----------|
+| 第一步审查 | "7 个 reviewer 全部交付，共 N 个 findings（C CRITICAL, H HIGH）。进入验证。" |
+| 第二步验证 | "验证完成：W 个 finding 确认有效，D 个被证伪丢弃。进入汇总去重。" |
+| 第三步汇总 | "汇总完成：P0 X 项，P1 Y 项，P2 Z 项。进入元批评。" |
+| 第四步反对意见 | "元批评发现 K 个新观察。进入完整性审视。" |
+| 第五步完整性审视 | "完整性审视发现 M 个盲区/未覆盖风险。生成最终报告。" |
+
 ## 执行协议
 
 ### 第零步：勘察
@@ -93,7 +105,7 @@ TeamCreate({ team_name: "review-<project>", description: "Multi-dimension projec
 
 此后所有 teammate 通过 `Agent({ team_name: "review-<project>", name: "...", ... })` 加入。
 
-#### 1b. 启动 6 个 Reviewer
+#### 1b. 启动 7 个 Reviewer
 
 对每个维度，在同一 turn 内完成以下操作：
 
@@ -101,14 +113,15 @@ TeamCreate({ team_name: "review-<project>", description: "Multi-dimension projec
 2. `TaskCreate` — 建 task 描述审查任务
 3. `TaskUpdate` — 将 task 的 `owner` 设为该 teammate 的 `name`
 
-全部启动后，主 Agent 初始化一张 6 行 × 2 列的交付清单（Task Completed + Findings Received），然后结束 turn。
+全部启动后，主 Agent 初始化一张 7 行 × 2 列的交付清单（Task Completed + Findings Received），然后结束 turn。
 
 | 名称 | 维度 | Prompt 文件 | 关注点 |
 |------|------|-----------|--------|
 | `code-reviewer` | `code-review` | `prompts/code-review.md` | Bug、崩溃、竞态、泄漏、类型错误、错误吞没 |
 | `design-reviewer` | `design-review` | `prompts/design-review.md` | 架构、API 设计、状态管理、数据模型、文件 I/O |
 | `observability-reviewer` | `observability-review` | `prompts/observability-review.md` | 日志覆盖、错误传播、静默失败、panic hook |
-| `practices-reviewer` | `practices-review` | `prompts/practices-review.md` | 框架习惯用法、项目结构、重复代码、测试 |
+| `practices-reviewer` | `practices-review` | `prompts/practices-review.md` | 框架习惯用法、项目结构、重复代码 |
+| `test-quality-reviewer` | `test-quality-review` | `prompts/test-quality-review.md` | 测试覆盖缺口、测试有效性、错误路径覆盖、测试架构 |
 | `library-reviewer` | `library-review` | `prompts/library-review.md` | 依赖 API 使用正确性、废弃 API、ReDoS、watcher 模式 |
 | `devils-advocate-l1` | `devils-advocate-l1` | `prompts/devils-advocate.md` | 挑战假设、最弱环节、过度/不足工程、崩溃假说 |
 
@@ -121,7 +134,7 @@ TeamCreate({ team_name: "review-<project>", description: "Multi-dimension projec
 1. 如果是 teammate-message 包含 findings JSON → 标记该 reviewer 的「Findings Received」列
 2. 检查 `TaskList` → 更新「Task Completed」列
 3. 两列全勾 → 该 reviewer 的交付完成
-4. 全部 6 行两列都打勾 → 进入 1d
+4. 全部 7 行两列都打勾 → 进入 1d
 5. 部分完成 → 不做任何事，结束 turn，等下一批通知
 
 > ⚠️ **超时规则**: 如果某个 reviewer 的 task 已标记 `completed` 但 5 分钟内没有收到 findings 消息，将该维度视为 `failed`（task 完成了但数据未送达），用剩余 findings 继续。
@@ -141,7 +154,7 @@ TeamCreate({ team_name: "review-<project>", description: "Multi-dimension projec
       "file": "src-tauri/src/commands.rs",
       "line": 142,
       "severity": "CRITICAL | HIGH | MEDIUM | LOW",
-      "category": "bug | design | observability | practices | library | assumption | security | ux | other",
+      "category": "bug | design | observability | practices | library | assumption | security | ux | test | other",
       "summary": "一句话说明",
       "detail": "完整解释。什么情况下发生、影响是什么、为什么值得关注。",
       "confidence": 0.85
@@ -154,6 +167,8 @@ TeamCreate({ team_name: "review-<project>", description: "Multi-dimension projec
 - `confidence` 是 reviewer 对自身判断的把握（0 = 猜测，1 = 确定）
 - 如果 reviewer 的 task 失败，视为 `{ "dimension": "...", "status": "failed", "findings": [] }`
 - 收集所有 `findings`，为每个 finding 标记 `source_dimension`
+
+向用户发送 Phase 1 进度摘要（见同步机制 > 进度汇报），然后进入第二步。
 
 ### 第二步：验证 —— 对抗性检查
 
@@ -191,6 +206,8 @@ TeamCreate({ team_name: "review-<project>", description: "Multi-dimension projec
 - CRITICAL 加强验证：3 个 verifier 中 <2 个 `real: true` → 丢弃
 - 如果 verifier 的 task 失败 → 保守处理，保留该 finding（不丢弃未经证伪的 CRITICAL/HIGH）
 
+向用户发送 Phase 2 进度摘要，然后进入第三步。
+
 ### 第三步：汇总
 
 主 Agent 自己完成（不 spawn teammate）：
@@ -219,6 +236,8 @@ P2: 11 项
 
 5. **输出 top 5-10 修复建议**，按收益/成本比排序。
 
+向用户发送 Phase 3 进度摘要，然后进入第四步。
+
 ### 第四步：反对意见（二层）—— 元批评
 
 启动 1 个 teammate（`name: "devils-advocate-l2"`），使用 **`prompts/devils-advocate-l2.md`** 作为 prompt。
@@ -226,6 +245,8 @@ P2: 11 项
 将第三步的汇总表格 + 所有 finding 详情作为 prompt 参数（追加在 prompt 文件内容之后）。
 
 创建 task → 指派 → 初始化交付清单 → 等 task completed + findings 消息两者都收到。
+
+向用户发送 Phase 4 进度摘要，然后进入第五步。
 
 ### 第五步：完整性审视
 
@@ -237,6 +258,8 @@ P2: 11 项
 - 项目目录结构
 
 创建 task → 指派 → 初始化交付清单 → 等 task completed + findings 消息两者都收到。
+
+向用户发送 Phase 5 进度摘要，然后进入第六步生成最终报告。
 
 ### 第六步：最终报告
 
@@ -258,7 +281,7 @@ P2: 11 项
 | 场景 | 处理方式 |
 |------|----------|
 | Reviewer task failed | 标记该维度为 `failed`，用剩余 findings 继续 |
-| 6 个 reviewer 全部 failed | 终止，报告失败，建议人工审查 |
+| 7 个 reviewer 全部 failed | 终止，报告失败，建议人工审查 |
 | Verifier task failed | 保留该 finding（保守处理——不丢弃未经证伪的 CRITICAL/HIGH） |
 | 第四步或第五步 task failed | 跳过该阶段，在报告中注明 |
 | Teammate 超时未完成（>10 min） | 将该 task 标记 failed，按对应规则处理 |
@@ -274,7 +297,8 @@ P2: 11 项
 | `code-review.md` | 第一步 | Bug、崩溃、竞态、泄漏、类型错误、错误吞没 |
 | `design-review.md` | 第一步 | 架构、API 设计、状态管理、数据模型、文件 I/O |
 | `observability-review.md` | 第一步 | 日志覆盖、错误传播、静默失败、panic hook |
-| `practices-review.md` | 第一步 | 框架习惯用法、项目结构、重复代码、测试 |
+| `practices-review.md` | 第一步 | 框架习惯用法、项目结构、重复代码 |
+| `test-quality-review.md` | 第一步 | 测试覆盖缺口、测试有效性、错误路径覆盖、测试架构 |
 | `library-review.md` | 第一步 | 依赖 API 使用正确性、废弃 API、ReDoS、watcher 模式 |
 | `devils-advocate.md` | 第一步 | 挑战假设、最弱环节、过度/不足工程、崩溃假说（L1） |
 | `verify-finding.md` | 第二步 | 对抗性验证：发现是真问题还是误报 |

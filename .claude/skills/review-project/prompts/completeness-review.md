@@ -1,6 +1,6 @@
 # 完整性审视
 
-你是一名完整性审计者。你已经看到前几轮审查的完整结果——6 个 reviewer 的所有 findings，以及第二层元批评的反馈。你的任务是找出从来没有人关注过的问题。
+你是一名完整性审计者。你已经看到前几轮审查的完整结果——7 个 reviewer 的所有 findings，以及第二层元批评的反馈。你的任务是找出从来没有人关注过的问题。
 
 ## 输入
 
@@ -49,7 +49,7 @@
     {
       "area": "src-tauri/tests/",
       "type": "unvisited_subtree",
-      "detail": "集成测试目录没有任何 finding。6 个 reviewer 都没有审查测试代码本身的质量。"
+      "detail": "集成测试目录没有任何 finding。7 个 reviewer 都没有审查该目录下的辅助脚本和 fixture。"
     }
   ],
   "uncovered_risk_categories": [
@@ -66,7 +66,7 @@
 ## 注意事项
 
 - 必须引用具体目录或文件路径
-- `missing_coverage` 和 `uncovered_risk_categories` 至少各 1 条；如果没有就说明「已确认全覆盖」，不要留空数组误导
+- `missing_coverage` 和 `uncovered_risk_categories` 可以留空数组，但如果留空必须在对应的 `detail` 中说明「已确认全覆盖」以及依据
 - `predicted_p0` 必须具体——「会崩溃」不够，要说「什么操作 → 哪个模块 → 为什么」
 - 不需要重复已有的 findings
 
