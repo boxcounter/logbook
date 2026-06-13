@@ -209,8 +209,8 @@ mod tests {
     fn test_validate_config_valid() {
         let config = Config {
             dimensions: vec![
-                Dimension { name: "Biz".into(), key: "biz".into(), source: "static".into(), values: Some(vec!["X".into()]) },
-                Dimension { name: "Goal".into(), key: "goal".into(), source: "monthly".into(), values: None },
+                Dimension { name: "Biz".into(), key: "biz".into(), source: "static".into(), values: Some(vec!["X".into()]), required: false },
+                Dimension { name: "Goal".into(), key: "goal".into(), source: "monthly".into(), values: None, required: false },
             ],
         };
         assert!(validate_config(&config).is_empty());
@@ -220,7 +220,7 @@ mod tests {
     fn test_validate_config_missing_values() {
         let config = Config {
             dimensions: vec![Dimension {
-                name: "Cat".into(), key: "cat".into(), source: "static".into(), values: None,
+                name: "Cat".into(), key: "cat".into(), source: "static".into(), values: None, required: false,
             }],
         };
         let errors = validate_config(&config);
@@ -232,7 +232,7 @@ mod tests {
     fn test_validate_config_empty_values() {
         let config = Config {
             dimensions: vec![Dimension {
-                name: "Cat".into(), key: "cat".into(), source: "static".into(), values: Some(vec![]),
+                name: "Cat".into(), key: "cat".into(), source: "static".into(), values: Some(vec![]), required: false,
             }],
         };
         let errors = validate_config(&config);
@@ -244,7 +244,7 @@ mod tests {
     fn test_validate_config_invalid_key() {
         let config = Config {
             dimensions: vec![Dimension {
-                name: "Bad".into(), key: "bad key!".into(), source: "static".into(), values: Some(vec!["x".into()]),
+                name: "Bad".into(), key: "bad key!".into(), source: "static".into(), values: Some(vec!["x".into()]), required: false,
             }],
         };
         let errors = validate_config(&config);
@@ -256,8 +256,8 @@ mod tests {
     fn test_validate_config_multiple_monthly() {
         let config = Config {
             dimensions: vec![
-                Dimension { name: "G1".into(), key: "g1".into(), source: "monthly".into(), values: None },
-                Dimension { name: "G2".into(), key: "g2".into(), source: "monthly".into(), values: None },
+                Dimension { name: "G1".into(), key: "g1".into(), source: "monthly".into(), values: None, required: false },
+                Dimension { name: "G2".into(), key: "g2".into(), source: "monthly".into(), values: None, required: false },
             ],
         };
         let errors = validate_config(&config);
@@ -269,7 +269,7 @@ mod tests {
     fn test_validate_config_invalid_source() {
         let config = Config {
             dimensions: vec![Dimension {
-                name: "Bad".into(), key: "bad".into(), source: "dynamic".into(), values: None,
+                name: "Bad".into(), key: "bad".into(), source: "dynamic".into(), values: None, required: false,
             }],
         };
         let errors = validate_config(&config);

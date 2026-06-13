@@ -93,6 +93,20 @@ pub fn parse_duration(input: &str) -> Result<u32, String> {
     Ok(total)
 }
 
+/// Validate that all required dimensions have values in the entry.
+/// Returns Ok(()) or Err with a human-readable message naming the first missing required dimension.
+pub fn validate_required_dimensions(
+    config: &Config,
+    dimensions: &std::collections::HashMap<String, String>,
+) -> Result<(), String> {
+    for dim in &config.dimensions {
+        if dim.required && !dimensions.contains_key(&dim.key) {
+            return Err(format!("Missing required dimension: {}", dim.name));
+        }
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub fn init(app: AppHandle) -> InitResult {
     error_log::log_command_enter("init", "");
