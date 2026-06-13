@@ -36,14 +36,35 @@ export function stripDurations(text: string): string {
   return cleaned || text.trim();
 }
 
-/** Parse delta input: "+45" → adds to current, "-30" → subtracts, "150" → absolute. */
+/** Parse delta input: "+45" → adds to current, "-30" → subtracts, "150" → absolute.
+ *  Also evaluates arithmetic expressions: "5+60" → 65, "(30+20)*3" → 150. */
 export function resolveDelta(input: string, currentMinutes: number): number {
   const trimmed = input.trim();
+
+  // Delta mode: +N or -N prefix (adds/subtracts from current)
   if (/^[+-]/.test(trimmed)) {
-    const delta = parseInt(trimmed.substring(1), 10) || 0;
+    const delta = parseFloat(trimmed.substring(1)) || 0;
     const result = trimmed.startsWith("-") ? currentMinutes - delta : currentMinutes + delta;
-    return Math.max(0, result);
+    return Math.max(0, Math.round(result));
   }
-  const absolute = parseInt(trimmed, 10);
-  return isNaN(absolute) ? currentMinutes : Math.max(0, absolute);
+
+  // Expression mode: detect arithmetic operators, evaluate safely
+  if (/[+\-*/]/.test(trimmed)) {
+    try {
+      // Sanitize: only allow digits, operators, parens, decimal point, whitespace
+      const sanitized = trimmed.replace(/[^0-9+\-*/().%\s]/g, "");
+      if (sanitized === trimmed && sanitized.length > 0) {
+        const result = new Function(`return (${sanitized})`)();
+        if (typeof result === "number" && isFinite(result)) {
+          return Math.max(0, Math.round(result));
+        }
+      }
+    } catch {
+      // Expression evaluation failed, fall through to absolute parsing
+    }
+  }
+
+  // Absolute mode: plain number
+  const absolute = parseFloat(trimmed);
+  return isNaN(absolute) ? currentMinutes : Math.max(0, Math.round(absolute));
 }

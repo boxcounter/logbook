@@ -31,4 +31,24 @@ describe("resolveDelta", () => {
   it("subtracts", () => { expect(resolveDelta("-15", 60)).toBe(45); });
   it("absolute", () => { expect(resolveDelta("90", 60)).toBe(90); });
   it("clamps zero", () => { expect(resolveDelta("-100", 60)).toBe(0); });
+
+  // Arithmetic expressions
+  it("evaluates addition expression", () => { expect(resolveDelta("5+60", 0)).toBe(65); });
+  it("evaluates subtraction expression", () => { expect(resolveDelta("100-30", 0)).toBe(70); });
+  it("evaluates multiplication expression", () => { expect(resolveDelta("5*60", 0)).toBe(300); });
+  it("evaluates division expression", () => { expect(resolveDelta("120/2", 0)).toBe(60); });
+  it("evaluates parenthesized expression", () => { expect(resolveDelta("(5+60)", 0)).toBe(65); });
+  it("evaluates expression ignoring current", () => { expect(resolveDelta("(5+60)", 99)).toBe(65); });
+  it("evaluates complex expression", () => { expect(resolveDelta("(30+20)*3", 0)).toBe(150); });
+  it("evaluates float expression", () => { expect(resolveDelta("1.5*60", 0)).toBe(90); });
+  it("rounds expression result", () => { expect(resolveDelta("10/3", 0)).toBe(3); });
+
+  // Delta with expression: +N still means add-to-current
+  it("delta add still works", () => { expect(resolveDelta("+30", 60)).toBe(90); });
+  it("delta subtract still works", () => { expect(resolveDelta("-15", 60)).toBe(45); });
+
+  // Edge cases
+  it("falls back to current on invalid expression", () => { expect(resolveDelta("abc", 60)).toBe(60); });
+  it("clamps negative expression result to zero", () => { expect(resolveDelta("5-100", 0)).toBe(0); });
+  it("handles whitespace in expression", () => { expect(resolveDelta(" 5 + 60 ", 0)).toBe(65); });
 });
