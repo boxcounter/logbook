@@ -232,6 +232,7 @@ function confirmSelection() {
       closeMenu();
       inputEl.value?.focus();
     } else {
+      skipIndexReset = true;
       insertAtChar();     // re-insert @ so filter works in dim phase
       openDimMenu(true);      // loop back to dimension list
     }
@@ -251,6 +252,7 @@ function selectByIndex(idx: number) {
       closeMenu();
       inputEl.value?.focus();
     } else {
+      skipIndexReset = true;
       insertAtChar();
       openDimMenu(true);
     }
@@ -354,6 +356,7 @@ defineExpose({ clearInput });
 
 // ---- Keyboard handler ----
 let menuPending = false;
+let skipIndexReset = false;
 
 function onKeydown(e: KeyboardEvent) {
   if (!menuVisible.value) {
@@ -455,7 +458,10 @@ function onKeydown(e: KeyboardEvent) {
 function onInput() {
   if (menuVisible.value) {
     filterText.value = extractFilterFromInput();
-    selectedIndex.value = 0;
+    if (!skipIndexReset) {
+      selectedIndex.value = 0;
+    }
+    skipIndexReset = false;
   }
 }
 
