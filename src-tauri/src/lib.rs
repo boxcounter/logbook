@@ -22,6 +22,11 @@ pub fn run() {
                 .app_local_data_dir()
                 .unwrap_or_else(|_| PathBuf::from("."));
             error_log::init(&app_data_dir);
+            // Restore window geometry (or 90% default) and persist on close
+            if let Some(window) = app.get_webview_window("main") {
+                window_state::restore_window_state(&window, &app_data_dir);
+                window_state::register_save_on_close(&window, app_data_dir.clone());
+            }
             if let Some(root_path) = files::read_root_path(&app_data_dir) {
                 if root_path.exists() {
                     files::cleanup_tmp_files(&root_path);
