@@ -16,6 +16,8 @@ pub struct Dimension {
     pub source: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub values: Option<Vec<String>>,
+    #[serde(default)]  // false when absent
+    pub required: bool,
 }
 
 fn default_source() -> String {

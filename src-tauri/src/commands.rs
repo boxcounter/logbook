@@ -409,4 +409,62 @@ mod tests {
         assert!(result.unwrap_err().contains("Manual recovery"));
         let _ = fs::remove_dir_all(&tmp);
     }
+
+    // --- validate_required_dimensions tests ---
+
+    use crate::models::{Config, Dimension};
+    use std::collections::HashMap;
+
+    fn make_config(required_keys: &[&str]) -> Config {
+        Config {
+            dimensions: vec![
+                Dimension {
+                    name: "Biz".into(), key: "biz".into(), source: "static".into(),
+                    values: Some(vec!["A".into()]), required: required_keys.contains(&"biz"),
+                },
+                Dimension {
+                    name: "Cat".into(), key: "cat".into(), source: "static".into(),
+                    values: Some(vec!["X".into()]), required: required_keys.contains(&"cat"),
+                },
+                Dimension {
+                    name: "Goal".into(), key: "goal".into(), source: "monthly".into(),
+                    values: None, required: required_keys.contains(&"goal"),
+                },
+            ],
+        }
+    }
+
+    #[test]
+    fn test_validate_required_all_present() {
+        let config = make_config(&["biz"]);
+        let mut dims = HashMap::new();
+        dims.insert("biz".to_string(), "A".to_string());
+        assert!(validate_required_dimensions(&config, &dims).is_ok());
+    }
+
+    #[test]
+    fn test_validate_required_missing_one() {
+        let config = make_config(&["biz", "cat"]);
+        let mut dims = HashMap::new();
+        dims.insert("biz".to_string(), "A".to_string());
+        // cat is missing
+        let err = validate_required_dimensions(&config, &dims).unwrap_err();
+        assert!(err.contains("Cat"), "expected error to mention 'Cat', got: {}", err);
+        assert!(err.contains("Missing required dimension"));
+    }
+
+    #[test]
+    fn test_validate_required_none_required() {
+        let config = make_config(&[]);
+        let dims = HashMap::new(); // empty is fine — nothing required
+        assert!(validate_required_dimensions(&config, &dims).is_ok());
+    }
+
+    #[test]
+    fn test_validate_required_empty_dimensions() {
+        let config = make_config(&["biz"]);
+        let dims = HashMap::new();
+        let err = validate_required_dimensions(&config, &dims).unwrap_err();
+        assert!(err.contains("Biz"));
+    }
 }

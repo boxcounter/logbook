@@ -192,6 +192,20 @@ mod tests {
     use crate::models::{Config, Dimension, MonthlyFile, Commitment};
 
     #[test]
+    fn test_dimension_required_defaults_to_false() {
+        let yaml = "name: Test\nkey: test\nsource: static\nvalues: [a]";
+        let dim: Dimension = yaml_serde::from_str(yaml).unwrap();
+        assert!(!dim.required);
+    }
+
+    #[test]
+    fn test_dimension_required_true() {
+        let yaml = "name: Test\nkey: test\nsource: static\nvalues: [a]\nrequired: true";
+        let dim: Dimension = yaml_serde::from_str(yaml).unwrap();
+        assert!(dim.required);
+    }
+
+    #[test]
     fn test_validate_config_valid() {
         let config = Config {
             dimensions: vec![
