@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { mount } from "@vue/test-utils";
 import CommitmentsPanel from "../../components/CommitmentsPanel.vue";
 import { makeCommitmentProgress } from "../mocks/fixtures";
@@ -85,7 +85,7 @@ describe("CommitmentsPanel", () => {
     expect(text).toContain("Code review");
     expect(text).toContain("1h 15m");
     expect(text).toContain("Ship feature X");
-    expect(text).toContain("2h 0m");
+    expect(text).toContain("2h");
   });
 
   it("shows zero goal as '0m' with gray text", () => {

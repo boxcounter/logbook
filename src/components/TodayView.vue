@@ -32,6 +32,9 @@ async function loadPeriod() {
 
 const store = useStore();
 
+const selectedYear = computed(() => parseInt(store.currentDate.slice(0, 4), 10));
+const selectedMonth = computed(() => parseInt(store.currentDate.slice(5, 7), 10));
+
 // Inject undo toast trigger from App.vue
 const triggerUndoToast = inject<(undoFn: () => void) => void>("triggerUndoToast", () => {});
 
@@ -178,8 +181,9 @@ const isToday = (): boolean => {
     <!-- Right 1/3 -->
     <div class="flex-1 min-w-[180px] flex flex-col gap-3 sticky top-4">
       <CommitmentsPanel
-        :commitments="store.commitments"
-        :entries="store.today?.entries || []"
+        :progress="store.commitmentProgress"
+        :selectedYear="selectedYear"
+        :selectedMonth="selectedMonth"
       />
     </div>
   </div>
