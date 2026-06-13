@@ -16,6 +16,18 @@ export interface Commitment {
   goals: string[];
 }
 
+export interface CommitmentProgress {
+  role: string;
+  allocation_minutes: number;
+  spent_minutes: number;
+  goals: GoalProgress[];
+}
+
+export interface GoalProgress {
+  name: string;
+  spent_minutes: number;
+}
+
 export interface Entry {
   id: string; // UUID v4
   item: string;

@@ -1,5 +1,5 @@
 import { reactive, inject, provide, type InjectionKey } from "vue";
-import type { Config, DayFile, Commitment, ConfigErrorDetail, Screen, Granularity, Entry } from "../types";
+import type { Config, DayFile, Commitment, CommitmentProgress, ConfigErrorDetail, Screen, Granularity, Entry } from "../types";
 
 export interface AppStore {
   screen: Screen;
@@ -8,6 +8,7 @@ export interface AppStore {
   configErrors: ConfigErrorDetail[];
   today: DayFile | null;
   commitments: Commitment[];
+  commitmentProgress: CommitmentProgress[];
   lastDimensions: Record<string, string>;
   currentDate: string;
   granularity: Granularity;
@@ -27,6 +28,7 @@ export function createStore(): AppStore {
     configErrors: [],
     today: null,
     commitments: [],
+    commitmentProgress: [],
     lastDimensions: {},
     currentDate: dateStr,
     granularity: "day",

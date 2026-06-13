@@ -5,6 +5,7 @@ import type {
   Commitment,
   DayFile,
   ConfigErrorDetail,
+  CommitmentProgress,
 } from "../../types";
 
 // ============================================================
@@ -60,6 +61,19 @@ export function makeCommitment(overrides?: Partial<Commitment>): Commitment {
     role: "Developer",
     allocation: 40,
     goals: ["Ship feature X", "Code review"],
+    ...overrides,
+  };
+}
+
+export function makeCommitmentProgress(overrides?: Partial<CommitmentProgress>): CommitmentProgress {
+  return {
+    role: "Developer",
+    allocation_minutes: 2400,
+    spent_minutes: 0,
+    goals: [
+      { name: "Ship feature X", spent_minutes: 0 },
+      { name: "Code review", spent_minutes: 0 },
+    ],
     ...overrides,
   };
 }
