@@ -1,4 +1,4 @@
-mod commands;
+pub mod commands;
 pub mod config;
 mod error_log;
 pub mod files;
@@ -16,7 +16,10 @@ pub fn run() {
         .setup(|app| {
             error_log::install_panic_hook();
             let app_handle = app.handle().clone();
-            let app_data_dir = app.path().app_local_data_dir().unwrap_or_else(|_| PathBuf::from("."));
+            let app_data_dir = app
+                .path()
+                .app_local_data_dir()
+                .unwrap_or_else(|_| PathBuf::from("."));
             error_log::init(&app_data_dir);
             if let Some(root_path) = files::read_root_path(&app_data_dir) {
                 if root_path.exists() {
@@ -35,6 +38,7 @@ pub fn run() {
             commands::delete_entry,
             commands::set_day_note,
             commands::get_commitments,
+            commands::get_commitment_progress,
             commands::open_in_editor,
             commands::create_starter_files,
             commands::log_error,

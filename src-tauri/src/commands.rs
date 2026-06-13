@@ -394,6 +394,96 @@ pub fn get_commitments(
     result
 }
 
+#[tauri::command]
+pub fn get_commitment_progress(
+    root_path: String,
+    year: i32,
+    month: u32,
+) -> Result<Vec<CommitmentProgress>, String> {
+    use crate::models::{CommitmentProgress, GoalProgress};
+    use std::collections::HashMap;
+
+    let root = std::path::Path::new(&root_path);
+
+    // 1. Read _monthly.md
+    let monthly =
+        crate::files::read_monthly_file(root, year, month).unwrap_or_else(|_| MonthlyFile {
+            commitments: vec![],
+        });
+
+    let commitments = monthly.commitments;
+
+    // 2. Build goal -> (role, goal_name) map
+    let mut goal_to_role: HashMap<String, (String, String)> = HashMap::new();
+    for c in &commitments {
+        for g in &c.goals {
+            goal_to_role.insert(g.clone(), (c.role.clone(), g.clone()));
+        }
+    }
+
+    // 3. Initialize result structures
+    let mut role_spent: HashMap<String, u32> = HashMap::new();
+    let mut goal_spent: HashMap<String, u32> = HashMap::new();
+    for c in &commitments {
+        role_spent.entry(c.role.clone()).or_insert(0);
+        for g in &c.goals {
+            goal_spent.entry(g.clone()).or_insert(0);
+        }
+    }
+
+    // 4. Scan day files in the month directory
+    let month_dir = root.join(year.to_string()).join(format!("{:02}", month));
+
+    if month_dir.exists() {
+        if let Ok(entries) = std::fs::read_dir(&month_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+
+                // Skip _monthly.md and non-.md files
+                if file_name == "_monthly.md" || !file_name.ends_with(".md") {
+                    continue;
+                }
+
+                // Read the day file
+                if let Ok(day_file) =
+                    crate::files::read_day_file(root, file_name.trim_end_matches(".md"))
+                {
+                    for e in &day_file.entries {
+                        if let Some(goal) = e.dimensions.get("goal") {
+                            if let Some((role, goal_name)) = goal_to_role.get(goal) {
+                                *role_spent.entry(role.clone()).or_insert(0) += e.duration;
+                                *goal_spent.entry(goal_name.clone()).or_insert(0) += e.duration;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 5. Build result vector
+    let mut results: Vec<CommitmentProgress> = Vec::new();
+    for c in &commitments {
+        let goals: Vec<GoalProgress> = c
+            .goals
+            .iter()
+            .map(|g| GoalProgress {
+                name: g.clone(),
+                spent_minutes: *goal_spent.get(g).unwrap_or(&0),
+            })
+            .collect();
+        results.push(CommitmentProgress {
+            role: c.role.clone(),
+            allocation_minutes: c.allocation * 60,
+            spent_minutes: *role_spent.get(&c.role).unwrap_or(&0),
+            goals,
+        });
+    }
+
+    Ok(results)
+}
+
 fn validate_date_format(date: &str) -> Result<chrono::NaiveDate, String> {
     chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d")
         .map_err(|e| format!("Invalid date '{}': {}. Expected YYYY-MM-DD", date, e))

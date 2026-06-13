@@ -16,7 +16,7 @@ pub struct Dimension {
     pub source: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub values: Option<Vec<String>>,
-    #[serde(default)]  // false when absent
+    #[serde(default)] // false when absent
     pub required: bool,
 }
 
@@ -38,6 +38,20 @@ pub struct Commitment {
     pub allocation: u32, // hours per month
     #[serde(default)]
     pub goals: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommitmentProgress {
+    pub role: String,
+    pub allocation_minutes: u32,
+    pub spent_minutes: u32,
+    pub goals: Vec<GoalProgress>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GoalProgress {
+    pub name: String,
+    pub spent_minutes: u32,
 }
 
 // --- Entries ---
