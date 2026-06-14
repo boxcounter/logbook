@@ -490,6 +490,66 @@ fn validate_date_format(date: &str) -> Result<chrono::NaiveDate, String> {
 }
 
 #[tauri::command]
+pub fn get_available_months(root_path: String) -> Result<Vec<AvailableMonth>, String> {
+    use crate::models::AvailableMonth;
+    let root = std::path::Path::new(&root_path);
+    if !root.exists() {
+        return Ok(vec![]);
+    }
+
+    let mut months: Vec<AvailableMonth> = Vec::new();
+
+    let year_entries = std::fs::read_dir(root)
+        .map_err(|e| format!("Failed to read root dir: {}", e))?;
+
+    for year_entry in year_entries.flatten() {
+        if !year_entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+            continue;
+        }
+        let year_name = year_entry.file_name();
+        let year_str = year_name.to_string_lossy();
+        let year: i32 = match year_str.parse() {
+            Ok(y) if y >= 2000 && y <= 2100 => y,
+            _ => continue,
+        };
+
+        let month_entries = match std::fs::read_dir(year_entry.path()) {
+            Ok(entries) => entries,
+            Err(_) => continue,
+        };
+
+        for month_entry in month_entries.flatten() {
+            if !month_entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+                continue;
+            }
+            let month_name = month_entry.file_name();
+            let month_str = month_name.to_string_lossy();
+            let month: u32 = match month_str.parse() {
+                Ok(m) if m >= 1 && m <= 12 => m,
+                _ => continue,
+            };
+
+            // Check if this month directory contains at least one .md file
+            let has_md = match std::fs::read_dir(month_entry.path()) {
+                Ok(entries) => entries.flatten().any(|e| {
+                    e.file_name().to_string_lossy().ends_with(".md")
+                }),
+                Err(_) => false,
+            };
+
+            if has_md {
+                months.push(AvailableMonth { year, month });
+            }
+        }
+    }
+
+    // Sort descending (newest first)
+    months.sort_by(|a, b| b.year.cmp(&a.year).then(b.month.cmp(&a.month)));
+
+    Ok(months)
+}
+
+#[tauri::command]
 pub fn open_in_editor(root_path: String, date: String) -> Result<(), String> {
     use std::process::Command;
     error_log::log_command_enter("open_in_editor", &format!("date={}", date));

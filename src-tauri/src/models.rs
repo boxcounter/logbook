@@ -111,3 +111,9 @@ pub struct ConfigErrorDetail {
     pub kind: String,
     pub message: String,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AvailableMonth {
+    pub year: i32,
+    pub month: u32,
+}
