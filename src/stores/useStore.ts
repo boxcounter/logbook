@@ -1,5 +1,10 @@
 import { reactive, inject, provide, type InjectionKey } from "vue";
-import type { Config, DayFile, Commitment, CommitmentProgress, ConfigErrorDetail, Screen, Granularity, Entry } from "../types";
+import type { Config, DayFile, Commitment, CommitmentProgress, ConfigErrorDetail, Screen, Entry } from "../types";
+
+export interface AvailableMonth {
+  year: number;
+  month: number;
+}
 
 export interface AppStore {
   screen: Screen;
@@ -11,8 +16,8 @@ export interface AppStore {
   commitmentProgress: CommitmentProgress[];
   lastDimensions: Record<string, string>;
   currentDate: string;
-  granularity: Granularity;
-  periodEntries: Record<string, Entry[]>;
+  monthEntries: Record<string, Entry[]>;
+  availableMonths: AvailableMonth[] | null; // null = not yet loaded
 }
 
 export const STORE_KEY: InjectionKey<AppStore> = Symbol("AppStore");
@@ -31,8 +36,8 @@ export function createStore(): AppStore {
     commitmentProgress: [],
     lastDimensions: {},
     currentDate: dateStr,
-    granularity: "day",
-    periodEntries: {},
+    monthEntries: {},
+    availableMonths: null,
   });
 }
 
