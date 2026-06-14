@@ -1,14 +1,11 @@
 <script setup lang="ts">
-import type { Entry, Granularity } from "../types";
+import type { Entry } from "../types";
 import { computed } from "vue";
 import EntryItem from "./EntryItem.vue";
-import EntryGroup from "./EntryGroup.vue";
-import { parseDate } from "../utils/dates";
+import { formatDuration } from "../utils/format";
 
 const props = defineProps<{
   entries: Entry[];
-  granularity: Granularity;
-  periodEntries?: Record<string, Entry[]>;
 }>();
 
 const emit = defineEmits<{
@@ -17,63 +14,19 @@ const emit = defineEmits<{
   updateDimensions: [entryId: string, dimensions: Record<string, string>];
 }>();
 
-interface Group {
-  label: string;
-  entries: Entry[];
-}
+const totalMinutes = computed(() =>
+  props.entries.reduce((s, e) => s + e.duration, 0)
+);
 
-const groups = computed<Group[]>(() => {
-  if (props.granularity === "day") {
-    return [];
-  }
-  if (!props.periodEntries) return [];
-
-  if (props.granularity === "week") {
-    const sorted = Object.keys(props.periodEntries).sort();
-    const result: Group[] = [];
-    for (const date of sorted) {
-      const entries = props.periodEntries[date];
-      if (entries.length === 0) continue;
-      const d = parseDate(date);
-      const label = d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
-      result.push({ label, entries });
-    }
-    return result;
-  }
-
-  // Month: group by week
-  const weeks: Record<string, Entry[]> = {};
-  for (const [date, entries] of Object.entries(props.periodEntries)) {
-    if (entries.length === 0) continue;
-    const d = parseDate(date);
-    const day = d.getDay();
-    const weekStart = new Date(d);
-    weekStart.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekStart.getDate() + 6);
-    const fmt = (dt: Date) => dt.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    const key = `${fmt(weekStart)} – ${fmt(weekEnd)}`;
-    if (!weeks[key]) weeks[key] = [];
-    weeks[key].push(...entries);
-  }
-  const result: Group[] = [];
-  for (const [label, entries] of Object.entries(weeks)) {
-    result.push({ label, entries });
-  }
-  return result;
-});
+const entryCount = computed(() => props.entries.length);
 </script>
 
 <template>
   <div class="bg-white rounded-lg shadow-sm">
-    <div v-if="granularity === 'day' && entries.length === 0" class="p-8 text-center text-gray-400 text-sm">
+    <div v-if="entries.length === 0" class="p-8 text-center text-gray-400 text-sm">
       No entries yet. Log your first work item above.
     </div>
-    <div v-else-if="granularity !== 'day' && groups.length === 0" class="p-8 text-center text-gray-400 text-sm">
-      No entries for this period.
-    </div>
-    <!-- Day mode: flat list -->
-    <div v-else-if="granularity === 'day'" class="px-4">
+    <div v-else class="px-4">
       <EntryItem
         v-for="(entry, index) in entries"
         :key="entry.id"
@@ -83,18 +36,11 @@ const groups = computed<Group[]>(() => {
         @delete="(entryId) => emit('delete', entryId)"
         @update-dimensions="(entryId, dims) => emit('updateDimensions', entryId, dims)"
       />
+      <!-- Inline summary row -->
+      <div class="flex justify-between text-xs text-gray-500 py-2 border-t border-gray-200 mt-2">
+        <span>{{ entryCount }} {{ entryCount === 1 ? "entry" : "entries" }}</span>
+        <span class="font-medium text-gray-700">{{ formatDuration(totalMinutes) }}</span>
+      </div>
     </div>
-    <!-- Week/Month: grouped -->
-    <EntryGroup
-      v-else
-      v-for="group in groups"
-      :key="group.label"
-      :label="group.label"
-      :entries="group.entries"
-      :defaultOpen="true"
-      @update="(entryId, item, dur) => emit('update', entryId, item, dur)"
-      @delete="(entryId) => emit('delete', entryId)"
-      @update-dimensions="(entryId, dims) => emit('updateDimensions', entryId, dims)"
-    />
   </div>
 </template>

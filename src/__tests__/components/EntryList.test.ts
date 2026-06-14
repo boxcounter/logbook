@@ -89,6 +89,7 @@ describe("EntryList", () => {
       props: { entries: [] },
       global: { provide },
     });
-    expect(wrapper.text()).not.toContain("entries");
+    // Summary row should not render when list is empty
+    expect(wrapper.find(".border-t").exists()).toBe(false);
   });
 });
