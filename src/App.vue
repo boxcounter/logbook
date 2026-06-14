@@ -6,7 +6,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useStore } from "./stores/useStore";
 import SetupScreen from "./components/SetupScreen.vue";
 import ConfigErrorBanner from "./components/ConfigErrorBanner.vue";
-import TodayView from "./components/TodayView.vue";
+import MonthView from "./components/MonthView.vue";
 import type { InitResult, ConfigErrorDetail } from "./types";
 import { logError, logInfo } from "./utils/errorLog";
 
@@ -152,7 +152,7 @@ provide("focusRequestId", focusRequestId);
         Retry
       </button>
     </template>
-    <TodayView v-else-if="store.screen === 'ready'" />
+    <MonthView v-else-if="store.screen === 'ready'" />
 
     <!-- Undo Toast -->
     <Teleport to="body">
