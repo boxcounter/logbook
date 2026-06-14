@@ -16,7 +16,7 @@
 
 ## Rust 后端
 
-### 命令清单（12 个，已实现）
+### 命令清单（14 个，已实现）
 
 ```
 init(app: AppHandle) → InitResult
@@ -27,6 +27,8 @@ update_entry(root_path: String, date: String, entry_id: String, update: UpdateEn
 delete_entry(root_path: String, date: String, entry_id: String) → Result<DayFile, String>
 set_day_note(root_path: String, date: String, note: String) → Result<DayFile, String>
 get_commitments(root_path: String, year: i32, month: u32) → Result<Vec<Commitment>, String>
+get_commitment_progress(root_path: String, year: i32, month: u32) → Result<Vec<CommitmentProgress>, String>
+get_available_months(root_path: String) → Result<Vec<AvailableMonth>, String>  // 扫描有数据的年月，懒加载
 open_in_editor(root_path: String, date: String) → Result<(), String>  // 用系统编辑器打开文件
 create_starter_files(path: String) → Result<(), String>  // 空目录创建初始文件
 log_error(message: String)                              // 前端 error → error.log
@@ -47,6 +49,7 @@ struct Dimension {
     key: String,                // "business-line"
     source: String,             // "static" (default) | "monthly"
     values: Option<Vec<String>>,  // source = "static" 时必填
+    required: bool,             // false when absent (serde default)
 }
 
 // Monthly planning
@@ -104,6 +107,23 @@ struct ConfigErrorDetail {
                        // | "MissingRole" | "ZeroAllocation" | "DuplicateGoal"
                        // | "ParseError" | "ConfigReadError"
 }
+
+// Init result (serde tag = "status")
+enum InitResult {
+    NeedsSetup,
+    ConfigError(Vec<ConfigErrorDetail>),
+    Ready { root_path: String, config: Config, today: DayFile, commitments: Vec<Commitment> },
+}
+
+// Commitment progress (computed)
+struct CommitmentProgress {
+    role: String, allocation_minutes: u32, spent_minutes: u32,
+    goals: Vec<GoalProgress>,
+}
+struct GoalProgress { name: String, spent_minutes: u32 }
+
+// Available months (lazy-loaded for quick-jump popover)
+struct AvailableMonth { year: i32, month: u32 }
 ```
 
 ### Duration 解析
@@ -121,7 +141,7 @@ fn parse_duration(input: &str) -> Result<u32, String>
 - Monthly file: `{root_path}/{year}/{month:02}/_monthly.md`
 - Config: `{root_path}/config.yaml`
 - 写入: 先写 temp 再 rename（原子写入）
-- Frontmatter: 定位 `---` 边界，`serde_yaml::from_str()` 解析中间内容
+- Frontmatter: 定位 `---` 边界，`yaml_serde::from_str()` 解析中间内容
 - 空文件返回空 DayFile，不存在自动创建
 
 ### Commitments 统计
@@ -146,14 +166,14 @@ Rust 端通过 Goal 维度关联：
 App.vue
 ├── SetupScreen.vue                     // 首次启动，folder picker
 ├── ConfigErrorBanner.vue
-└── TodayView.vue
-    ├── DateNavigator.vue               // 日期导航 + Day/Week/Month 粒度切换
+└── MonthView.vue                       // 固定月视图：左 1/3 月概览 + 右 2/3 日详情
+    ├── MonthNavigator.vue              // ← → 箭头 + 快速跳转双下拉（年/月）
     ├── CommitmentsPanel.vue            // Allocation / Spent / Balance 进度条
+    ├── DayStrip.vue                    // 横向滚动 1-31 日期条，蓝点标记有 entry 的日期
     ├── QuickEntry.vue
     │   ├── EntryInput.vue
     │   └── DimensionPanel.vue
-    ├── EntryList.vue → EntryItem.vue · EntryGroup.vue
-    └── SummaryBar.vue                  // 多级合计（Day/Week/Month）
+    └── EntryList.vue → EntryItem.vue   // 始终 day 模式，底部内联合计行
 
 // Phase 3（planned）:
 // └── StatsView.vue
@@ -194,7 +214,7 @@ App.vue
 
 | Phase | 内容 |
 |-------|------|
-| 1 | 脚手架 + init/get_entries/append_entry/update_entry/delete_entry/set_day_note + Commitments 读 + Today day 粒度 + Day note + Undo toast + Config 校验 + ErrorBanner |
-| 2 | Week/Month 粒度 |
+| 1 | 脚手架 + init/get_entries/append_entry/update_entry/delete_entry/set_day_note + Commitments 读 + Day note + Undo toast + Config 校验 + ErrorBanner + 固定月视图（MonthView/MonthNavigator/DayStrip） + 内联合计行 |
+| 2 | 快速跳转双下拉（年/月） + 懒加载 get_available_months |
 | 3 | get_stats + 所有图表（环形图 + 趋势 + Commitments） + 图表联动 |
 | 4 | 键盘快捷键 + 动画 + 容错 |
