@@ -16,23 +16,19 @@ const store = useStore();
 const selectedYear = computed(() => yearMonthFromDate(store.currentDate).year);
 const selectedMonth = computed(() => yearMonthFromDate(store.currentDate).month);
 
-// All dates in the current month
 const monthDates = computed(() => datesInMonth(store.currentDate));
 
-// Whether the selected date is today
 const isSelectedToday = computed(() => {
   const now = new Date();
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   return store.currentDate === today;
 });
 
-// Inject undo toast trigger from App.vue
 const triggerUndoToast = inject<(undoFn: () => void) => void>("triggerUndoToast", () => {});
 
 // ---- Month loading ----
 
 async function loadMonth(year: number, month: number, defaultDay?: number) {
-  // Determine the date to select within the target month
   const now = new Date();
   const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
 
@@ -42,13 +38,12 @@ async function loadMonth(year: number, month: number, defaultDay?: number) {
   } else if (isCurrentMonth) {
     day = now.getDate();
   } else {
-    day = new Date(year, month, 0).getDate(); // last day of past month
+    day = new Date(year, month, 0).getDate();
   }
 
   const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
   store.currentDate = dateStr;
 
-  // Load all entries for the month
   const dates = datesInMonth(dateStr);
   const map: Record<string, Entry[]> = {};
   for (const date of dates) {
@@ -62,13 +57,10 @@ async function loadMonth(year: number, month: number, defaultDay?: number) {
   }
   store.monthEntries = map;
 
-  // Load commitments
   await loadCommitmentProgress(year, month);
 
-  // Set today from the loaded data
   if (store.currentDate in map) {
     store.today = { note: null, entries: map[store.currentDate] };
-    // Also load the note for the selected day
     loadDayNote(store.currentDate);
   }
 }
@@ -97,12 +89,11 @@ async function loadDayNote(dateStr: string) {
   }
 }
 
-// ---- Day selection (from DayStrip) ----
+// ---- Day selection ----
 
 async function handleSelectDay(dateStr: string) {
   store.currentDate = dateStr;
   if (dateStr in store.monthEntries) {
-    // Sync note from store before switching
     store.today = { note: null, entries: store.monthEntries[dateStr] };
     await loadDayNote(dateStr);
   }
@@ -208,7 +199,6 @@ async function handleDeleteEntry(entryId: string) {
 }
 
 async function handleAppended() {
-  // After QuickEntry appends: reload current day + refresh month + commitments
   await loadMonth(selectedYear.value, selectedMonth.value, parseInt(store.currentDate.split("-")[2], 10));
 }
 
