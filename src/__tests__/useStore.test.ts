@@ -9,8 +9,10 @@ describe("createStore", () => {
     expect(store.config).toBeNull();
     expect(store.today).toBeNull();
     expect(store.commitments).toEqual([]);
-    expect(store.granularity).toBe("day");
-    expect(store.periodEntries).toEqual({});
+    expect(store.commitmentProgress).toEqual([]);
+    expect(store.lastDimensions).toEqual({});
+    expect(store.monthEntries).toEqual({});
+    expect(store.availableMonths).toBeNull();
   });
 
   it("currentDate is today", () => {

@@ -3,11 +3,6 @@ import { mount } from "@vue/test-utils";
 import MonthNavigator from "../../components/MonthNavigator.vue";
 import type { AvailableMonth } from "../../stores/useStore";
 
-const MONTH_NAMES = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-];
-
 function mountNav(props: {
   year: number;
   month: number;

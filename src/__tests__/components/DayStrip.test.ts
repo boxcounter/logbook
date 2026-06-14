@@ -16,7 +16,7 @@ describe("DayStrip", () => {
   function mountStrip(props: {
     dates: string[];
     selectedDate: string;
-    monthEntries: Record<string, unknown[]>;
+    monthEntries: Record<string, import("../../types").Entry[]>;
   }) {
     return mount(DayStrip, { props });
   }

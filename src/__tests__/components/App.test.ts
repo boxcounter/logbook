@@ -107,7 +107,7 @@ describe("App", () => {
     expect(wrapper.text()).toContain("Retry");
   });
 
-  it("Ready: shows TodayView and populates store", async () => {
+  it("Ready: shows MonthView and populates store", async () => {
     const config = makeConfig();
     const today = makeDayFile();
     mockInvoke.mockResolvedValue({
@@ -121,7 +121,7 @@ describe("App", () => {
     expect(store.screen).toBe("ready");
     expect(store.rootPath).toBe("/test");
     expect(store.config).toEqual(config);
-    expect(wrapper.findComponent({ name: "TodayView" }).exists()).toBe(true);
+    expect(wrapper.findComponent({ name: "MonthView" }).exists()).toBe(true);
   });
 
   it("Init failure: shows error screen with InitError", async () => {
@@ -241,7 +241,7 @@ describe("App", () => {
     await vi.runAllTimersAsync();
     await nextTick();
 
-    // TodayView is rendered; undo functionality is tested in TodayView test
+    // MonthView is rendered; undo functionality is tested in MonthView test
     // Here we just verify the toast is initially hidden
     // We can't easily trigger it without the full flow, but we can verify
     // the toast component exists and is initially hidden
@@ -250,8 +250,7 @@ describe("App", () => {
 
   it("undo toast: auto-dismisses after 5 seconds", () => {
     // The undo toast uses a 5-second timer
-    // This is tested via TodayView's delete flow
-    // Marking as covered by TodayView.delete tests
+    // This is tested via MonthView's delete flow
     expect(true).toBe(true);
   });
 });

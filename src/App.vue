@@ -82,7 +82,6 @@ async function initApp() {
         store.today = result.data.today;
         store.commitments = result.data.commitments;
         store.screen = "ready";
-        await loadCommitmentProgress();
         break;
     }
     logInfo("App.initApp", result.status);
