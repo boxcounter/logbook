@@ -1,5 +1,6 @@
 use crate::config::{validate_config, validate_monthly};
 use crate::error_log;
+use crate::operation_log;
 use crate::files::{self, read_root_path, save_root_path};
 use crate::models::*;
 use chrono::Datelike;
@@ -315,8 +316,26 @@ pub fn append_entry(root_path: String, date: String, entry: NewEntry) -> Result<
     let duration = parse_duration(&entry.duration)?;
     let config = files::read_config(root)?;
     validate_required_dimensions(&config, &entry.dimensions)?;
+
+    let entry_id = uuid::Uuid::new_v4().to_string();
+
+    // Log before mutation
+    let params = serde_json::json!({
+        "item": entry.item,
+        "duration": entry.duration,
+        "dimensions": entry.dimensions,
+    });
+    operation_log::append(
+        &root_path,
+        operation_log::Operation::Append {
+            date: date.clone(),
+            entry_id: entry_id.clone(),
+            params,
+        },
+    )?;
+
     let entry = Entry {
-        id: uuid::Uuid::new_v4().to_string(),
+        id: entry_id,
         item: entry.item,
         duration,
         dimensions: entry.dimensions,
@@ -344,6 +363,32 @@ pub fn update_entry(
         let config = files::read_config(root)?;
         validate_required_dimensions(&config, dims)?;
     }
+
+    // Read before snapshot
+    let day_file = files::read_day_file(root, &date)?;
+    let before = day_file
+        .entries
+        .iter()
+        .find(|e| e.id == entry_id)
+        .cloned()
+        .ok_or_else(|| format!("Entry {} not found", entry_id))?;
+
+    // Log before mutation
+    let params = serde_json::json!({
+        "item": update.item,
+        "duration": update.duration,
+        "dimensions": update.dimensions,
+    });
+    operation_log::append(
+        &root_path,
+        operation_log::Operation::Update {
+            date: date.clone(),
+            entry_id: entry_id.clone(),
+            before,
+            params,
+        },
+    )?;
+
     let result = files::update_entry_in_file(root, &date, &entry_id, &update);
     let ok = result.is_ok();
     error_log::log_command_exit(
@@ -362,6 +407,26 @@ pub fn delete_entry(root_path: String, date: String, entry_id: String) -> Result
     error_log::log_command_enter("delete_entry", &format!("date={} id={}", date, entry_id));
     let root = std::path::Path::new(&root_path);
     validate_date_format(&date)?;
+
+    // Read before snapshot
+    let day_file = files::read_day_file(root, &date)?;
+    let before = day_file
+        .entries
+        .iter()
+        .find(|e| e.id == entry_id)
+        .cloned()
+        .ok_or_else(|| format!("Entry {} not found", entry_id))?;
+
+    // Log before mutation
+    operation_log::append(
+        &root_path,
+        operation_log::Operation::Delete {
+            date: date.clone(),
+            entry_id: entry_id.clone(),
+            before,
+        },
+    )?;
+
     let result = files::delete_entry_from_file(root, &date, &entry_id);
     let ok = result.is_ok();
     error_log::log_command_exit("delete_entry", ok, "");
@@ -373,6 +438,21 @@ pub fn set_day_note(root_path: String, date: String, note: String) -> Result<Day
     error_log::log_command_enter("set_day_note", &format!("date={}", date));
     let root = std::path::Path::new(&root_path);
     validate_date_format(&date)?;
+
+    // Read before snapshot
+    let day_file = files::read_day_file(root, &date)?;
+    let before = day_file.note.clone();
+
+    // Log before mutation
+    operation_log::append(
+        &root_path,
+        operation_log::Operation::SetDayNote {
+            date: date.clone(),
+            before,
+            params: note.clone(),
+        },
+    )?;
+
     let result = files::set_day_note_in_file(root, &date, &note);
     let ok = result.is_ok();
     error_log::log_command_exit("set_day_note", ok, "");
