@@ -67,4 +67,3 @@ export interface ConfigErrorDetail {
 
 export type Screen = "loading" | "setup" | "error" | "ready";
 
-export type Granularity = "day" | "week" | "month";
