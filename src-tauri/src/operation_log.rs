@@ -1,5 +1,6 @@
 use crate::models::Entry;
 use serde::Serialize;
+use std::io::Write;
 use std::path::Path;
 
 /// An operation to be logged before mutation.
@@ -43,7 +44,6 @@ struct LogLine {
 
 /// Log file path: {root_path}/.logbook/operations/{year}/{month:02}/{date}.jsonl
 fn log_path(root: &Path, date: &str) -> Result<std::path::PathBuf, String> {
-    // STUB: just validate date, return a dummy path
     chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d")
         .map_err(|e| format!("Invalid date '{}': {}", date, e))?;
     let parts: Vec<&str> = date.split('-').collect();
@@ -60,8 +60,6 @@ fn log_path(root: &Path, date: &str) -> Result<std::path::PathBuf, String> {
 /// Append an operation to the log file.
 /// Creates directories lazily. Writes one compact JSON line.
 pub fn append(root_path: &str, op: Operation) -> Result<(), String> {
-    use std::io::Write;
-
     let root = Path::new(root_path);
 
     let (op_name, date, entry_id, before, params) = match op {
