@@ -92,22 +92,6 @@ async function initApp() {
   }
 }
 
-async function loadCommitmentProgress() {
-  if (store.screen !== "ready" || !store.rootPath) return;
-  const d = store.currentDate;
-  const year = parseInt(d.slice(0, 4));
-  const month = parseInt(d.slice(5, 7));
-  try {
-    store.commitmentProgress = (await invoke("get_commitment_progress", {
-      rootPath: store.rootPath,
-      year,
-      month,
-    })) as import("./types").CommitmentProgress[];
-  } catch (e) {
-    logError("App.loadCommitmentProgress", e);
-  }
-}
-
 // Undo toast for delete
 function triggerUndoToast(undoFn: () => void) {
   if (undoTimer) clearTimeout(undoTimer);
