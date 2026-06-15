@@ -30,7 +30,7 @@ async function trySetRootPath(path: string) {
       store.screen = "ready";
     } else if (result.status === "ConfigError") {
       store.rootPath = path;
-      store.configErrors = result.data;
+      store.configErrors = result.data.errors;
       store.screen = "error";
     }
   } catch (e) {

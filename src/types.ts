@@ -53,6 +53,8 @@ export interface UpdateEntry {
 }
 
 export interface ScanWarning {
+  kind: string;   // "SkippedFile" | "CorruptedFile" | "OrphanedTemp"
+  path: string;   // relative to root_path
   message: string;
 }
 
