@@ -1083,4 +1083,97 @@ mod tests {
         ]);
         assert!(validate_commitments(&c).is_ok());
     }
+
+    // --- detect_goal_changes tests ---
+
+    // Minimal struct for tests to compile (the real one will be in non-test code)
+    #[derive(Debug, PartialEq)]
+    struct GoalChanges {
+        renames: Vec<(String, String)>,
+        deleted: Vec<String>,
+    }
+
+    #[test]
+    fn test_detect_goal_rename_single_role() {
+        let old = make_commitments(vec![("Dev", 40, vec!["Old name"])]);
+        let new = make_commitments(vec![("Dev", 40, vec!["New name"])]);
+        let changes = detect_goal_changes(&old, &new);
+        assert_eq!(changes.renames.len(), 1);
+        assert_eq!(changes.renames[0], ("Old name".to_string(), "New name".to_string()));
+        assert!(changes.deleted.is_empty());
+    }
+
+    #[test]
+    fn test_detect_goal_deleted() {
+        let old = make_commitments(vec![("Dev", 40, vec!["Ship it", "Review"])]);
+        let new = make_commitments(vec![("Dev", 40, vec!["Ship it"])]);
+        let changes = detect_goal_changes(&old, &new);
+        assert!(changes.renames.is_empty());
+        assert_eq!(changes.deleted, vec!["Review"]);
+    }
+
+    #[test]
+    fn test_detect_goal_added_no_rename() {
+        let old = make_commitments(vec![("Dev", 40, vec!["Ship it"])]);
+        let new = make_commitments(vec![("Dev", 40, vec!["Ship it", "Review"])]);
+        let changes = detect_goal_changes(&old, &new);
+        assert!(changes.renames.is_empty());
+        assert!(changes.deleted.is_empty());
+    }
+
+    #[test]
+    fn test_detect_goal_rename_when_count_matches() {
+        let old = make_commitments(vec![("Dev", 40, vec!["A", "B", "C"])]);
+        let new = make_commitments(vec![("Dev", 40, vec!["A", "B", "D"])]);
+        let changes = detect_goal_changes(&old, &new);
+        assert_eq!(changes.renames.len(), 1);
+        assert_eq!(changes.renames[0], ("C".to_string(), "D".to_string()));
+        assert!(changes.deleted.is_empty());
+    }
+
+    #[test]
+    fn test_detect_goal_delete_add_not_rename() {
+        // Count differs: delete + add, NOT rename
+        let old = make_commitments(vec![("Dev", 40, vec!["A", "B"])]);
+        let new = make_commitments(vec![("Dev", 40, vec!["A", "B", "C"])]);
+        let changes = detect_goal_changes(&old, &new);
+        assert!(changes.renames.is_empty());
+        // C is new, nothing deleted
+        assert!(changes.deleted.is_empty());
+    }
+
+    #[test]
+    fn test_detect_goal_changes_role_removed() {
+        let old = make_commitments(vec![
+            ("Dev", 40, vec!["A"]),
+            ("PM", 10, vec!["B"]),
+        ]);
+        let new = make_commitments(vec![
+            ("Dev", 40, vec!["A"]),
+        ]);
+        let changes = detect_goal_changes(&old, &new);
+        assert!(changes.renames.is_empty());
+        // Goal "B" from removed role "PM" is a deletion
+        assert_eq!(changes.deleted, vec!["B"]);
+    }
+
+    #[test]
+    fn test_detect_goal_changes_role_added() {
+        let old = make_commitments(vec![("Dev", 40, vec!["A"])]);
+        let new = make_commitments(vec![
+            ("Dev", 40, vec!["A"]),
+            ("PM", 10, vec!["B"]),
+        ]);
+        let changes = detect_goal_changes(&old, &new);
+        assert!(changes.renames.is_empty());
+        assert!(changes.deleted.is_empty());
+    }
+
+    #[test]
+    fn test_detect_goal_changes_no_diff() {
+        let c = make_commitments(vec![("Dev", 40, vec!["A", "B"])]);
+        let changes = detect_goal_changes(&c, &c);
+        assert!(changes.renames.is_empty());
+        assert!(changes.deleted.is_empty());
+    }
 }
