@@ -980,4 +980,77 @@ mod tests {
 
         let _ = std::fs::remove_dir_all(&tmp);
     }
+
+    // --- set_commitments validation tests ---
+
+    use crate::models::Commitment;
+
+    fn make_commitments(roles: Vec<(&str, u32, Vec<&str>)>) -> Vec<Commitment> {
+        roles
+            .into_iter()
+            .map(|(role, alloc, goals)| Commitment {
+                role: role.to_string(),
+                allocation: alloc,
+                goals: goals.into_iter().map(|g| g.to_string()).collect(),
+            })
+            .collect()
+    }
+
+    #[test]
+    fn test_validate_commitments_empty_list() {
+        let result = validate_commitments(&[]);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("At least one role"));
+    }
+
+    #[test]
+    fn test_validate_commitments_empty_role() {
+        let c = make_commitments(vec![("", 40, vec!["Goal A"])]);
+        let result = validate_commitments(&c);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Role name cannot be empty"));
+    }
+
+    #[test]
+    fn test_validate_commitments_whitespace_role() {
+        let c = make_commitments(vec![("   ", 40, vec!["Goal A"])]);
+        let result = validate_commitments(&c);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Role name cannot be empty"));
+    }
+
+    #[test]
+    fn test_validate_commitments_zero_allocation() {
+        let c = make_commitments(vec![("Dev", 0, vec!["Goal A"])]);
+        let result = validate_commitments(&c);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Allocation for 'Dev'"));
+        assert!(result.unwrap_err().contains("must be greater than 0"));
+    }
+
+    #[test]
+    fn test_validate_commitments_empty_goal() {
+        let c = make_commitments(vec![("Dev", 40, vec![""])]);
+        let result = validate_commitments(&c);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Goal name cannot be empty"));
+    }
+
+    #[test]
+    fn test_validate_commitments_duplicate_goal_same_role() {
+        let c = make_commitments(vec![("Dev", 40, vec!["Ship it", "Ship it"])]);
+        let result = validate_commitments(&c);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("already exists"));
+        assert!(result.unwrap_err().contains("Dev"));
+    }
+
+    #[test]
+    fn test_validate_commitments_valid() {
+        let c = make_commitments(vec![
+            ("Dev", 80, vec!["Ship it", "Review"]),
+            ("TL", 40, vec!["1:1", "Architecture"]),
+        ]);
+        assert!(validate_commitments(&c).is_ok());
+    }
 }
