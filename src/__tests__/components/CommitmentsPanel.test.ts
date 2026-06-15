@@ -254,7 +254,7 @@ describe("CommitmentsPanel edit mode", () => {
     expect(addGoalBtns.length).toBe(1);
     await addGoalBtns[0].trigger("click");
 
-    expect(wrapper.vm.editingCommitments[0].goals.length).toBe(2);
+    expect((wrapper.vm as any).editingCommitments[0].goals.length).toBe(2);
   });
 
   it("can delete a goal from a role", async () => {
@@ -265,8 +265,8 @@ describe("CommitmentsPanel edit mode", () => {
     const deleteBtns = wrapper.findAll('[data-test="delete-goal-btn"]');
     await deleteBtns[0].trigger("click");
 
-    expect(wrapper.vm.editingCommitments[0].goals.length).toBe(1);
-    expect(wrapper.vm.editingCommitments[0].goals[0]).toBe("B");
+    expect((wrapper.vm as any).editingCommitments[0].goals.length).toBe(1);
+    expect((wrapper.vm as any).editingCommitments[0].goals[0]).toBe("B");
   });
 
   it("can add a new role", async () => {
@@ -278,7 +278,7 @@ describe("CommitmentsPanel edit mode", () => {
     expect(addRoleBtn.exists()).toBe(true);
     await addRoleBtn.trigger("click");
 
-    expect(wrapper.vm.editingCommitments.length).toBe(2);
+    expect((wrapper.vm as any).editingCommitments.length).toBe(2);
   });
 
   it("can remove a role if more than one", async () => {
@@ -293,7 +293,7 @@ describe("CommitmentsPanel edit mode", () => {
     expect(roleDeleteBtns.length).toBe(2);
 
     await roleDeleteBtns[0].trigger("click");
-    expect(wrapper.vm.editingCommitments.length).toBe(1);
+    expect((wrapper.vm as any).editingCommitments.length).toBe(1);
   });
 
   it("last role has no delete button", async () => {
@@ -405,7 +405,7 @@ describe("CommitmentsPanel edit mode", () => {
 
     // Enter edit mode
     await wrapper.find('[data-test="edit-btn"]').trigger("click");
-    expect(wrapper.vm.isEditing).toBe(true);
+    expect((wrapper.vm as any).isEditing).toBe(true);
 
     // Simulate external change: file watcher pushes new data for both props
     const changedCommitments = [makeCommitmentObj({ allocation: 99 })];
@@ -419,7 +419,7 @@ describe("CommitmentsPanel edit mode", () => {
     await wrapper.vm.$nextTick();
 
     // Should exit edit mode
-    expect(wrapper.vm.isEditing).toBe(false);
+    expect((wrapper.vm as any).isEditing).toBe(false);
     // Should be back in display mode showing new values
     expect(wrapper.text()).toContain("99.0h");
   });
