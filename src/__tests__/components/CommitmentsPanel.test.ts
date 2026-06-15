@@ -407,9 +407,15 @@ describe("CommitmentsPanel edit mode", () => {
     await wrapper.find('[data-test="edit-btn"]').trigger("click");
     expect(wrapper.vm.isEditing).toBe(true);
 
-    // Simulate external change: update commitments prop with different data
+    // Simulate external change: file watcher pushes new data for both props
     const changedCommitments = [makeCommitmentObj({ allocation: 99 })];
-    await wrapper.setProps({ commitments: changedCommitments });
+    const changedProgress = [
+      makeCommitmentProgress({ allocation_minutes: 99 * 60 }),
+    ];
+    await wrapper.setProps({
+      commitments: changedCommitments,
+      progress: changedProgress,
+    });
     await wrapper.vm.$nextTick();
 
     // Should exit edit mode

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, watch } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import type { Commitment, CommitmentProgress } from "../types";
 import { formatDuration } from "../utils/format";
@@ -51,11 +51,29 @@ const isEditing = ref(false);
 const editingCommitments = ref<Commitment[]>([]);
 const editError = ref("");
 const isSaving = ref(false);
+const lastSavedCommitments = ref<Commitment[]>([]);
+
+// Watch for external changes while editing (file watcher pushes new data)
+watch(
+  () => props.commitments,
+  (newVal, oldVal) => {
+    if (!isEditing.value) return;
+    if (!newVal || !oldVal) return;
+    if (JSON.stringify(newVal) === JSON.stringify(oldVal)) return;
+    if (JSON.stringify(newVal) === JSON.stringify(lastSavedCommitments.value)) return;
+
+    // External modification detected — exit edit mode, display refreshes
+    isEditing.value = false;
+    editingCommitments.value = [];
+    editError.value = "";
+  }
+);
 
 function enterEdit() {
   if (!props.commitments || props.commitments.length === 0) return;
   const snapshot = JSON.parse(JSON.stringify(props.commitments)) as Commitment[];
   editingCommitments.value = snapshot;
+  lastSavedCommitments.value = JSON.parse(JSON.stringify(props.commitments)) as Commitment[];
   editError.value = "";
   isEditing.value = true;
 }
@@ -132,6 +150,7 @@ async function save() {
     });
 
     isEditing.value = false;
+    lastSavedCommitments.value = JSON.parse(JSON.stringify(editingCommitments.value)) as Commitment[];
     editingCommitments.value = [];
     emit("saved");
   } catch (e) {
