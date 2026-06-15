@@ -97,18 +97,29 @@ pub struct UpdateEntry {
 #[serde(tag = "status", content = "data")]
 pub enum InitResult {
     NeedsSetup,
-    ConfigError(Vec<ConfigErrorDetail>),
+    ConfigError {
+        errors: Vec<ConfigErrorDetail>,
+        scan_warnings: Vec<ScanWarning>,
+    },
     Ready {
         root_path: String,
         config: Config,
         today: DayFile,
         commitments: Vec<Commitment>,
+        scan_warnings: Vec<ScanWarning>,
     },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConfigErrorDetail {
     pub kind: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScanWarning {
+    pub kind: String,
+    pub path: String,
     pub message: String,
 }
 

@@ -157,10 +157,13 @@ pub fn init(app: AppHandle) -> InitResult {
         Err(e) => {
             error_log::log_error("init: read_config", &e);
             error_log::log_command_exit("init", false, "ConfigReadError");
-            return InitResult::ConfigError(vec![ConfigErrorDetail {
-                kind: "ConfigReadError".to_string(),
-                message: e,
-            }]);
+            return InitResult::ConfigError {
+                errors: vec![ConfigErrorDetail {
+                    kind: "ConfigReadError".to_string(),
+                    message: e,
+                }],
+                scan_warnings: vec![],
+            };
         }
     };
 
@@ -204,7 +207,10 @@ pub fn init(app: AppHandle) -> InitResult {
             false,
             &format!("{} config errors", all_errors.len()),
         );
-        return InitResult::ConfigError(all_errors);
+        return InitResult::ConfigError {
+            errors: all_errors,
+            scan_warnings: vec![],
+        };
     }
 
     error_log::log_command_exit(
@@ -217,6 +223,7 @@ pub fn init(app: AppHandle) -> InitResult {
         config,
         today,
         commitments: monthly.commitments,
+        scan_warnings: vec![],
     }
 }
 
@@ -281,7 +288,10 @@ pub fn set_root_path(app: AppHandle, path: String) -> Result<InitResult, String>
             true,
             &format!("{} config errors", all_errors.len()),
         );
-        return Ok(InitResult::ConfigError(all_errors));
+        return Ok(InitResult::ConfigError {
+            errors: all_errors,
+            scan_warnings: vec![],
+        });
     }
 
     error_log::log_command_exit("set_root_path", true, "Ready");
@@ -290,6 +300,7 @@ pub fn set_root_path(app: AppHandle, path: String) -> Result<InitResult, String>
         config,
         today,
         commitments: monthly.commitments,
+        scan_warnings: vec![],
     })
 }
 
