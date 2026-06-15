@@ -564,6 +564,137 @@ pub fn get_commitment_progress(
     Ok(results)
 }
 
+#[tauri::command]
+pub fn set_commitments(
+    root_path: String,
+    year: i32,
+    month: u32,
+    commitments: Vec<Commitment>,
+) -> Result<Vec<Commitment>, String> {
+    error_log::log_command_enter(
+        "set_commitments",
+        &format!("{}-{:02} {} roles", year, month, commitments.len()),
+    );
+    let root = std::path::Path::new(&root_path);
+
+    // 1. Validate
+    validate_commitments(&commitments)?;
+
+    // 2. Read old state for diff
+    let old = read_monthly_file_safe(root, year, month)?;
+
+    // 3. Detect changes
+    let changes = detect_goal_changes(&old.commitments, &commitments);
+
+    // 4. Check deleted goals for existing entries
+    for goal_name in &changes.deleted {
+        let count = count_entries_with_goal(root, year, month, goal_name)?;
+        if count > 0 {
+            return Err(format!(
+                "Cannot delete goal '{}': used by {} entries this month",
+                goal_name, count
+            ));
+        }
+    }
+
+    // 5. Apply renames to all day files
+    for (old_name, new_name) in &changes.renames {
+        rename_goal_in_entries(root, year, month, old_name, new_name)?;
+    }
+
+    // 6. Write _monthly.md
+    let monthly = MonthlyFile { commitments };
+    files::write_monthly_file(root, year, month, &monthly)?;
+
+    let ok = true;
+    error_log::log_command_exit("set_commitments", ok, "");
+    Ok(monthly.commitments)
+}
+
+/// Count entries in a month that reference a specific goal.
+fn count_entries_with_goal(
+    root: &std::path::Path,
+    year: i32,
+    month: u32,
+    goal_name: &str,
+) -> Result<usize, String> {
+    let month_dir = root
+        .join(year.to_string())
+        .join(format!("{:02}", month));
+
+    if !month_dir.exists() {
+        return Ok(0);
+    }
+
+    let mut count = 0;
+    let entries = match std::fs::read_dir(&month_dir) {
+        Ok(e) => e,
+        Err(e) => return Err(format!("Failed to read month dir: {}", e)),
+    };
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+        if file_name == "_monthly.md" || !file_name.ends_with(".md") {
+            continue;
+        }
+        let date = file_name.trim_end_matches(".md");
+        if let Ok(day_file) = files::read_day_file(root, date) {
+            count += day_file
+                .entries
+                .iter()
+                .filter(|e| e.dimensions.get("goal").map(|g| g == goal_name).unwrap_or(false))
+                .count();
+        }
+    }
+    Ok(count)
+}
+
+/// Rename a goal in all day files of a given month.
+fn rename_goal_in_entries(
+    root: &std::path::Path,
+    year: i32,
+    month: u32,
+    old_name: &str,
+    new_name: &str,
+) -> Result<(), String> {
+    let month_dir = root
+        .join(year.to_string())
+        .join(format!("{:02}", month));
+
+    if !month_dir.exists() {
+        return Ok(());
+    }
+
+    let entries = match std::fs::read_dir(&month_dir) {
+        Ok(e) => e,
+        Err(e) => return Err(format!("Failed to read month dir: {}", e)),
+    };
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+        if file_name == "_monthly.md" || !file_name.ends_with(".md") {
+            continue;
+        }
+        let date = file_name.trim_end_matches(".md");
+        let mut day_file = files::read_day_file(root, date)?;
+        let mut changed = false;
+        for e in &mut day_file.entries {
+            if let Some(goal) = e.dimensions.get("goal") {
+                if goal == old_name {
+                    e.dimensions.insert("goal".to_string(), new_name.to_string());
+                    changed = true;
+                }
+            }
+        }
+        if changed {
+            files::write_day_file(root, date, &day_file)?;
+        }
+    }
+    Ok(())
+}
+
 fn validate_date_format(date: &str) -> Result<chrono::NaiveDate, String> {
     chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d")
         .map_err(|e| format!("Invalid date '{}': {}. Expected YYYY-MM-DD", date, e))
