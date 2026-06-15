@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
 import { mount } from "@vue/test-utils";
+import { setupTauriMocks } from "../mocks/tauri";
 import CommitmentsPanel from "../../components/CommitmentsPanel.vue";
 import { makeCommitment, makeCommitmentProgress } from "../mocks/fixtures";
 import type { Commitment, CommitmentProgress } from "../../types";
-import { setupTauriMocks } from "../mocks/tauri";
 
 function mountPanel(progress: CommitmentProgress[], selectedYear = 2026, selectedMonth = 6) {
   return mount(CommitmentsPanel, {
@@ -208,14 +208,14 @@ describe("CommitmentsPanel edit mode", () => {
   it("shows edit button when commitments provided", () => {
     const commitments = [makeCommitmentObj()];
     const wrapper = mountPanelWithEdit(commitments);
-    const editBtn = wrapper.find("button").find((b) => b.text().includes("编辑"));
+    const editBtn = wrapper.find('[data-test="edit-btn"]');
     expect(editBtn.exists()).toBe(true);
   });
 
   it("clicking edit button enters edit mode", async () => {
     const commitments = [makeCommitmentObj()];
     const wrapper = mountPanelWithEdit(commitments);
-    const editBtn = wrapper.find("button").find((b) => b.text().includes("编辑"));
+    const editBtn = wrapper.find('[data-test="edit-btn"]');
     await editBtn.trigger("click");
     expect(wrapper.text()).toContain("保存");
     expect(wrapper.text()).toContain("取消");
@@ -224,11 +224,10 @@ describe("CommitmentsPanel edit mode", () => {
   it("edit mode shows role and allocation inputs", async () => {
     const commitments = [makeCommitmentObj({ role: "Developer", allocation: 40 })];
     const wrapper = mountPanelWithEdit(commitments);
-    await wrapper.find("button").find((b) => b.text().includes("编辑")).trigger("click");
+    await wrapper.find('[data-test="edit-btn"]').trigger("click");
 
-    const roleInputs = wrapper.findAll("input[type='text']");
-    const roleInput = roleInputs.find((i) => (i.element as HTMLInputElement).value === "Developer");
-    expect(roleInput).toBeTruthy();
+    const roleInput = wrapper.find('input[type="text"]');
+    expect((roleInput.element as HTMLInputElement).value).toBe("Developer");
 
     const allocInput = wrapper.find("input[type='number']");
     expect((allocInput.element as HTMLInputElement).value).toBe("40");
@@ -237,18 +236,21 @@ describe("CommitmentsPanel edit mode", () => {
   it("edit mode shows goal names as inputs with delete buttons", async () => {
     const commitments = [makeCommitmentObj({ goals: ["Goal A"] })];
     const wrapper = mountPanelWithEdit(commitments);
-    await wrapper.find("button").find((b) => b.text().includes("编辑")).trigger("click");
+    await wrapper.find('[data-test="edit-btn"]').trigger("click");
 
-    expect(wrapper.text()).toContain("Goal A");
-    expect(wrapper.findAll("button").some((b) => b.text().includes("✕"))).toBe(true);
+    // Goal names are bound as input values, not text content
+    const goalInputs = wrapper.findAll('input[type="text"]');
+    const goalInput = goalInputs[1]; // first is role input, second is goal input
+    expect((goalInput.element as HTMLInputElement).value).toBe("Goal A");
+    expect(wrapper.find('[data-test="delete-goal-btn"]').exists()).toBe(true);
   });
 
   it("can add a new goal to a role", async () => {
     const commitments = [makeCommitmentObj({ goals: ["Goal A"] })];
     const wrapper = mountPanelWithEdit(commitments);
-    await wrapper.find("button").find((b) => b.text().includes("编辑")).trigger("click");
+    await wrapper.find('[data-test="edit-btn"]').trigger("click");
 
-    const addGoalBtns = wrapper.findAll("button").filter((b) => b.text().includes("添加 Goal"));
+    const addGoalBtns = wrapper.findAll('[data-test="add-goal-btn"]');
     expect(addGoalBtns.length).toBe(1);
     await addGoalBtns[0].trigger("click");
 
@@ -258,9 +260,9 @@ describe("CommitmentsPanel edit mode", () => {
   it("can delete a goal from a role", async () => {
     const commitments = [makeCommitmentObj({ goals: ["A", "B"] })];
     const wrapper = mountPanelWithEdit(commitments);
-    await wrapper.find("button").find((b) => b.text().includes("编辑")).trigger("click");
+    await wrapper.find('[data-test="edit-btn"]').trigger("click");
 
-    const deleteBtns = wrapper.findAll("button").filter((b) => b.text().includes("✕"));
+    const deleteBtns = wrapper.findAll('[data-test="delete-goal-btn"]');
     await deleteBtns[0].trigger("click");
 
     expect(wrapper.vm.editingCommitments[0].goals.length).toBe(1);
@@ -270,9 +272,9 @@ describe("CommitmentsPanel edit mode", () => {
   it("can add a new role", async () => {
     const commitments = [makeCommitmentObj()];
     const wrapper = mountPanelWithEdit(commitments);
-    await wrapper.find("button").find((b) => b.text().includes("编辑")).trigger("click");
+    await wrapper.find('[data-test="edit-btn"]').trigger("click");
 
-    const addRoleBtn = wrapper.find("button").find((b) => b.text().includes("添加 Role"));
+    const addRoleBtn = wrapper.find('[data-test="add-role-btn"]');
     expect(addRoleBtn.exists()).toBe(true);
     await addRoleBtn.trigger("click");
 
@@ -285,9 +287,9 @@ describe("CommitmentsPanel edit mode", () => {
       makeCommitmentObj({ role: "PM" }),
     ];
     const wrapper = mountPanelWithEdit(commitments);
-    await wrapper.find("button").find((b) => b.text().includes("编辑")).trigger("click");
+    await wrapper.find('[data-test="edit-btn"]').trigger("click");
 
-    const roleDeleteBtns = wrapper.findAll("button").filter((b) => b.text().includes("删除 Role"));
+    const roleDeleteBtns = wrapper.findAll('[data-test="delete-role-btn"]');
     expect(roleDeleteBtns.length).toBe(2);
 
     await roleDeleteBtns[0].trigger("click");
@@ -297,21 +299,21 @@ describe("CommitmentsPanel edit mode", () => {
   it("last role has no delete button", async () => {
     const commitments = [makeCommitmentObj()];
     const wrapper = mountPanelWithEdit(commitments);
-    await wrapper.find("button").find((b) => b.text().includes("编辑")).trigger("click");
+    await wrapper.find('[data-test="edit-btn"]').trigger("click");
 
-    const roleDeleteBtns = wrapper.findAll("button").filter((b) => b.text().includes("删除 Role"));
+    const roleDeleteBtns = wrapper.findAll('[data-test="delete-role-btn"]');
     expect(roleDeleteBtns.length).toBe(0);
   });
 
   it("cancel restores snapshot and returns to display mode", async () => {
     const commitments = [makeCommitmentObj({ allocation: 40 })];
     const wrapper = mountPanelWithEdit(commitments);
-    await wrapper.find("button").find((b) => b.text().includes("编辑")).trigger("click");
+    await wrapper.find('[data-test="edit-btn"]').trigger("click");
 
     const allocInput = wrapper.find("input[type='number']");
     await allocInput.setValue(99);
 
-    const cancelBtn = wrapper.find("button").find((b) => b.text().includes("取消"));
+    const cancelBtn = wrapper.find('[data-test="cancel-btn"]');
     await cancelBtn.trigger("click");
 
     expect(wrapper.text()).toContain("40.0h");
@@ -322,12 +324,12 @@ describe("CommitmentsPanel edit mode", () => {
     const wrapper = mountPanelWithEdit(commitments);
     const mocks = setupTauriMocks();
 
-    await wrapper.find("button").find((b) => b.text().includes("编辑")).trigger("click");
+    await wrapper.find('[data-test="edit-btn"]').trigger("click");
 
-    const roleInput = wrapper.find("input[type='text']");
+    const roleInput = wrapper.find('input[type="text"]');
     await roleInput.setValue("");
 
-    const saveBtn = wrapper.find("button").find((b) => b.text().includes("保存"));
+    const saveBtn = wrapper.find('[data-test="save-btn"]');
     await saveBtn.trigger("click");
 
     expect(wrapper.text()).toContain("Role name cannot be empty");
@@ -339,12 +341,12 @@ describe("CommitmentsPanel edit mode", () => {
     const wrapper = mountPanelWithEdit(commitments);
     const mocks = setupTauriMocks();
 
-    await wrapper.find("button").find((b) => b.text().includes("编辑")).trigger("click");
+    await wrapper.find('[data-test="edit-btn"]').trigger("click");
 
     const allocInput = wrapper.find("input[type='number']");
     await allocInput.setValue(0);
 
-    const saveBtn = wrapper.find("button").find((b) => b.text().includes("保存"));
+    const saveBtn = wrapper.find('[data-test="save-btn"]');
     await saveBtn.trigger("click");
 
     expect(wrapper.text()).toContain("must be greater than 0");
@@ -356,12 +358,12 @@ describe("CommitmentsPanel edit mode", () => {
     const wrapper = mountPanelWithEdit(commitments);
     const mocks = setupTauriMocks();
 
-    await wrapper.find("button").find((b) => b.text().includes("编辑")).trigger("click");
+    await wrapper.find('[data-test="edit-btn"]').trigger("click");
 
-    const addGoalBtn = wrapper.find("button").find((b) => b.text().includes("添加 Goal"));
+    const addGoalBtn = wrapper.find('[data-test="add-goal-btn"]');
     await addGoalBtn.trigger("click");
 
-    const saveBtn = wrapper.find("button").find((b) => b.text().includes("保存"));
+    const saveBtn = wrapper.find('[data-test="save-btn"]');
     await saveBtn.trigger("click");
 
     expect(wrapper.text()).toContain("Goal name cannot be empty");
@@ -370,11 +372,12 @@ describe("CommitmentsPanel edit mode", () => {
 
   it("save calls invoke and emits saved event on success", async () => {
     const commitments = [makeCommitmentObj({ allocation: 80 })];
+    setupTauriMocks();
     const wrapper = mountPanelWithEdit(commitments);
 
-    await wrapper.find("button").find((b) => b.text().includes("编辑")).trigger("click");
+    await wrapper.find('[data-test="edit-btn"]').trigger("click");
 
-    const saveBtn = wrapper.find("button").find((b) => b.text().includes("保存"));
+    const saveBtn = wrapper.find('[data-test="save-btn"]');
     await saveBtn.trigger("click");
 
     expect(wrapper.emitted("saved")).toBeTruthy();
@@ -382,13 +385,13 @@ describe("CommitmentsPanel edit mode", () => {
 
   it("displays backend error", async () => {
     const commitments = [makeCommitmentObj()];
-    const wrapper = mountPanelWithEdit(commitments);
     const mocks = setupTauriMocks();
+    const wrapper = mountPanelWithEdit(commitments);
     mocks.invoke.mockRejectedValueOnce("Cannot delete goal 'X': used by 3 entries this month");
 
-    await wrapper.find("button").find((b) => b.text().includes("编辑")).trigger("click");
+    await wrapper.find('[data-test="edit-btn"]').trigger("click");
 
-    const saveBtn = wrapper.find("button").find((b) => b.text().includes("保存"));
+    const saveBtn = wrapper.find('[data-test="save-btn"]');
     await saveBtn.trigger("click");
     await wrapper.vm.$nextTick();
     await wrapper.vm.$nextTick();

@@ -10,8 +10,8 @@ import { vi, type Mock } from "vitest";
 //   // Override per-test:
 //   mocks.invoke.mockResolvedValueOnce(...);
 //
-// Each mock module is hoist-safe because setupTauriMocks()
-// calls vi.mock() internally before returning the mocks.
+// Mock modules are defined at module scope so vi.mock hoisting
+// always has valid references to the mock functions.
 // ============================================================
 
 export interface TauriMocks {
@@ -49,23 +49,26 @@ const defaultInvoke = async (cmd: string, _args?: unknown) => {
       return;
     case "set_commitments":
       return (_args as any)?.commitments ?? [];
+    case "get_commitment_progress":
+      return [];
     default:
       throw new Error(`Unmocked invoke command: ${cmd}`);
   }
 };
 
+// Module-level mocks so vi.mock hoisting always has valid references
+const invoke = vi.fn().mockImplementation(defaultInvoke);
+const listen = vi.fn().mockResolvedValue(() => {});
+const onFocusChanged = vi.fn().mockResolvedValue(() => {});
+const getCurrentWindow = vi.fn().mockReturnValue({ onFocusChanged });
+const openDialog = vi.fn().mockResolvedValue(null); // user cancels by default
+
+vi.mock("@tauri-apps/api/core", () => ({ invoke }));
+vi.mock("@tauri-apps/api/event", () => ({ listen }));
+vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow }));
+vi.mock("@tauri-apps/plugin-dialog", () => ({ open: openDialog }));
+
 export function setupTauriMocks(): TauriMocks {
-  const invoke = vi.fn().mockImplementation(defaultInvoke);
-  const listen = vi.fn().mockResolvedValue(() => {});
-  const onFocusChanged = vi.fn().mockResolvedValue(() => {});
-  const getCurrentWindow = vi.fn().mockReturnValue({ onFocusChanged });
-  const openDialog = vi.fn().mockResolvedValue(null); // user cancels by default
-
-  vi.mock("@tauri-apps/api/core", () => ({ invoke }));
-  vi.mock("@tauri-apps/api/event", () => ({ listen }));
-  vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow }));
-  vi.mock("@tauri-apps/plugin-dialog", () => ({ open: openDialog }));
-
   return {
     invoke,
     listen,
