@@ -398,4 +398,23 @@ describe("CommitmentsPanel edit mode", () => {
 
     expect(wrapper.text()).toContain("Cannot delete goal");
   });
+
+  it("exits edit mode when commitments prop changes externally", async () => {
+    const commitments = [makeCommitmentObj()];
+    const wrapper = mountPanelWithEdit(commitments);
+
+    // Enter edit mode
+    await wrapper.find('[data-test="edit-btn"]').trigger("click");
+    expect(wrapper.vm.isEditing).toBe(true);
+
+    // Simulate external change: update commitments prop with different data
+    const changedCommitments = [makeCommitmentObj({ allocation: 99 })];
+    await wrapper.setProps({ commitments: changedCommitments });
+    await wrapper.vm.$nextTick();
+
+    // Should exit edit mode
+    expect(wrapper.vm.isEditing).toBe(false);
+    // Should be back in display mode showing new values
+    expect(wrapper.text()).toContain("99.0h");
+  });
 });
