@@ -52,12 +52,22 @@ export interface UpdateEntry {
   dimensions?: Record<string, string>;
 }
 
+export interface ScanWarning {
+  message: string;
+}
+
 export type InitResult =
   | { status: "NeedsSetup" }
-  | { status: "ConfigError"; data: ConfigErrorDetail[] }
+  | { status: "ConfigError"; data: { errors: ConfigErrorDetail[]; scan_warnings: ScanWarning[] } }
   | {
       status: "Ready";
-      data: { root_path: string; config: Config; today: DayFile; commitments: Commitment[] };
+      data: {
+        root_path: string;
+        config: Config;
+        today: DayFile;
+        commitments: Commitment[];
+        scan_warnings: ScanWarning[];
+      };
     };
 
 export interface ConfigErrorDetail {

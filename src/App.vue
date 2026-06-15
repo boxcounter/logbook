@@ -7,13 +7,16 @@ import { useStore } from "./stores/useStore";
 import SetupScreen from "./components/SetupScreen.vue";
 import ConfigErrorBanner from "./components/ConfigErrorBanner.vue";
 import MonthView from "./components/MonthView.vue";
-import type { InitResult, ConfigErrorDetail } from "./types";
+import type { InitResult, ConfigErrorDetail, ScanWarning } from "./types";
 import { logError, logInfo } from "./utils/errorLog";
 
 const store = useStore();
 const showUndoToast = ref(false);
 const undoAction = ref<(() => void) | null>(null);
 let undoTimer: ReturnType<typeof setTimeout> | null = null;
+
+const showScanWarning = ref(false);
+const scanWarnings = ref<ScanWarning[]>([]);
 
 // #1: window focus → auto-focus input
 const focusRequestId = ref(0);
@@ -73,8 +76,12 @@ async function initApp() {
         store.screen = "setup";
         break;
       case "ConfigError":
-        store.configErrors = result.data;
+        store.configErrors = result.data.errors;
         store.screen = "error";
+        if (result.data.scan_warnings.length > 0) {
+          scanWarnings.value = result.data.scan_warnings;
+          showScanWarning.value = true;
+        }
         break;
       case "Ready":
         store.rootPath = result.data.root_path;
@@ -82,6 +89,10 @@ async function initApp() {
         store.today = result.data.today;
         store.commitments = result.data.commitments;
         store.screen = "ready";
+        if (result.data.scan_warnings.length > 0) {
+          scanWarnings.value = result.data.scan_warnings;
+          showScanWarning.value = true;
+        }
         break;
     }
     logInfo("App.initApp", result.status);
@@ -112,6 +123,11 @@ function dismissUndo() {
 function handleUndo() {
   if (undoAction.value) undoAction.value();
   dismissUndo();
+}
+
+function dismissScanWarning() {
+  showScanWarning.value = false;
+  scanWarnings.value = [];
 }
 
 // Provide undo trigger to descendants
@@ -147,6 +163,20 @@ provide("focusRequestId", focusRequestId);
           <span>Entry deleted</span>
           <button class="text-blue-400 font-medium hover:text-blue-300" @click="handleUndo">Undo</button>
           <button class="text-gray-500 hover:text-gray-300 text-base leading-none" @click="dismissUndo">×</button>
+        </div>
+      </transition>
+    </Teleport>
+
+    <!-- Scan Warning Toast -->
+    <Teleport to="body">
+      <transition name="toast">
+        <div
+          v-if="showScanWarning"
+          class="fixed top-20 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-amber-500 text-white px-5 py-3 rounded-lg shadow-lg z-50 text-sm"
+          data-testid="scan-warning-toast"
+        >
+          <span>{{ scanWarnings.length }} data issue{{ scanWarnings.length > 1 ? 's' : '' }} found during scan</span>
+          <button class="text-amber-100 hover:text-white text-base leading-none font-bold" @click="dismissScanWarning">×</button>
         </div>
       </transition>
     </Teleport>
