@@ -288,8 +288,11 @@ async function openInEditor() {
       />
       <CommitmentsPanel
         :progress="store.commitmentProgress"
+        :commitments="store.commitments"
+        :rootPath="store.rootPath"
         :selectedYear="selectedYear"
         :selectedMonth="selectedMonth"
+        @saved="loadCommitmentProgress(selectedYear, selectedMonth)"
       />
     </div>
 

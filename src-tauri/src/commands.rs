@@ -591,9 +591,220 @@ pub fn get_commitment_progress(
     Ok(results)
 }
 
+#[tauri::command]
+pub fn set_commitments(
+    root_path: String,
+    year: i32,
+    month: u32,
+    commitments: Vec<Commitment>,
+) -> Result<Vec<Commitment>, String> {
+    error_log::log_command_enter(
+        "set_commitments",
+        &format!("{}-{:02} {} roles", year, month, commitments.len()),
+    );
+    let root = std::path::Path::new(&root_path);
+
+    // 1. Validate
+    validate_commitments(&commitments)?;
+
+    // 2. Read old state for diff
+    let old = read_monthly_file_safe(root, year, month)?;
+
+    // 3. Detect changes
+    let changes = detect_goal_changes(&old.commitments, &commitments);
+
+    // 4. Check deleted goals for existing entries
+    for goal_name in &changes.deleted {
+        let count = count_entries_with_goal(root, year, month, goal_name)?;
+        if count > 0 {
+            return Err(format!(
+                "Cannot delete goal '{}': used by {} entries this month",
+                goal_name, count
+            ));
+        }
+    }
+
+    // 5. Apply renames to all day files
+    for (old_name, new_name) in &changes.renames {
+        rename_goal_in_entries(root, year, month, old_name, new_name)?;
+    }
+
+    // 6. Write _monthly.md
+    let monthly = MonthlyFile { commitments };
+    files::write_monthly_file(root, year, month, &monthly)?;
+
+    let ok = true;
+    error_log::log_command_exit("set_commitments", ok, "");
+    Ok(monthly.commitments)
+}
+
+/// Count entries in a month that reference a specific goal.
+fn count_entries_with_goal(
+    root: &std::path::Path,
+    year: i32,
+    month: u32,
+    goal_name: &str,
+) -> Result<usize, String> {
+    let month_dir = root
+        .join(year.to_string())
+        .join(format!("{:02}", month));
+
+    if !month_dir.exists() {
+        return Ok(0);
+    }
+
+    let mut count = 0;
+    let entries = match std::fs::read_dir(&month_dir) {
+        Ok(e) => e,
+        Err(e) => return Err(format!("Failed to read month dir: {}", e)),
+    };
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+        if file_name == "_monthly.md" || !file_name.ends_with(".md") {
+            continue;
+        }
+        let date = file_name.trim_end_matches(".md");
+        if let Ok(day_file) = files::read_day_file(root, date) {
+            count += day_file
+                .entries
+                .iter()
+                .filter(|e| e.dimensions.get("goal").map(|g| g == goal_name).unwrap_or(false))
+                .count();
+        }
+    }
+    Ok(count)
+}
+
+/// Rename a goal in all day files of a given month.
+fn rename_goal_in_entries(
+    root: &std::path::Path,
+    year: i32,
+    month: u32,
+    old_name: &str,
+    new_name: &str,
+) -> Result<(), String> {
+    let month_dir = root
+        .join(year.to_string())
+        .join(format!("{:02}", month));
+
+    if !month_dir.exists() {
+        return Ok(());
+    }
+
+    let entries = match std::fs::read_dir(&month_dir) {
+        Ok(e) => e,
+        Err(e) => return Err(format!("Failed to read month dir: {}", e)),
+    };
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+        if file_name == "_monthly.md" || !file_name.ends_with(".md") {
+            continue;
+        }
+        let date = file_name.trim_end_matches(".md");
+        let mut day_file = files::read_day_file(root, date)?;
+        let mut changed = false;
+        for e in &mut day_file.entries {
+            if let Some(goal) = e.dimensions.get("goal") {
+                if goal == old_name {
+                    e.dimensions.insert("goal".to_string(), new_name.to_string());
+                    changed = true;
+                }
+            }
+        }
+        if changed {
+            files::write_day_file(root, date, &day_file)?;
+        }
+    }
+    Ok(())
+}
+
 fn validate_date_format(date: &str) -> Result<chrono::NaiveDate, String> {
     chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d")
         .map_err(|e| format!("Invalid date '{}': {}. Expected YYYY-MM-DD", date, e))
+}
+
+/// Validate commitments before saving (no IO).
+fn validate_commitments(commitments: &[Commitment]) -> Result<(), String> {
+    if commitments.is_empty() {
+        return Err("At least one role is required".to_string());
+    }
+    for c in commitments {
+        if c.role.trim().is_empty() {
+            return Err("Role name cannot be empty".to_string());
+        }
+        if c.allocation == 0 {
+            return Err(format!(
+                "Allocation for '{}' must be greater than 0",
+                c.role
+            ));
+        }
+        let mut goal_set = std::collections::HashSet::new();
+        for g in &c.goals {
+            if g.trim().is_empty() {
+                return Err("Goal name cannot be empty".to_string());
+            }
+            if !goal_set.insert(g) {
+                return Err(format!("Goal '{}' already exists in '{}'", g, c.role));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Detects goal renames and deletions between old and new commitments.
+///
+/// A rename is detected when a role has the same number of goals and exactly
+/// one goal differs between old and new.
+#[derive(Debug, PartialEq)]
+struct GoalChanges {
+    renames: Vec<(String, String)>,
+    deleted: Vec<String>,
+}
+
+fn detect_goal_changes(old: &[Commitment], new: &[Commitment]) -> GoalChanges {
+    use std::collections::HashSet;
+
+    let old_goals: HashSet<String> = old
+        .iter()
+        .flat_map(|c| c.goals.iter().cloned())
+        .collect();
+    let new_goals: HashSet<String> = new
+        .iter()
+        .flat_map(|c| c.goals.iter().cloned())
+        .collect();
+
+    let deleted: Vec<String> = old_goals.difference(&new_goals).cloned().collect();
+
+    let mut renames: Vec<(String, String)> = Vec::new();
+    let mut matched_old_goals: HashSet<String> = HashSet::new();
+
+    for old_c in old {
+        if let Some(new_c) = new.iter().find(|c| c.role == old_c.role) {
+            if old_c.goals.len() == new_c.goals.len() {
+                let old_set: HashSet<_> = old_c.goals.iter().cloned().collect();
+                let new_set: HashSet<_> = new_c.goals.iter().cloned().collect();
+
+                let old_not_new: Vec<_> = old_set.difference(&new_set).cloned().collect();
+                let new_not_old: Vec<_> = new_set.difference(&old_set).cloned().collect();
+
+                if old_not_new.len() == 1 && new_not_old.len() == 1 {
+                    renames.push((old_not_new[0].clone(), new_not_old[0].clone()));
+                    matched_old_goals.insert(old_not_new[0].clone());
+                }
+            }
+        }
+    }
+
+    let deleted: Vec<String> = deleted
+        .into_iter()
+        .filter(|g| !matched_old_goals.contains(g))
+        .collect();
+
+    GoalChanges { renames, deleted }
 }
 
 #[tauri::command]
@@ -1009,5 +1220,166 @@ mod tests {
         assert!(result.is_empty());
 
         let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    // --- set_commitments validation tests ---
+
+    use crate::models::Commitment;
+
+    fn make_commitments(roles: Vec<(&str, u32, Vec<&str>)>) -> Vec<Commitment> {
+        roles
+            .into_iter()
+            .map(|(role, alloc, goals)| Commitment {
+                role: role.to_string(),
+                allocation: alloc,
+                goals: goals.into_iter().map(|g| g.to_string()).collect(),
+            })
+            .collect()
+    }
+
+    #[test]
+    fn test_validate_commitments_empty_list() {
+        let result = validate_commitments(&[]);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("At least one role"));
+    }
+
+    #[test]
+    fn test_validate_commitments_empty_role() {
+        let c = make_commitments(vec![("", 40, vec!["Goal A"])]);
+        let result = validate_commitments(&c);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Role name cannot be empty"));
+    }
+
+    #[test]
+    fn test_validate_commitments_whitespace_role() {
+        let c = make_commitments(vec![("   ", 40, vec!["Goal A"])]);
+        let result = validate_commitments(&c);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Role name cannot be empty"));
+    }
+
+    #[test]
+    fn test_validate_commitments_zero_allocation() {
+        let c = make_commitments(vec![("Dev", 0, vec!["Goal A"])]);
+        let result = validate_commitments(&c);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.contains("Allocation for 'Dev'"));
+        assert!(err.contains("must be greater than 0"));
+    }
+
+    #[test]
+    fn test_validate_commitments_empty_goal() {
+        let c = make_commitments(vec![("Dev", 40, vec![""])]);
+        let result = validate_commitments(&c);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Goal name cannot be empty"));
+    }
+
+    #[test]
+    fn test_validate_commitments_duplicate_goal_same_role() {
+        let c = make_commitments(vec![("Dev", 40, vec!["Ship it", "Ship it"])]);
+        let result = validate_commitments(&c);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.contains("already exists"));
+        assert!(err.contains("Dev"));
+    }
+
+    #[test]
+    fn test_validate_commitments_valid() {
+        let c = make_commitments(vec![
+            ("Dev", 80, vec!["Ship it", "Review"]),
+            ("TL", 40, vec!["1:1", "Architecture"]),
+        ]);
+        assert!(validate_commitments(&c).is_ok());
+    }
+
+    // --- detect_goal_changes tests ---
+
+    #[test]
+    fn test_detect_goal_rename_single_role() {
+        let old = make_commitments(vec![("Dev", 40, vec!["Old name"])]);
+        let new = make_commitments(vec![("Dev", 40, vec!["New name"])]);
+        let changes = detect_goal_changes(&old, &new);
+        assert_eq!(changes.renames.len(), 1);
+        assert_eq!(changes.renames[0], ("Old name".to_string(), "New name".to_string()));
+        assert!(changes.deleted.is_empty());
+    }
+
+    #[test]
+    fn test_detect_goal_deleted() {
+        let old = make_commitments(vec![("Dev", 40, vec!["Ship it", "Review"])]);
+        let new = make_commitments(vec![("Dev", 40, vec!["Ship it"])]);
+        let changes = detect_goal_changes(&old, &new);
+        assert!(changes.renames.is_empty());
+        assert_eq!(changes.deleted, vec!["Review"]);
+    }
+
+    #[test]
+    fn test_detect_goal_added_no_rename() {
+        let old = make_commitments(vec![("Dev", 40, vec!["Ship it"])]);
+        let new = make_commitments(vec![("Dev", 40, vec!["Ship it", "Review"])]);
+        let changes = detect_goal_changes(&old, &new);
+        assert!(changes.renames.is_empty());
+        assert!(changes.deleted.is_empty());
+    }
+
+    #[test]
+    fn test_detect_goal_rename_when_count_matches() {
+        let old = make_commitments(vec![("Dev", 40, vec!["A", "B", "C"])]);
+        let new = make_commitments(vec![("Dev", 40, vec!["A", "B", "D"])]);
+        let changes = detect_goal_changes(&old, &new);
+        assert_eq!(changes.renames.len(), 1);
+        assert_eq!(changes.renames[0], ("C".to_string(), "D".to_string()));
+        assert!(changes.deleted.is_empty());
+    }
+
+    #[test]
+    fn test_detect_goal_delete_add_not_rename() {
+        // Count differs: delete + add, NOT rename
+        let old = make_commitments(vec![("Dev", 40, vec!["A", "B"])]);
+        let new = make_commitments(vec![("Dev", 40, vec!["A", "B", "C"])]);
+        let changes = detect_goal_changes(&old, &new);
+        assert!(changes.renames.is_empty());
+        // C is new, nothing deleted
+        assert!(changes.deleted.is_empty());
+    }
+
+    #[test]
+    fn test_detect_goal_changes_role_removed() {
+        let old = make_commitments(vec![
+            ("Dev", 40, vec!["A"]),
+            ("PM", 10, vec!["B"]),
+        ]);
+        let new = make_commitments(vec![
+            ("Dev", 40, vec!["A"]),
+        ]);
+        let changes = detect_goal_changes(&old, &new);
+        assert!(changes.renames.is_empty());
+        // Goal "B" from removed role "PM" is a deletion
+        assert_eq!(changes.deleted, vec!["B"]);
+    }
+
+    #[test]
+    fn test_detect_goal_changes_role_added() {
+        let old = make_commitments(vec![("Dev", 40, vec!["A"])]);
+        let new = make_commitments(vec![
+            ("Dev", 40, vec!["A"]),
+            ("PM", 10, vec!["B"]),
+        ]);
+        let changes = detect_goal_changes(&old, &new);
+        assert!(changes.renames.is_empty());
+        assert!(changes.deleted.is_empty());
+    }
+
+    #[test]
+    fn test_detect_goal_changes_no_diff() {
+        let c = make_commitments(vec![("Dev", 40, vec!["A", "B"])]);
+        let changes = detect_goal_changes(&c, &c);
+        assert!(changes.renames.is_empty());
+        assert!(changes.deleted.is_empty());
     }
 }
