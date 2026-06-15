@@ -1,0 +1,76 @@
+command: append_entry
+description: Append a new entry to a day file. Validates required dimensions, parses duration.
+cases:
+  - name: append entry to existing day
+    before:
+      - action: write_file
+        path: "2026/06/2026-06-15.md"
+        content: |
+          ---
+          entries:
+            - id: e1
+              item: existing entry
+              duration: 30
+              dimensions:
+                goal: Ship it
+          ---
+    input:
+      root_path: "{ROOT}"
+      date: "2026-06-15"
+      entry:
+        item: new task
+        duration: "45"
+        dimensions:
+          goal: Ship it
+    expect:
+      ok:
+        id: "$exists"
+        item: new task
+        duration: 45
+
+  - name: append entry creates file if missing
+    input:
+      root_path: "{ROOT}"
+      date: "2026-06-20"
+      entry:
+        item: first entry of the day
+        duration: "1.5h"
+        dimensions:
+          goal: Ship it
+    expect:
+      ok:
+        item: first entry of the day
+        duration: 90
+
+  - name: empty duration returns error
+    input:
+      root_path: "{ROOT}"
+      date: "2026-06-15"
+      entry:
+        item: bad entry
+        duration: ""
+        dimensions: {}
+    expect:
+      err_contains: Duration is empty
+
+  - name: zero duration returns error
+    input:
+      root_path: "{ROOT}"
+      date: "2026-06-15"
+      entry:
+        item: zero duration
+        duration: "0"
+        dimensions: {}
+    expect:
+      err_contains: Duration must be positive
+
+  - name: invalid date format returns error
+    input:
+      root_path: "{ROOT}"
+      date: "bad"
+      entry:
+        item: test
+        duration: "30"
+        dimensions: {}
+    expect:
+      err_contains: Invalid date

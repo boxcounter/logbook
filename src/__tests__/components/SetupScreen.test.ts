@@ -105,7 +105,7 @@ describe("SetupScreen", () => {
     const errors = [{ kind: "MissingName", message: "Dimension 0 has an empty name" }];
     mockInvoke.mockResolvedValue({
       status: "ConfigError",
-      data: errors,
+      data: { errors, scan_warnings: [] },
     });
 
     const { wrapper, store } = mountSetup();

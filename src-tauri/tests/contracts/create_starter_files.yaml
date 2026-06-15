@@ -1,0 +1,25 @@
+command: create_starter_files
+description: Create initial config.yaml in an empty directory.
+cases:
+  - name: creates config.yaml in empty directory
+    input:
+      path: "{ROOT}"
+    expect:
+      ok:
+        created: true
+
+  - name: idempotent if config already exists
+    before:
+      - action: write_file
+        path: "config.yaml"
+        content: |
+          dimensions:
+            - name: Custom
+              key: custom
+              source: static
+              values: [A]
+    input:
+      path: "{ROOT}"
+    expect:
+      ok:
+        created: true

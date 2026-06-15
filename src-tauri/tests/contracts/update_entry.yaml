@@ -1,0 +1,76 @@
+command: update_entry
+description: Update an existing entry's fields. Only provided fields are changed.
+cases:
+  - name: update item and duration
+    before:
+      - action: write_file
+        path: "2026/06/2026-06-15.md"
+        content: |
+          ---
+          entries:
+            - id: e1
+              item: original item
+              duration: 30
+              dimensions:
+                goal: Ship it
+            - id: e2
+              item: other entry
+              duration: 15
+              dimensions:
+                goal: Review
+          ---
+    input:
+      root_path: "{ROOT}"
+      date: "2026-06-15"
+      entry_id: e1
+      update:
+        item: updated item
+        duration: "90"
+    expect:
+      ok:
+        entries.len: 2
+        entries.0.item: updated item
+        entries.0.duration: 90
+        entries.1.item: other entry
+
+  - name: update nonexistent entry returns error
+    before:
+      - action: write_file
+        path: "2026/06/2026-06-15.md"
+        content: |
+          ---
+          entries:
+            - id: e1
+              item: only entry
+              duration: 30
+              dimensions: {}
+          ---
+    input:
+      root_path: "{ROOT}"
+      date: "2026-06-15"
+      entry_id: nonexistent
+      update:
+        item: wont work
+    expect:
+      err_contains: not found
+
+  - name: update with invalid duration returns error
+    before:
+      - action: write_file
+        path: "2026/06/2026-06-15.md"
+        content: |
+          ---
+          entries:
+            - id: e1
+              item: test
+              duration: 30
+              dimensions: {}
+          ---
+    input:
+      root_path: "{ROOT}"
+      date: "2026-06-15"
+      entry_id: e1
+      update:
+        duration: "not-a-number"
+    expect:
+      err_contains: Could not parse duration

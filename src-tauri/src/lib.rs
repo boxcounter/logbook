@@ -4,6 +4,7 @@ mod error_log;
 pub mod files;
 pub mod models;
 pub mod operation_log;
+pub mod scan;
 mod window_state;
 
 use config::watch_files;

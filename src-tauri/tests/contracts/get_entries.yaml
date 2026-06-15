@@ -1,0 +1,61 @@
+command: get_entries
+description: Read entries for a given date. Returns empty DayFile if date has no file.
+cases:
+  - name: read existing day with entries
+    before:
+      - action: write_file
+        path: "2026/06/2026-06-15.md"
+        content: |
+          ---
+          note: today summary
+          entries:
+            - id: e1
+              item: morning standup
+              duration: 15
+              dimensions:
+                goal: Ship it
+                biz: Engineering
+            - id: e2
+              item: code review
+              duration: 45
+              dimensions:
+                goal: Review
+                biz: Engineering
+            - id: e3
+              item: planning meeting
+              duration: 60
+              dimensions:
+                goal: Planning
+                biz: Product
+          ---
+    input:
+      root_path: "{ROOT}"
+      date: "2026-06-15"
+    expect:
+      ok:
+        note: today summary
+        entries.len: 3
+        entries.0.item: morning standup
+        entries.0.duration: 15
+        entries.0.dimensions.goal: Ship it
+        entries.1.item: code review
+        entries.1.duration: 45
+        entries.2.item: planning meeting
+        entries.2.duration: 60
+        entries.2.dimensions.biz: Product
+
+  - name: read nonexistent date returns empty day file
+    input:
+      root_path: "{ROOT}"
+      date: "2025-01-01"
+    expect:
+      ok:
+        note: null
+        entries.len: 0
+
+  - name: invalid date format returns error
+    input:
+      root_path: "{ROOT}"
+      date: "not-a-date"
+    expect:
+      err_contains: Invalid date

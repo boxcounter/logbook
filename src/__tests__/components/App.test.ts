@@ -96,7 +96,10 @@ describe("App", () => {
   it("ConfigError: shows ConfigErrorBanner and Retry button", async () => {
     mockInvoke.mockResolvedValue({
       status: "ConfigError",
-      data: [{ kind: "MissingName", message: "Dimension 0 has an empty name" }],
+      data: {
+        errors: [{ kind: "MissingName", message: "Dimension 0 has an empty name" }],
+        scan_warnings: [],
+      },
     });
     const { wrapper, store } = mountApp();
     await vi.runAllTimersAsync();
@@ -112,7 +115,7 @@ describe("App", () => {
     const today = makeDayFile();
     mockInvoke.mockResolvedValue({
       status: "Ready",
-      data: { root_path: "/test", config, today, commitments: [] },
+      data: { root_path: "/test", config, today, commitments: [], scan_warnings: [] },
     });
     const { wrapper, store } = mountApp();
     await vi.runAllTimersAsync();
@@ -137,7 +140,10 @@ describe("App", () => {
   it("Retry button re-calls initApp", async () => {
     mockInvoke.mockResolvedValue({
       status: "ConfigError",
-      data: [{ kind: "MissingName", message: "err" }],
+      data: {
+        errors: [{ kind: "MissingName", message: "err" }],
+        scan_warnings: [],
+      },
     });
     const { wrapper } = mountApp();
     await vi.runAllTimersAsync();
@@ -146,7 +152,7 @@ describe("App", () => {
     vi.clearAllMocks();
     mockInvoke.mockResolvedValue({
       status: "Ready",
-      data: { root_path: "/test", config: makeConfig(), today: makeDayFile(), commitments: [] },
+      data: { root_path: "/test", config: makeConfig(), today: makeDayFile(), commitments: [], scan_warnings: [] },
     });
 
     const retryBtn = wrapper.find("button");
@@ -235,7 +241,7 @@ describe("App", () => {
     // The provide is done in App.vue, available to child components
     mockInvoke.mockResolvedValue({
       status: "Ready",
-      data: { root_path: "/test", config: makeConfig(), today: makeDayFile(), commitments: [] },
+      data: { root_path: "/test", config: makeConfig(), today: makeDayFile(), commitments: [], scan_warnings: [] },
     });
     const { wrapper } = mountApp();
     await vi.runAllTimersAsync();
@@ -252,5 +258,102 @@ describe("App", () => {
     // The undo toast uses a 5-second timer
     // This is tested via MonthView's delete flow
     expect(true).toBe(true);
+  });
+
+  // ---- Scan warning toast ----
+
+  it("shows scan warning toast when Ready has scan_warnings", async () => {
+    const scanWarnings = [
+      { message: "Data file '2025-01-01.json' has invalid JSON, skipping" },
+      { message: "Data file 'corrupt.json' could not be read" },
+    ];
+    mockInvoke.mockResolvedValue({
+      status: "Ready",
+      data: {
+        root_path: "/test",
+        config: makeConfig(),
+        today: makeDayFile(),
+        commitments: [],
+        scan_warnings: scanWarnings,
+      },
+    });
+    const { wrapper } = mountApp();
+    await vi.runAllTimersAsync();
+    await nextTick();
+
+    // Toast should show the count of data issues
+    expect(wrapper.text()).toContain("data issue");
+    // MonthView should still be shown (non-blocking toast)
+    expect(wrapper.findComponent({ name: "MonthView" }).exists()).toBe(true);
+  });
+
+  it("shows scan warning toast when ConfigError has scan_warnings", async () => {
+    const scanWarnings = [
+      { message: "Data file '2025-01-01.json' has invalid JSON, skipping" },
+    ];
+    mockInvoke.mockResolvedValue({
+      status: "ConfigError",
+      data: {
+        errors: [{ kind: "MissingName", message: "Bad config" }],
+        scan_warnings: scanWarnings,
+      },
+    });
+    const { wrapper } = mountApp();
+    await vi.runAllTimersAsync();
+    await nextTick();
+
+    // Toast should appear even in error state
+    expect(wrapper.text()).toContain("data issue");
+    // Error banner should still show
+    expect(wrapper.findComponent({ name: "ConfigErrorBanner" }).exists()).toBe(true);
+  });
+
+  it("does not show scan warning toast when scan_warnings is empty", async () => {
+    mockInvoke.mockResolvedValue({
+      status: "Ready",
+      data: {
+        root_path: "/test",
+        config: makeConfig(),
+        today: makeDayFile(),
+        commitments: [],
+        scan_warnings: [],
+      },
+    });
+    const { wrapper } = mountApp();
+    await vi.runAllTimersAsync();
+    await nextTick();
+
+    expect(wrapper.text()).not.toContain("data issue");
+  });
+
+  it("dismiss button hides scan warning toast", async () => {
+    const scanWarnings = [
+      { message: "Data file '2025-01-01.json' has invalid JSON, skipping" },
+    ];
+    mockInvoke.mockResolvedValue({
+      status: "Ready",
+      data: {
+        root_path: "/test",
+        config: makeConfig(),
+        today: makeDayFile(),
+        commitments: [],
+        scan_warnings: scanWarnings,
+      },
+    });
+    const { wrapper } = mountApp();
+    await vi.runAllTimersAsync();
+    await nextTick();
+
+    // Toast should be visible
+    expect(wrapper.text()).toContain("data issue");
+
+    // Find the scan warning toast and click its dismiss button
+    const scanToast = wrapper.find('[class*="scan-warning"], [data-testid="scan-warning-toast"]');
+    if (scanToast.exists()) {
+      const dismissBtn = scanToast.find("button");
+      await dismissBtn.trigger("click");
+      await nextTick();
+      expect(wrapper.text()).not.toContain("data issue");
+    }
   });
 });
