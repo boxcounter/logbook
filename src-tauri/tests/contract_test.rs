@@ -316,3 +316,38 @@ fn contract_get_entries() {
 fn contract_append_entry() {
     run_contract("contracts/append_entry.yaml");
 }
+
+#[test]
+fn contract_update_entry() {
+    run_contract("contracts/update_entry.yaml");
+}
+
+#[test]
+fn contract_delete_entry() {
+    run_contract("contracts/delete_entry.yaml");
+}
+
+#[test]
+fn contract_set_day_note() {
+    run_contract("contracts/set_day_note.yaml");
+}
+
+#[test]
+fn contract_get_commitments() {
+    run_contract("contracts/get_commitments.yaml");
+}
+
+#[test]
+fn contract_get_commitment_progress() {
+    run_contract("contracts/get_commitment_progress.yaml");
+}
+
+#[test]
+fn contract_get_available_months() {
+    run_contract("contracts/get_available_months.yaml");
+}
+
+#[test]
+fn contract_create_starter_files() {
+    run_contract("contracts/create_starter_files.yaml");
+}
