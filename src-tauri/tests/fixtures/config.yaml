@@ -1,0 +1,12 @@
+dimensions:
+  - name: Goal
+    key: goal
+    source: monthly
+  - name: Biz
+    key: biz
+    source: static
+    values:
+      - Product
+      - Marketing
+      - Engineering
+    required: false
