@@ -569,6 +569,34 @@ fn validate_date_format(date: &str) -> Result<chrono::NaiveDate, String> {
         .map_err(|e| format!("Invalid date '{}': {}. Expected YYYY-MM-DD", date, e))
 }
 
+/// Validate commitments before saving (no IO).
+fn validate_commitments(commitments: &[Commitment]) -> Result<(), String> {
+    if commitments.is_empty() {
+        return Err("At least one role is required".to_string());
+    }
+    for c in commitments {
+        if c.role.trim().is_empty() {
+            return Err("Role name cannot be empty".to_string());
+        }
+        if c.allocation == 0 {
+            return Err(format!(
+                "Allocation for '{}' must be greater than 0",
+                c.role
+            ));
+        }
+        let mut goal_set = std::collections::HashSet::new();
+        for g in &c.goals {
+            if g.trim().is_empty() {
+                return Err("Goal name cannot be empty".to_string());
+            }
+            if !goal_set.insert(g) {
+                return Err(format!("Goal '{}' already exists in '{}'", g, c.role));
+            }
+        }
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub fn get_available_months(root_path: String) -> Result<Vec<AvailableMonth>, String> {
     use crate::models::AvailableMonth;
@@ -1024,8 +1052,9 @@ mod tests {
         let c = make_commitments(vec![("Dev", 0, vec!["Goal A"])]);
         let result = validate_commitments(&c);
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("Allocation for 'Dev'"));
-        assert!(result.unwrap_err().contains("must be greater than 0"));
+        let err = result.unwrap_err();
+        assert!(err.contains("Allocation for 'Dev'"));
+        assert!(err.contains("must be greater than 0"));
     }
 
     #[test]
@@ -1041,8 +1070,9 @@ mod tests {
         let c = make_commitments(vec![("Dev", 40, vec!["Ship it", "Ship it"])]);
         let result = validate_commitments(&c);
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("already exists"));
-        assert!(result.unwrap_err().contains("Dev"));
+        let err = result.unwrap_err();
+        assert!(err.contains("already exists"));
+        assert!(err.contains("Dev"));
     }
 
     #[test]
