@@ -182,6 +182,26 @@ pub fn read_monthly_file(root: &Path, year: i32, month: u32) -> Result<MonthlyFi
         .map_err(|e| format!("Failed to parse {}: {}", path.display(), e))
 }
 
+/// Write a full monthly file (atomic: temp then rename).
+pub fn write_monthly_file(
+    root: &Path,
+    year: i32,
+    month: u32,
+    monthly: &MonthlyFile,
+) -> Result<(), String> {
+    let path = monthly_path(root, year, month);
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {}", e))?;
+    }
+    let yaml_body =
+        yaml_serde::to_string(monthly).map_err(|e| format!("Failed to serialize: {}", e))?;
+    let content = format!("---\n{}---\n", yaml_body);
+    let tmp_path = path.with_extension("tmp");
+    fs::write(&tmp_path, &content).map_err(|e| format!("Failed to write temp file: {}", e))?;
+    fs::rename(&tmp_path, &path).map_err(|e| format!("Failed to rename temp file: {}", e))?;
+    Ok(())
+}
+
 /// Read config.yaml. Returns error if file missing.
 pub fn read_config(root: &Path) -> Result<Config, String> {
     let path = config_path(root);
