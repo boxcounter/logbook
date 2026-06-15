@@ -352,4 +352,66 @@ mod tests {
 
         let _ = fs::remove_dir_all(&tmp);
     }
+
+    #[test]
+    fn test_verify_op_log_empty_dir_returns_ok() {
+        let tmp = std::env::temp_dir().join(format!("logbook_verify_empty_{}", uuid::Uuid::new_v4()));
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(&tmp).unwrap();
+
+        let result = verify_op_log(&tmp.to_string_lossy().to_string());
+        assert!(result.is_ok(), "Expected Ok for empty dir");
+
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_verify_op_log_consistent_after_append() {
+        let tmp = std::env::temp_dir().join(format!("logbook_verify_consistent_{}", uuid::Uuid::new_v4()));
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(&tmp).unwrap();
+
+        // Set up config
+        std::fs::write(
+            tmp.join("config.yaml"),
+            "dimensions:\n  - name: Goal\n    key: goal\n    source: monthly\n",
+        ).unwrap();
+
+        let tmp_str = tmp.to_string_lossy().to_string();
+
+        // Write a day file via append_new_entry (does NOT write op log)
+        let entry = crate::files::append_new_entry(
+            &tmp,
+            "2026-06-15",
+            &crate::models::NewEntry {
+                item: "test entry".into(),
+                duration: "30".into(),
+                dimensions: std::collections::HashMap::new(),
+            },
+        ).unwrap();
+
+        // Manually write an op log entry (simulates what commands::append_entry does)
+        crate::operation_log::append(
+            &tmp_str,
+            crate::operation_log::Operation::Append {
+                date: "2026-06-15".into(),
+                entry_id: entry.id.clone(),
+                params: serde_json::json!({
+                    "item": "test entry",
+                    "duration": "30",
+                    "dimensions": {}
+                }),
+            },
+        ).unwrap();
+
+        // Verify — should be consistent
+        let result = verify_op_log(&tmp_str);
+        assert!(
+            result.is_ok(),
+            "Expected consistent, got mismatches: {:?}",
+            result.err()
+        );
+
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
 }
