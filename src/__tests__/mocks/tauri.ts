@@ -47,6 +47,8 @@ const defaultInvoke = async (cmd: string, _args?: unknown) => {
     case "log_error":
     case "log_info":
       return;
+    case "set_commitments":
+      return (_args as any)?.commitments ?? [];
     default:
       throw new Error(`Unmocked invoke command: ${cmd}`);
   }
