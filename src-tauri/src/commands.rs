@@ -597,6 +597,58 @@ fn validate_commitments(commitments: &[Commitment]) -> Result<(), String> {
     Ok(())
 }
 
+/// Detects goal renames and deletions between old and new commitments.
+///
+/// A rename is detected when a role has the same number of goals and exactly
+/// one goal differs between old and new.
+#[derive(Debug, PartialEq)]
+struct GoalChanges {
+    renames: Vec<(String, String)>,
+    deleted: Vec<String>,
+}
+
+fn detect_goal_changes(old: &[Commitment], new: &[Commitment]) -> GoalChanges {
+    use std::collections::HashSet;
+
+    let old_goals: HashSet<String> = old
+        .iter()
+        .flat_map(|c| c.goals.iter().cloned())
+        .collect();
+    let new_goals: HashSet<String> = new
+        .iter()
+        .flat_map(|c| c.goals.iter().cloned())
+        .collect();
+
+    let deleted: Vec<String> = old_goals.difference(&new_goals).cloned().collect();
+
+    let mut renames: Vec<(String, String)> = Vec::new();
+    let mut matched_old_goals: HashSet<String> = HashSet::new();
+
+    for old_c in old {
+        if let Some(new_c) = new.iter().find(|c| c.role == old_c.role) {
+            if old_c.goals.len() == new_c.goals.len() {
+                let old_set: HashSet<_> = old_c.goals.iter().cloned().collect();
+                let new_set: HashSet<_> = new_c.goals.iter().cloned().collect();
+
+                let old_not_new: Vec<_> = old_set.difference(&new_set).cloned().collect();
+                let new_not_old: Vec<_> = new_set.difference(&old_set).cloned().collect();
+
+                if old_not_new.len() == 1 && new_not_old.len() == 1 {
+                    renames.push((old_not_new[0].clone(), new_not_old[0].clone()));
+                    matched_old_goals.insert(old_not_new[0].clone());
+                }
+            }
+        }
+    }
+
+    let deleted: Vec<String> = deleted
+        .into_iter()
+        .filter(|g| !matched_old_goals.contains(g))
+        .collect();
+
+    GoalChanges { renames, deleted }
+}
+
 #[tauri::command]
 pub fn get_available_months(root_path: String) -> Result<Vec<AvailableMonth>, String> {
     use crate::models::AvailableMonth;
@@ -1085,13 +1137,6 @@ mod tests {
     }
 
     // --- detect_goal_changes tests ---
-
-    // Minimal struct for tests to compile (the real one will be in non-test code)
-    #[derive(Debug, PartialEq)]
-    struct GoalChanges {
-        renames: Vec<(String, String)>,
-        deleted: Vec<String>,
-    }
 
     #[test]
     fn test_detect_goal_rename_single_role() {
