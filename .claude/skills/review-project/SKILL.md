@@ -1,3 +1,9 @@
+---
+name: review-project
+description: 多 Agent 并行项目审查工具。产出按严重度排名的结构化 findings 报告。
+disable-model-invocation: true
+---
+
 # 项目审查
 
 对项目进行多 Agent 综合审查。在重大变更后、里程碑前、或用户要求 review / audit / 审查时调用。
@@ -44,6 +50,8 @@
 
 每个 reviewer prompt 文件末尾包含「交付协议」: **先用 SendMessage 发送 findings，后用 TaskUpdate 标记 completed。顺序不能颠倒。** 这确保数据在任务标记完成之前就已送达主 Agent。
 
+Teammate 必须更新主 Agent 创建的 task，**不得自己建新 task**。交付步骤：① 用 `TaskList` 找到 owner 为自己的 task（主 Agent 已用 `TaskUpdate` 指派）；② 用自己的 findings 更新该 task 的 status 为 `completed`。不要用 `TaskCreate` 建新 task——新建的 task 不在主 Agent 的交付清单中，会导致主 Agent 误判超时。
+
 ### 主 Agent 的交付清单
 
 每个 phase 启动后，主 Agent 维护一个双列表：
@@ -68,7 +76,7 @@
    b. 检查 `TaskList` → 更新「Task Completed」列
 5. **仅当该 phase 所有行两列全部打勾，才进入下一 phase**
 6. 部分完成 → 不做任何事，结束 turn，等下一批通知
-7. 如果一个 reviewer 的 task 标记 `completed` 但 5 分钟内没有 findings 消息 → 将该维度视为 `failed`，用剩余 findings 继续
+7. 如果一个 reviewer 的 task 标记 `completed` 但 5 分钟内没有 findings 消息 → ① SendMessage 询问状态；② 等待 2 min；③ 仍无响应才标记 failed。收到 idle_notification 说明 agent 还活着——优先重试而非放弃
 
 ### 进度汇报
 
@@ -109,7 +117,7 @@ TeamCreate({ team_name: "review-<project>", description: "Multi-dimension projec
 
 对每个维度，在同一 turn 内完成以下操作：
 
-1. `Agent` — spawn teammate，`subagent_type: "general-purpose"`，prompt 从对应文件读取并追加项目路径。每个 prompt 文件已包含交付协议，确保 reviewer 知道如何交付结果
+1. `Agent` — spawn teammate，`subagent_type: "general-purpose"`，prompt 从对应文件读取，在末尾按以下格式追加：`\n\n---\n\nProject path: {project_path}\n\nRead ALL source files in: {列出关键源码目录}`。每个 prompt 文件已包含交付协议，确保 reviewer 知道如何交付结果
 2. `TaskCreate` — 建 task 描述审查任务
 3. `TaskUpdate` — 将 task 的 `owner` 设为该 teammate 的 `name`
 
@@ -137,7 +145,7 @@ TeamCreate({ team_name: "review-<project>", description: "Multi-dimension projec
 4. 全部 7 行两列都打勾 → 进入 1d
 5. 部分完成 → 不做任何事，结束 turn，等下一批通知
 
-> ⚠️ **超时规则**: 如果某个 reviewer 的 task 已标记 `completed` 但 5 分钟内没有收到 findings 消息，将该维度视为 `failed`（task 完成了但数据未送达），用剩余 findings 继续。
+> ⚠️ **超时规则**: 如果某个 reviewer 的 task 已标记 `completed` 但 5 分钟内没有收到 findings 消息 → ① SendMessage 询问状态；② 等待 2 min；③ 仍无响应才标记 failed。收到 idle_notification 说明 agent 还活着——优先重试而非放弃。
 
 #### 1d. 处理 Reviewer 输出
 
@@ -176,10 +184,12 @@ TeamCreate({ team_name: "review-<project>", description: "Multi-dimension projec
 
 取第一阶段中 `severity` 为 `"CRITICAL"` 或 `"HIGH"` 的 findings。
 
-先去重：如果两个 reviewer 报告了同一个 `file:line`，合并为一个 finding：
+去重（基于 `file:line`）：如果两个 reviewer 报告了同一个 `file:line`，合并为一个 finding：
 - 合并 `source_dimensions`（多 reviewer 独立发现 = 更高基准置信度）
 - 保留更高的 `confidence`
 - 如有分歧，保留更严重的 `severity`
+
+注意：Phase 2 的去重是粗粒度的（按 `file:line`），用于决定哪些 finding 需要验证。Phase 3 的去重是细粒度的（按根因），用于最终报告——同一个问题可能被不同 reviewer 定位到不同 file:line（如一个指向 error_log.rs:52，另一个指向 error_log.rs:52-78「所有调用点」），Phase 3 会按根因合并。
 
 **如果没有 CRITICAL 或 HIGH finding，跳过第二阶段，直接进入第三阶段。**
 
@@ -213,7 +223,7 @@ TeamCreate({ team_name: "review-<project>", description: "Multi-dimension projec
 主 Agent 自己完成（不 spawn teammate）：
 
 1. **跨维度去重。** 相同的 `file:line` 或相同根因 → 合并。标记 `source_dimensions`。
-2. **排名。** 按 severity 排序 → 然后按独立发现的 reviewer 数量排序 → 然后按 confidence 排序。
+2. **排名。** 按严重度排序（以 Phase 2 verifier 的 `adjusted_severity` 为准，无调整则用 Phase 1 原始 `severity`）→ 然后按独立发现的 reviewer 数量排序 → 然后按 confidence 排序。
 3. **分批到优先级：**
 
 | 级别 | 标准 | 行动 |
@@ -274,7 +284,10 @@ P2: 11 项
 
 ### 第七步：清理
 
-向所有 teammate 发送 `shutdown_request` → `TeamDelete`。
+1. 向所有活跃 teammate 发送 `shutdown_request`
+2. 等待 `shutdown_response` 全部返回（approve: true）
+3. 调用 `TeamDelete`
+4. 如果 `TeamDelete` 仍失败（teammate session 尚未完全退出），告知用户：teammate 已同意退出，session 会在短暂延迟后自然过期，无需手动干预
 
 ## 错误处理
 
@@ -284,8 +297,8 @@ P2: 11 项
 | 7 个 reviewer 全部 failed | 终止，报告失败，建议人工审查 |
 | Verifier task failed | 保留该 finding（保守处理——不丢弃未经证伪的 CRITICAL/HIGH） |
 | 第四步或第五步 task failed | 跳过该阶段，在报告中注明 |
-| Teammate 超时未完成（>10 min） | 将该 task 标记 failed，按对应规则处理 |
-| Task completed 但 findings 未收到（>5 min） | 将该维度标记 failed，用剩余 findings 继续——数据交付失败 |
+| Teammate 超时未完成（>10 min） | ① SendMessage 询问状态；② 等待 2 min；③ 仍无响应才标记 failed。若收到 idle_notification 说明 agent 还活着——优先重试而非放弃 |
+| Task completed 但 findings 未收到（>5 min） | 同上：先 SendMessage 询问 → 等待 2 min → 仍无响应才标记 failed。数据交付失败比 task 失败更隐蔽，agent 可能已完成审查只是忘记发消息 |
 | 项目源文件 > 200 个 | 抽样：请用户缩小范围，或仅审查关键路径 |
 
 ## Prompt 文件

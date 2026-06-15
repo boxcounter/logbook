@@ -1,3 +1,8 @@
+---
+name: check-consistency
+description: 文档一致性检查。交叉比对 CLAUDE.md、SPEC.md、HANDOFF.md 与代码实际状态。在 HANDOFF 撰写前、Phase 结束时、或用户要求检查一致性/文档同步时调用。
+---
+
 # 文档一致性检查
 
 对项目文档做全量交叉比对，检查文档之间、文档与代码之间的一致性。在以下场景调用：
