@@ -1,5 +1,5 @@
 use crate::cli::output;
-use tauri_app_lib::files;
+use crate::files;
 use std::path::Path;
 
 pub fn list(root: &Path, date: &str, json: bool) {
@@ -15,7 +15,7 @@ pub fn list(root: &Path, date: &str, json: bool) {
     );
 }
 
-fn format_entries_human(day_file: &tauri_app_lib::models::DayFile, date: &str) -> String {
+fn format_entries_human(day_file: &crate::models::DayFile, date: &str) -> String {
     if day_file.entries.is_empty() && day_file.note.is_none() {
         return format!("{}: (no entries)", date);
     }

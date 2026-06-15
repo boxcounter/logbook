@@ -1,7 +1,7 @@
 use crate::cli::output;
-use tauri_app_lib::config;
-use tauri_app_lib::files;
-use tauri_app_lib::models::{Commitment, CommitmentProgress, MonthlyFile};
+use crate::config;
+use crate::files;
+use crate::models::{Commitment, CommitmentProgress, MonthlyFile};
 use std::io::Read;
 use std::path::Path;
 
@@ -19,7 +19,7 @@ pub fn list(root: &Path, year: i32, month: u32, json: bool) {
 }
 
 pub fn progress(root: &Path, year: i32, month: u32, json: bool) {
-    let prog = tauri_app_lib::commands::get_commitment_progress(
+    let prog = crate::commands::get_commitment_progress(
         root.to_string_lossy().into_owned(),
         year,
         month,
