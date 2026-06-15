@@ -1,10 +1,91 @@
+use std::fs;
 use std::path::Path;
 
 use crate::models::ScanWarning;
 
-// TODO: implement
-pub fn scan_data_dir(_root: &Path) -> Vec<ScanWarning> {
-    vec![]
+/// Walk the data directory tree and collect integrity warnings.
+///
+/// - Recurse into year/month subdirectories.
+/// - `.md` files (except `_monthly.md`): validate date stem and frontmatter.
+/// - `.tmp` files: report as orphaned temp files.
+/// - Non-`.md`, non-`.tmp` files: silently skipped.
+/// - Directories that cannot be read are skipped without error.
+pub fn scan_data_dir(root: &Path) -> Vec<ScanWarning> {
+    let mut warnings = Vec::new();
+    scan_dir(root, root, &mut warnings);
+    warnings
+}
+
+fn scan_dir(root: &Path, dir: &Path, warnings: &mut Vec<ScanWarning>) {
+    let entries = match fs::read_dir(dir) {
+        Ok(entries) => entries,
+        Err(_) => return,
+    };
+
+    for entry in entries {
+        let entry = match entry {
+            Ok(e) => e,
+            Err(_) => continue,
+        };
+
+        let path = entry.path();
+
+        if path.is_dir() {
+            scan_dir(root, &path, warnings);
+            continue;
+        }
+
+        let file_name = match path.file_name().and_then(|n| n.to_str()) {
+            Some(name) => name,
+            None => continue,
+        };
+
+        if file_name.ends_with(".tmp") {
+            warnings.push(ScanWarning {
+                kind: "OrphanedTemp".to_string(),
+                path: relative_path(root, &path),
+                message: "orphaned temporary file".to_string(),
+            });
+            continue;
+        }
+
+        if !file_name.ends_with(".md") {
+            continue;
+        }
+
+        // _monthly.md is handled by config module
+        if file_name == "_monthly.md" {
+            continue;
+        }
+
+        let stem = &file_name[..file_name.len() - 3]; // strip ".md"
+
+        // Validate date stem (YYYY-MM-DD)
+        if chrono::NaiveDate::parse_from_str(stem, "%Y-%m-%d").is_err() {
+            warnings.push(ScanWarning {
+                kind: "SkippedFile".to_string(),
+                path: relative_path(root, &path),
+                message: format!("invalid date filename: {}", file_name),
+            });
+            continue;
+        }
+
+        // Validate frontmatter via read_day_file
+        if let Err(e) = crate::files::read_day_file(root, stem) {
+            warnings.push(ScanWarning {
+                kind: "CorruptedFile".to_string(),
+                path: relative_path(root, &path),
+                message: e,
+            });
+        }
+    }
+}
+
+fn relative_path(root: &Path, path: &Path) -> String {
+    path.strip_prefix(root)
+        .unwrap_or(path)
+        .to_string_lossy()
+        .to_string()
 }
 
 #[cfg(test)]
