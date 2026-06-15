@@ -14,7 +14,7 @@ dist-ssr
 
 .superpowers
 demos
-HANDOFF.md
+**/HANDOFF.md
 
 .claude/worktrees/
 
