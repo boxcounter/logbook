@@ -80,7 +80,7 @@ pub fn run() {
                 commitments::progress(&root, year, month, cli.json);
             }
             CommitmentAction::Set { year, month } => {
-                commitments::set(&root, year, month);
+                commitments::set(&root, year, month, cli.json);
             }
         },
         Commands::Entries { date } => {

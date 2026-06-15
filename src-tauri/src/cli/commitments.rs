@@ -36,7 +36,7 @@ pub fn progress(root: &Path, year: i32, month: u32, json: bool) {
     );
 }
 
-pub fn set(root: &Path, year: i32, month: u32) {
+pub fn set(root: &Path, year: i32, month: u32, json: bool) {
     let mut input = String::new();
     std::io::stdin()
         .read_to_string(&mut input)
@@ -76,7 +76,7 @@ pub fn set(root: &Path, year: i32, month: u32) {
         std::process::exit(1);
     });
 
-    output::print_output(false, &serde_json::json!({"ok": true}), "Commitments written successfully.");
+    output::print_output(json, &serde_json::json!({"ok": true}), "Commitments written successfully.");
 }
 
 fn format_commitments_human(commitments: &[Commitment]) -> String {
