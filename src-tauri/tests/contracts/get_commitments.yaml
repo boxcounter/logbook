@@ -1,0 +1,37 @@
+command: get_commitments
+description: Read commitments from _monthly.md for a given year/month.
+cases:
+  - name: read commitments from monthly file
+    before:
+      - action: write_file
+        path: "2026/06/_monthly.md"
+        content: |
+          ---
+          commitments:
+            - role: Dev
+              allocation: 40
+              goals:
+                - Ship it
+                - Review
+            - role: PM
+              allocation: 10
+              goals:
+                - Planning
+          ---
+    input:
+      root_path: "{ROOT}"
+      year: 2026
+      month: 6
+    expect:
+      ok:
+        len: 2
+        "0.role": Dev
+        "1.role": PM
+
+  - name: missing monthly file returns empty
+    input:
+      root_path: "{ROOT}"
+      year: 2025
+      month: 1
+    expect:
+      ok: []

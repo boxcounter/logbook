@@ -203,6 +203,8 @@ fn dispatch_command(
     root: &Path,
     input: &serde_json::Value,
 ) -> Result<serde_json::Value, String> {
+    let root_str = root.to_string_lossy().to_string();
+
     match command {
         "get_entries" => {
             let date = input["date"].as_str().unwrap().to_string();
@@ -227,6 +229,67 @@ fn dispatch_command(
             };
             let entry = tauri_app_lib::files::append_new_entry(root, &date, &new_entry)?;
             Ok(serde_json::to_value(entry).unwrap())
+        }
+
+        "update_entry" => {
+            let date = input["date"].as_str().unwrap().to_string();
+            let entry_id = input["entry_id"].as_str().unwrap().to_string();
+            let update_input = &input["update"];
+            let update = tauri_app_lib::models::UpdateEntry {
+                item: update_input.get("item").and_then(|v| v.as_str()).map(String::from),
+                duration: update_input.get("duration").and_then(|v| v.as_str()).map(String::from),
+                dimensions: update_input.get("dimensions").map(|d| {
+                    d.as_object()
+                        .map(|obj| {
+                            obj.iter()
+                                .map(|(k, v)| (k.clone(), v.as_str().unwrap().to_string()))
+                                .collect::<std::collections::HashMap<_, _>>()
+                        })
+                        .unwrap_or_default()
+                }),
+            };
+            let df = tauri_app_lib::files::update_entry_in_file(root, &date, &entry_id, &update)?;
+            Ok(serde_json::to_value(df).unwrap())
+        }
+
+        "delete_entry" => {
+            let date = input["date"].as_str().unwrap().to_string();
+            let entry_id = input["entry_id"].as_str().unwrap().to_string();
+            let df = tauri_app_lib::files::delete_entry_from_file(root, &date, &entry_id)?;
+            Ok(serde_json::to_value(df).unwrap())
+        }
+
+        "set_day_note" => {
+            let date = input["date"].as_str().unwrap().to_string();
+            let note = input["note"].as_str().unwrap().to_string();
+            let df = tauri_app_lib::files::set_day_note_in_file(root, &date, &note)?;
+            Ok(serde_json::to_value(df).unwrap())
+        }
+
+        "get_commitments" => {
+            let year = input["year"].as_i64().unwrap() as i32;
+            let month = input["month"].as_u64().unwrap() as u32;
+            let mf = tauri_app_lib::files::read_monthly_file(root, year, month)?;
+            Ok(serde_json::to_value(mf.commitments).unwrap())
+        }
+
+        "get_commitment_progress" => {
+            let year = input["year"].as_i64().unwrap() as i32;
+            let month = input["month"].as_u64().unwrap() as u32;
+            let result = tauri_app_lib::commands::get_commitment_progress(
+                root_str, year, month,
+            )?;
+            Ok(serde_json::to_value(result).unwrap())
+        }
+
+        "get_available_months" => {
+            let result = tauri_app_lib::commands::get_available_months(root_str)?;
+            Ok(serde_json::to_value(result).unwrap())
+        }
+
+        "create_starter_files" => {
+            tauri_app_lib::commands::create_starter_files(root_str)?;
+            Ok(serde_json::json!({"created": true}))
         }
 
         _ => Err(format!("Unknown command: {}", command)),

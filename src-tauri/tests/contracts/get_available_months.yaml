@@ -1,0 +1,24 @@
+command: get_available_months
+description: Scan data directory for months that have .md files.
+cases:
+  - name: finds month with data
+    before:
+      - action: write_file
+        path: "2026/06/2026-06-15.md"
+        content: |
+          ---
+          entries: []
+          ---
+    input:
+      root_path: "{ROOT}"
+    expect:
+      ok:
+        len: 1
+        "0.year": 2026
+        "0.month": 6
+
+  - name: empty root returns empty list
+    input:
+      root_path: "{ROOT}"
+    expect:
+      ok: []

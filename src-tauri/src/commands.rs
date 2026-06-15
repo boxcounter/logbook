@@ -637,9 +637,12 @@ pub fn get_available_months(root_path: String) -> Result<Vec<AvailableMonth>, St
             };
 
             // Check if this month directory contains at least one .md file
+            // (skip _monthly.md — it is metadata, not day-entry data)
             let has_md = match std::fs::read_dir(month_entry.path()) {
                 Ok(entries) => entries.flatten().any(|e| {
-                    e.file_name().to_string_lossy().ends_with(".md")
+                    let name = e.file_name();
+                    let name_str = name.to_string_lossy();
+                    name_str.ends_with(".md") && name_str != "_monthly.md"
                 }),
                 Err(_) => false,
             };

@@ -1,0 +1,54 @@
+command: delete_entry
+description: Delete an entry by ID from a day file.
+cases:
+  - name: delete existing entry
+    before:
+      - action: write_file
+        path: "2026/06/2026-06-15.md"
+        content: |
+          ---
+          entries:
+            - id: e1
+              item: keep me
+              duration: 30
+              dimensions: {}
+            - id: e2
+              item: delete me
+              duration: 15
+              dimensions: {}
+          ---
+    input:
+      root_path: "{ROOT}"
+      date: "2026-06-15"
+      entry_id: e2
+    expect:
+      ok:
+        entries.len: 1
+        entries.0.item: keep me
+
+  - name: delete nonexistent entry returns error
+    before:
+      - action: write_file
+        path: "2026/06/2026-06-15.md"
+        content: |
+          ---
+          entries:
+            - id: e1
+              item: only
+              duration: 30
+              dimensions: {}
+          ---
+    input:
+      root_path: "{ROOT}"
+      date: "2026-06-15"
+      entry_id: nonexistent
+    expect:
+      err_contains: not found
+
+  - name: delete from nonexistent date returns error
+    input:
+      root_path: "{ROOT}"
+      date: "2025-01-01"
+      entry_id: whatever
+    expect:
+      err_contains: not found
