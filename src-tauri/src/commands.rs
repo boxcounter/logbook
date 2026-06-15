@@ -152,6 +152,11 @@ pub fn init(app: AppHandle) -> InitResult {
 
     let root = std::path::Path::new(&root_path);
 
+    let scan_warnings = crate::scan::scan_data_dir(root);
+    if !scan_warnings.is_empty() {
+        error_log::log_info("init", &format!("{} scan warnings", scan_warnings.len()));
+    }
+
     let config = match files::read_config(root) {
         Ok(c) => c,
         Err(e) => {
@@ -162,7 +167,7 @@ pub fn init(app: AppHandle) -> InitResult {
                     kind: "ConfigReadError".to_string(),
                     message: e,
                 }],
-                scan_warnings: vec![],
+                scan_warnings,
             };
         }
     };
@@ -207,9 +212,12 @@ pub fn init(app: AppHandle) -> InitResult {
             false,
             &format!("{} config errors", all_errors.len()),
         );
+        for w in &scan_warnings {
+            error_log::log_error("init: scan", &format!("{}: {}", w.path, w.message));
+        }
         return InitResult::ConfigError {
             errors: all_errors,
-            scan_warnings: vec![],
+            scan_warnings,
         };
     }
 
@@ -223,7 +231,7 @@ pub fn init(app: AppHandle) -> InitResult {
         config,
         today,
         commitments: monthly.commitments,
-        scan_warnings: vec![],
+        scan_warnings,
     }
 }
 
@@ -243,6 +251,11 @@ pub fn set_root_path(app: AppHandle, path: String) -> Result<InitResult, String>
     }
 
     save_root_path(&app_data_dir, root_path)?;
+
+    let scan_warnings = crate::scan::scan_data_dir(root_path);
+    if !scan_warnings.is_empty() {
+        error_log::log_info("set_root_path", &format!("{} scan warnings", scan_warnings.len()));
+    }
 
     let config = files::read_config(root_path).map_err(|e| {
         error_log::log_error("set_root_path: read_config", &e);
@@ -288,9 +301,12 @@ pub fn set_root_path(app: AppHandle, path: String) -> Result<InitResult, String>
             true,
             &format!("{} config errors", all_errors.len()),
         );
+        for w in &scan_warnings {
+            error_log::log_error("set_root_path: scan", &format!("{}: {}", w.path, w.message));
+        }
         return Ok(InitResult::ConfigError {
             errors: all_errors,
-            scan_warnings: vec![],
+            scan_warnings,
         });
     }
 
@@ -300,7 +316,7 @@ pub fn set_root_path(app: AppHandle, path: String) -> Result<InitResult, String>
         config,
         today,
         commitments: monthly.commitments,
-        scan_warnings: vec![],
+        scan_warnings,
     })
 }
 
