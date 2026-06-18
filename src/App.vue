@@ -7,6 +7,7 @@ import { useStore } from "./stores/useStore";
 import SetupScreen from "./components/SetupScreen.vue";
 import ConfigErrorBanner from "./components/ConfigErrorBanner.vue";
 import MonthView from "./components/MonthView.vue";
+import Toast from "./components/base/Toast.vue";
 import type { InitResult, ConfigErrorDetail, ScanWarning } from "./types";
 import { logError, logInfo } from "./utils/errorLog";
 
@@ -154,37 +155,22 @@ provide("focusRequestId", focusRequestId);
     <MonthView v-else-if="store.screen === 'ready'" />
 
     <!-- Undo Toast -->
-    <Teleport to="body">
-      <transition name="toast">
-        <div
-          v-if="showUndoToast"
-          class="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-gray-900 text-white px-5 py-3 rounded-lg shadow-lg z-50 text-sm"
-        >
-          <span>Entry deleted</span>
-          <button class="text-blue-400 font-medium hover:text-blue-300" @click="handleUndo">Undo</button>
-          <button class="text-gray-500 hover:text-gray-300 text-base leading-none" @click="dismissUndo">×</button>
-        </div>
-      </transition>
-    </Teleport>
+    <Toast
+      :show="showUndoToast"
+      message="Entry deleted"
+      undo-label="Undo"
+      @undo="handleUndo"
+      @dismiss="dismissUndo"
+    />
 
     <!-- Scan Warning Toast -->
-    <Teleport to="body">
-      <transition name="toast">
-        <div
-          v-if="showScanWarning"
-          class="fixed top-20 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-amber-500 text-white px-5 py-3 rounded-lg shadow-lg z-50 text-sm"
-          data-testid="scan-warning-toast"
-        >
-          <span>{{ scanWarnings.length }} data issue{{ scanWarnings.length > 1 ? 's' : '' }} found during scan</span>
-          <button class="text-amber-100 hover:text-white text-base leading-none font-bold" @click="dismissScanWarning">×</button>
-        </div>
-      </transition>
-    </Teleport>
+    <Toast
+      :show="showScanWarning"
+      :message="`${scanWarnings.length} data issue${scanWarnings.length > 1 ? 's' : ''} found during scan`"
+      @dismiss="dismissScanWarning"
+    />
   </div>
 </template>
 
 <style>
-.toast-enter-active { transition: all 0.2s ease-out; }
-.toast-leave-active { transition: all 0.2s ease-in; }
-.toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, 1rem); }
 </style>

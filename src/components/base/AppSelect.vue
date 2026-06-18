@@ -15,7 +15,7 @@ defineEmits<{
 <template>
   <ListboxRoot
     :model-value="modelValue"
-    @update:model-value="(val: string) => $emit('update:modelValue', val)"
+    @update:model-value="(val: any) => $emit('update:modelValue', val as string)"
   >
     <ListboxContent
       class="min-w-[140px] bg-[var(--color-surface)] border border-[var(--color-border-decorative)]

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { mount } from "@vue/test-utils";
 import EntryList from "../../components/EntryList.vue";
-import EntryItem from "../../components/EntryItem.vue";
+import EntryRow from "../../components/composite/EntryRow.vue";
 import { makeEntry } from "../mocks/fixtures";
 import { STORE_KEY } from "../../stores/useStore";
 import { createTestStore } from "../mocks/store";
@@ -19,13 +19,13 @@ describe("EntryList", () => {
     expect(wrapper.text()).toContain("No entries yet");
   });
 
-  it("with entries: renders flat EntryItem list", () => {
+  it("with entries: renders flat EntryRow list", () => {
     const entries = [makeEntry(), makeEntry(), makeEntry()];
     const wrapper = mount(EntryList, {
       props: { entries },
       global: { provide },
     });
-    expect(wrapper.findAllComponents(EntryItem)).toHaveLength(3);
+    expect(wrapper.findAllComponents(EntryRow)).toHaveLength(3);
   });
 
   it("bubbles update event from child", async () => {
@@ -34,7 +34,7 @@ describe("EntryList", () => {
       props: { entries },
       global: { provide },
     });
-    const item = wrapper.findComponent(EntryItem);
+    const item = wrapper.findComponent(EntryRow);
     await item.vm.$emit("update", "e1", "Updated", 45);
     expect(wrapper.emitted("update")).toBeTruthy();
     expect(wrapper.emitted("update")![0]).toEqual(["e1", "Updated", 45]);
@@ -46,7 +46,7 @@ describe("EntryList", () => {
       props: { entries },
       global: { provide },
     });
-    const item = wrapper.findComponent(EntryItem);
+    const item = wrapper.findComponent(EntryRow);
     await item.vm.$emit("delete", "e1");
     expect(wrapper.emitted("delete")).toBeTruthy();
     expect(wrapper.emitted("delete")![0]).toEqual(["e1"]);
@@ -58,8 +58,8 @@ describe("EntryList", () => {
       props: { entries },
       global: { provide },
     });
-    const item = wrapper.findComponent(EntryItem);
-    await item.vm.$emit("update-dimensions", "e1", { goal: "Code review" });
+    const item = wrapper.findComponent(EntryRow);
+    await item.vm.$emit("updateDimensions", "e1", { goal: "Code review" });
     expect(wrapper.emitted("updateDimensions")).toBeTruthy();
     expect(wrapper.emitted("updateDimensions")![0]).toEqual(["e1", { goal: "Code review" }]);
   });
@@ -90,6 +90,6 @@ describe("EntryList", () => {
       global: { provide },
     });
     // Summary row should not render when list is empty
-    expect(wrapper.find(".border-t").exists()).toBe(false);
+    expect(wrapper.find(".border-t-2").exists()).toBe(false);
   });
 });

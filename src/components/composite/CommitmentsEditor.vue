@@ -2,7 +2,6 @@
 import { ref } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
 import type { Commitment } from '../../types';
-import AppInput from '../base/AppInput.vue';
 import AppButton from '../base/AppButton.vue';
 
 const props = defineProps<{
