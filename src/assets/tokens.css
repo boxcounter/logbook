@@ -1,0 +1,82 @@
+/* Design tokens — single source of truth for visual style.
+   Referenced by Tailwind utilities via var() and by components directly. */
+
+:root {
+  /* Surface & Text */
+  --color-page-bg: #f8fafc;
+  --color-surface: #ffffff;
+  --color-text-primary: #1e293b;
+  --color-text-secondary: #64748b;
+  --color-placeholder: #64748b;
+  --color-border-form: #64748b;
+  --color-border-decorative: #cbd5e1;
+  --color-divider: #f1f5f9;
+
+  /* Brand */
+  --color-brand-gradient-from: #6366f1;
+  --color-brand-gradient-to: #8b5cf6;
+  --color-brand-solid: #6366f1;
+  --color-brand-link: #4f46e5;
+  --color-brand-soft-bg: #eef2ff;
+
+  /* Semantic */
+  --color-success: #059669;
+  --color-danger: #ef4444;
+
+  /* Chips */
+  --color-chip-category-bg: #eef2ff;
+  --color-chip-category-border: #c7d2fe;
+  --color-chip-category-text: #4338ca;
+  --color-chip-biz-bg: #f5f3ff;
+  --color-chip-biz-border: #ddd6fe;
+  --color-chip-biz-text: #6d28d9;
+  --color-chip-importance-bg: #f0fdfa;
+  --color-chip-importance-border: #99f6e4;
+  --color-chip-importance-text: #0f766e;
+  --color-chip-goal-bg: #f0fdf4;
+  --color-chip-goal-border: #bbf7d0;
+  --color-chip-goal-text: #15803d;
+  --color-chip-missing-bg: #f8fafc;
+  --color-chip-missing-border: #cbd5e1;
+  --color-chip-missing-text: #64748b;
+
+  /* Radius */
+  --radius-pill: 999px;
+  --radius-card: 12px;
+  --radius-popover: 14px;
+  --radius-form: 8px;
+
+  /* Shadows */
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.06);
+  --shadow-popover: 0 16px 48px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.03);
+  --shadow-toast: 0 8px 32px rgba(0,0,0,0.15);
+  --shadow-button: 0 2px 12px rgba(99,102,241,0.25);
+  --shadow-button-hover: 0 4px 20px rgba(99,102,241,0.35);
+  --shadow-focus-ring: 0 0 0 4px rgba(99,102,241,0.12), 0 0 20px rgba(99,102,241,0.06);
+
+  /* Typography */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --text-base: 14px;
+  --text-sm: 13px;
+  --text-xs: 12px;
+  --text-micro: 11px;
+
+  /* Spacing */
+  --spacing-card-padding: 16px;
+  --spacing-section-gap: 12px;
+  --spacing-item-gap: 8px;
+}
+
+/* Dark mode overrides */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-page-bg: #0f172a;
+    --color-surface: #1e293b;
+    --color-text-primary: #e2e8f0;
+    --color-text-secondary: #94a3b8;
+    /* brand, chip, radius, shadow tokens unchanged */
+    --shadow-card: none;
+    --shadow-popover: 0 16px 48px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.05);
+    --shadow-toast: 0 8px 32px rgba(0,0,0,0.4);
+  }
+}
