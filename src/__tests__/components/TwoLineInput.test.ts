@@ -1,8 +1,11 @@
 // src/__tests__/components/TwoLineInput.test.ts
-import { describe, it, expect } from "vitest";
-import { mount } from "@vue/test-utils";
+import { describe, it, expect, afterEach } from "vitest";
+import { mount, enableAutoUnmount } from "@vue/test-utils";
 import TwoLineInput from "../../components/TwoLineInput.vue";
 import { makeDimension, makeCommitment } from "../mocks/fixtures";
+
+// The popover registers a window keydown listener; unmount after each test.
+enableAutoUnmount(afterEach);
 
 const dimensions = [
   makeDimension({ name: "Category", key: "category", source: "static", values: ["Engineering"], required: true }),
@@ -61,6 +64,15 @@ describe("TwoLineInput", () => {
     const wrapper = mountInput();
     await wrapper.find("input").trigger("keydown", { key: "@" });
     expect(wrapper.findComponent({ name: "DimensionPopover" }).exists()).toBe(true);
+  });
+
+  it("Enter submits even while the popover is open (does not swallow Enter)", async () => {
+    const wrapper = mountInput({ category: "Engineering" });
+    await wrapper.find("input").setValue("Code review 1h");
+    await wrapper.find("input").trigger("keydown", { key: "@" }); // open popover
+    expect(wrapper.findComponent({ name: "DimensionPopover" }).exists()).toBe(true);
+    await wrapper.find("input").trigger("keydown", { key: "Enter" });
+    expect(wrapper.emitted("submit")?.[0]).toEqual(["Code review", 60, { category: "Engineering" }]);
   });
 
   it("opens the popover upward (bottom-full) since the input is bottom-anchored", async () => {

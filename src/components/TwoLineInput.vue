@@ -60,9 +60,16 @@ function closePopover() {
 }
 
 function onKeydown(e: KeyboardEvent) {
-  if (popoverOpen.value) return; // popover owns Esc (capture-phase window listener)
+  // Esc is owned by the popover (capture-phase window listener).
   if (e.key === "@") { e.preventDefault(); popoverOpen.value = true; return; }
-  if (e.key === "Enter") { e.preventDefault(); handleSubmit(); return; }
+  // Enter must never be blocked (spec §5.2): submit even with the popover open
+  // or required dimensions unfilled. Close the popover first if it is open.
+  if (e.key === "Enter") {
+    e.preventDefault();
+    if (popoverOpen.value) closePopover();
+    handleSubmit();
+    return;
+  }
 }
 
 function handleSubmit() {
