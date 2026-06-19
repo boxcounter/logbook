@@ -356,3 +356,25 @@ describe("CommitmentsModal — validation", () => {
     expect(w.text()).toContain("At least one role is required");
   });
 });
+
+describe("CommitmentsModal — keyboard", () => {
+  it("Enter in a goal input adds a new goal row below", async () => {
+    const w = mountModal();
+    const before = w.findAll("[data-test='goal-name']").length;
+    await w.findAll("[data-test='goal-name']")[0].trigger("keydown", { key: "Enter" });
+    expect(w.findAll("[data-test='goal-name']").length).toBe(before + 1);
+  });
+  it("Enter on a trailing blank goal does NOT add another", async () => {
+    const w = mountModal();
+    await w.find("[data-test='add-goal']").trigger("click");
+    const count = w.findAll("[data-test='goal-name']").length;
+    await w.findAll("[data-test='goal-name']")[count - 1].trigger("keydown", { key: "Enter" });
+    expect(w.findAll("[data-test='goal-name']").length).toBe(count);
+  });
+  it("Cmd/Ctrl+Enter saves", async () => {
+    (invoke as any).mockResolvedValue([]);
+    const w = mountModal();
+    await w.find("[data-test='overlay']").trigger("keydown", { key: "Enter", metaKey: true });
+    expect(invoke).toHaveBeenCalledWith("set_commitments", expect.anything());
+  });
+});

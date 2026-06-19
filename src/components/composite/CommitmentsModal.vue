@@ -103,6 +103,10 @@ async function save() {
   }
 }
 function cancel() { emit("close"); }
+
+function onModalKeydown(e: KeyboardEvent) {
+  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); save(); }
+}
 </script>
 
 <template>
@@ -110,6 +114,7 @@ function cancel() { emit("close"); }
     <div
       v-if="open"
       data-test="overlay" tabindex="-1"
+      @keydown="onModalKeydown"
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
     >
       <div

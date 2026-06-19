@@ -18,6 +18,7 @@ const emit = defineEmits<{ delete: [] }>();
 
 const STEP = 5;
 const MIN_ALLOC = 5;
+const allocInput = ref<HTMLInputElement | null>(null);
 
 function stepAlloc(delta: number) {
   props.role.allocation = Math.max(MIN_ALLOC, (props.role.allocation || 0) + delta);
@@ -38,6 +39,14 @@ function onAllocInput(e: Event) {
 
 function addGoal() {
   props.role.goals.push({ name: "", origName: null, key: props.nextKey() });
+}
+
+function onGoalEnter(g: GoalRowModel) {
+  const goals = props.role.goals;
+  const gi = goals.findIndex(x => x.key === g.key);
+  if (gi === -1) return;
+  if (gi === goals.length - 1 && goals[gi].name.trim() === "") return;
+  goals.splice(gi + 1, 0, { name: "", origName: null, key: props.nextKey() });
 }
 
 function goalLogged(origName: string | null): number {
@@ -87,6 +96,7 @@ function removeGoal(g: GoalRowModel) {
       <span data-test="drag-grip-role" class="drag-grip-role cursor-grab text-[var(--color-text-disabled)] select-none px-[2px]">⠿</span>
       <input
         v-model="role.role" data-test="role-name" placeholder="Role"
+        @keydown.enter.exact.prevent="allocInput?.focus()"
         class="flex-1 px-[10px] py-[6px] border border-[var(--color-border-form)] rounded-[var(--radius-form)]
                text-[length:var(--app-text-base)] font-semibold text-[var(--color-text-primary)]
                bg-[var(--color-surface)] outline-none focus:border-[var(--color-brand-solid)]"
@@ -103,6 +113,7 @@ function removeGoal(g: GoalRowModel) {
           @click="stepAlloc(-STEP)"
         >&minus;</button>
         <input
+          ref="allocInput"
           :value="role.allocation" type="number" data-test="alloc"
           class="w-[42px] text-center px-[4px] py-[4px] border border-[var(--color-border-form)] rounded-[var(--radius-form)]
                  text-[length:var(--app-text-base)] font-semibold text-[var(--color-text-primary)] mono
@@ -159,7 +170,7 @@ function removeGoal(g: GoalRowModel) {
     <div class="mt-[12px]">
       <draggable v-model="role.goals" item-key="key" handle=".drag-grip-goal" tag="div" class="flex flex-col gap-[8px]" :animation="150">
         <template #item="{ element: g }">
-          <GoalRow :goal="g" :logged="goalLogged(g.origName)" :invalid="showErrors && goalNameInvalid(g)" @remove="removeGoal(g)" />
+          <GoalRow :goal="g" :logged="goalLogged(g.origName)" :invalid="showErrors && goalNameInvalid(g)" @remove="removeGoal(g)" @enter="onGoalEnter(g)" />
         </template>
       </draggable>
       <button

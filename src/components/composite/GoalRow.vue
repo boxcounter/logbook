@@ -8,7 +8,7 @@ defineProps<{
   invalid: boolean;
 }>();
 
-defineEmits<{ remove: [] }>();
+defineEmits<{ remove: []; enter: [] }>();
 </script>
 
 <template>
@@ -16,6 +16,7 @@ defineEmits<{ remove: [] }>();
     <span data-test="drag-grip-goal" class="drag-grip-goal cursor-grab text-[var(--color-text-disabled)] select-none px-[2px]">⠿</span>
     <input
       v-model="goal.name" data-test="goal-name" placeholder="Goal name"
+      @keydown.enter.exact.prevent="$emit('enter')"
       class="flex-1 px-[10px] py-[4px] border border-[var(--color-border-form)] rounded-[var(--radius-form)]
              text-[length:var(--app-text-sm)] text-[var(--color-text-secondary)]
              bg-[var(--color-surface)] outline-none focus:border-[var(--color-brand-solid)]"
