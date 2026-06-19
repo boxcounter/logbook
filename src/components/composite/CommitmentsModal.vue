@@ -86,7 +86,11 @@ function validate(): string | null {
 
 const isDirty = computed(() =>
   JSON.stringify(toCommitments(draft.value)) !==
-  JSON.stringify(props.commitments.map(c => ({ role: c.role.trim(), allocation: c.allocation, goals: [...c.goals] })))
+  JSON.stringify(props.commitments.map(c => ({
+    role: c.role.trim(),
+    allocation: c.allocation,
+    goals: c.goals.map(g => g.trim()).filter(n => n !== ""),
+  })))
 );
 function requestClose() { if (isDirty.value) { showDiscard.value = true; return; } emit("close"); }
 function confirmDiscard() { showDiscard.value = false; emit("close"); }

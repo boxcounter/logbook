@@ -412,4 +412,20 @@ describe("CommitmentsModal — close & discard", () => {
     await w.find("[data-test='overlay']").trigger("click");
     expect(w.emitted("close")).toBeTruthy();
   });
+  it("Keep editing dismisses the discard confirm without closing", async () => {
+    const w = mountModal();
+    await w.find("[data-test='role-name']").setValue("Changed");
+    await w.find("[data-test='cancel']").trigger("click"); // dirty → discard confirm
+    expect(w.find("[data-test='discard-confirm']").exists()).toBe(true);
+    await w.find("[data-test='discard-confirm'] button").trigger("click"); // first button = "Keep editing"
+    expect(w.find("[data-test='discard-confirm']").exists()).toBe(false); // dismissed
+    expect(w.emitted("close")).toBeFalsy(); // not closed
+  });
+  it("backdrop click with changes shows the discard confirm (does not close)", async () => {
+    const w = mountModal();
+    await w.find("[data-test='role-name']").setValue("Changed");
+    await w.find("[data-test='overlay']").trigger("click");
+    expect(w.emitted("close")).toBeFalsy();
+    expect(w.find("[data-test='discard-confirm']").exists()).toBe(true);
+  });
 });
