@@ -102,9 +102,14 @@
 - goal 仅在所属 role 内重排，不跨 role
 - 依赖决策见「依赖」一节
 
-### 删除确认
-- **删 role** → 行内二次确认（`Delete role?  Delete / Cancel`）
-- **删 goal**：无 logged 时长 → `×` 直接删；**有 logged 时长** → 行内确认并提示时长（`Remove? 1h 40m logged  Remove / Cancel`）
+### 删除确认 / 移除约束
+后端对「删除有 entry 引用的 goal」保留**硬拒绝**（见后端节）。为避免「删了才在保存时报错」，编辑器**主动禁用**有 logged 时长项的移除——统一规则：**有 logged 时长的项不可移除，仅可改名/重排/调额**。
+- **删 goal**：
+  - logged == 0 → `×` 直接删除
+  - logged > 0 → `×` **禁用** + 提示（`N entries logged — rename instead`）；且该 goal **不可清空**（清空 = 删除，同样被拒）
+- **删 role**：
+  - 该 role 所有 goal 均无 logged → `Delete` → 行内二次确认（`Delete role?  Delete / Cancel`）
+  - 含任一有 logged 的 goal → `Delete` **禁用** + 提示
 - role 最少保留 1 个
 
 ### 校验（保存时拦截，红框 + 字段级提示）
@@ -113,7 +118,8 @@
 | role 名为空 | 拦截 |
 | **role 名重复**（新增规则） | 拦截，标红重复项 |
 | **goal 名跨 role 重复**（由「同 role 内唯一」改为全局唯一） | 拦截，标红 |
-| 空 goal 行（如 + Add Goal 未填） | **不报错，保存时静默丢弃**（前端 trim+filter 后再提交） |
+| 空 goal 行，且 logged == 0（如 + Add Goal 未填） | **不报错，保存时静默丢弃**（前端 trim+filter 后再提交） |
+| 空 goal 行，但 logged > 0（清空了有记录的 goal） | 拦截：`Goal with logged time can't be empty`（清空=删除，后端会拒） |
 | commitments 为空 | 拦截 |
 
 ### 超额软警告
@@ -134,16 +140,14 @@
 1. **role 名唯一**：`validate_commitments` 新增——重复 role 名拒绝。
 2. **goal 全局唯一**：现有逻辑仅查同 role 内唯一（`goal_set` per role）。改为**跨所有 role 全局唯一**。这同时是正确性修正——`get_commitment_progress` 的 `goal_to_role` 映射要求 goal 名全局唯一，SPEC.md §153 亦载明此约束。
 3. **空 goal**：前端提交前已 trim + 过滤空 goal，后端「goal 非空」校验保留作为兜底（正常不触发）。
-4. **删除有 entry 的 goal**（**重大变更，需拍板**）：现状是 `count_entries_with_goal > 0` 即**硬拒绝**。新 UX 是「确认后允许移除」。
-   - 推荐方案：放宽硬拒绝，确认删除后 goal 从计划移除，引用它的 entry **保留 `dimensions.goal` 文本但变为未归属**（不计入任何 role）。
-   - 待验证：orphaned goal 值是否会被 `validate_monthly` 标记、是否影响 goal picker / required-dimension 逻辑。若有副作用，备选：(a) 仍拒绝（放弃此 UX）；(b) 删除时一并剥离引用 entry 的 goal tag（有损）。
+4. **删除有 entry 的 goal**：**保留硬拒绝**（已决定，后端不变）。`count_entries_with_goal > 0` 即拒绝。配合前端主动禁用（见「删除确认 / 移除约束」），正常操作不会触达此错误；它作为最终防线兜底（如外部并发修改）。删 role 时其 goal 进入 deleted 集合，同样受此约束保护。
 5. **goal 改名 vs 重排**：`detect_goal_changes` 的 deleted 用全局 set-diff（顺序无关，安全）；renames 是 per-role 位置启发式。需验证拖拽重排（role 内 goal 顺序变、role 顺序变）不会触发误判 rename。
 
 ## 依赖
 
-拖拽排序需要一个 sortable 能力。当前无相关依赖（仅 `@tauri-apps/plugin-dialog`）。决策：
-- **方案 A（推荐）**：引入轻量库（如 `vuedraggable@next` / Sortable.js），DnD + 触摸 + 动画成熟，省去自研 a11y/FLIP 成本。
-- **方案 B**：基于 Pointer Events 手写。无新依赖，但键盘可达性、触摸、重排动画需自理。
+拖拽排序需要一个 sortable 能力。当前无相关依赖（仅 `@tauri-apps/plugin-dialog`）。
+
+**已决定：引入 `vuedraggable@next`（Sortable.js 的 Vue 3 封装）**——DnD + 触摸 + 重排动画成熟，省去自研 a11y/FLIP 成本。用于 role 列表与各 role 内的 goal 列表（两级独立 sortable，goal 不跨 role）。
 
 ## 测试策略
 
@@ -166,8 +170,8 @@
 - `SPEC.md`：修正「不提供 `set_commitments` 命令、commitments 通过直接编辑 `_monthly.md` 写入」的过时描述（命令已存在且为主要写入路径）。同步校验规则（role/goal 唯一性）。
 - `src-tauri/CLAUDE.md`：同步「Commitments 不在 Rust 端写入」这条过时约定。
 
-## 开放决策清单（需你拍板）
+## 决策记录（已定）
 
-1. **删除有 logged 的 goal**：采用推荐方案（允许 + 未归属）还是备选 (a)/(b)？
-2. **拖拽依赖**：引入 `vuedraggable` 还是手写？
-3. 其余（modal 660px、step 5h、role/goal 全局唯一、空 goal 丢弃、空状态入口文案）已在 brainstorm 确认，如无异议即采纳。
+1. **删除有 logged 的 goal/role**：保留后端硬拒绝；前端主动禁用移除（有 logged 的项不可删/清空，只能改名/重排/调额）。
+2. **拖拽依赖**：引入 `vuedraggable@next`。
+3. modal 660px、step 5h（最小 5、可直接输入）、role 名唯一、goal 名跨 role 全局唯一、空 goal（logged==0）静默丢弃、空状态「Set up commitments」入口、超额 amber 软警告——均已确认采纳。

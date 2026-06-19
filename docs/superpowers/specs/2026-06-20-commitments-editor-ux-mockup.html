@@ -184,17 +184,28 @@
   </div>
 
   <div class="sec">
-    <div class="sl"><span class="num">5</span> 删除确认</div>
-    <div class="sd">删 role → 行内确认。删 goal：无记录 <span class="mono">×</span> 直接删；有 logged 时长 → 行内确认并提示时长。</div>
+    <div class="sl"><span class="num">5</span> 删除 / 移除约束</div>
+    <div class="sd">后端对「删有 entry 的 goal」<b>硬拒绝</b>，故<b>有 logged 时长的项主动禁用移除</b>（只能改名/重排/调额）；logged==0 才可删，role 删除走行内确认。</div>
     <div class="rolecard">
       <div class="role-top">
         <input class="inp role-name" value="Director" style="max-width:170px" />
         <span class="stepper"><button class="sbtn">&minus;</button><input class="inp valnum mono" value="20" /><button class="sbtn">+</button><span class="unit">h</span></span>
+        <span class="role-del" style="color:#cbd5e1;cursor:not-allowed;" title="Has logged time — can't delete this month">Delete</span>
+        <span style="font-size:11px;color:#94a3b8;">← 有 logged，禁用</span>
+      </div>
+      <div class="goals">
+        <div class="goal"><input class="inp goal-name" value="Performance reviews" /><span class="goal-logged mono">1h 40m</span><span class="goal-x" style="opacity:1;color:#e2e8f0;cursor:not-allowed;" title="2 entries logged — rename instead">&times;</span></div>
+        <div class="goal"><input class="inp goal-name" value="1:1 sessions" /><span class="goal-logged mono zero">0</span><span class="goal-x" style="opacity:1">&times;</span></div>
+      </div>
+    </div>
+    <div class="rolecard" style="margin-top:12px;">
+      <div class="role-top">
+        <input class="inp role-name" value="Advisor" style="max-width:170px" />
+        <span class="stepper"><button class="sbtn dis">&minus;</button><input class="inp valnum mono" value="5" /><button class="sbtn">+</button><span class="unit">h</span></span>
         <span class="confirm"><span class="lbl">Delete role?</span><a class="yes">Delete</a><a class="no">Cancel</a></span>
       </div>
       <div class="goals">
-        <div class="goal"><input class="inp goal-name" value="Performance reviews" /><span class="confirm" style="margin-left:auto"><span class="lbl">Remove? 1h 40m logged</span><a class="yes">Remove</a><a class="no">Cancel</a></span></div>
-        <div class="goal"><input class="inp goal-name" value="1:1 sessions" /><span class="goal-logged mono zero">0</span><span class="goal-x" style="opacity:1">&times;</span></div>
+        <div class="goal"><input class="inp goal-name" value="Office hours" /><span class="goal-logged mono zero">0</span><span class="goal-x" style="opacity:1">&times;</span></div>
       </div>
     </div>
   </div>
