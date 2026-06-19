@@ -1,7 +1,7 @@
 <script setup lang="ts">
 defineProps<{
   color?: 'category' | 'biz' | 'importance' | 'goal' | 'missing';
-  label: string;
+  label?: string;
   value: string;
   closable?: boolean;
 }>();
@@ -31,7 +31,7 @@ defineEmits<{
     "
     @click="closable && $emit('close')"
   >
-    {{ label }}: {{ value }}
+    {{ label ? label + ': ' : '' }}{{ value }}
     <span v-if="closable" class="opacity-40 hover:opacity-80 text-[14px] leading-none">&times;</span>
   </span>
 </template>

@@ -140,7 +140,6 @@ function onDimChange(dimKey: string, value: string) {
         v-for="dim in orderedDimensions.filter(d => entry.dimensions[d.key])"
         :key="dim.key"
         :color="chipColor(dim.key)"
-        :label="dim.name"
         :value="entry.dimensions[dim.key]"
         @click="editingDimensions = true"
       />
