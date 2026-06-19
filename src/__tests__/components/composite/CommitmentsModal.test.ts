@@ -307,4 +307,52 @@ describe("CommitmentsModal — validation", () => {
       commitments: [{ role: "Developer", allocation: 40, goals: ["Ship onboarding v2"] }],
     }));
   });
+
+  it("red-borders the offending role field after a blocked save", async () => {
+    const w = mountModal();
+    await w.find("[data-test='role-name']").setValue("");
+    await w.find("[data-test='save']").trigger("click");
+    expect(w.find("[data-test='role-name']").classes()).toContain("border-[var(--color-danger)]");
+  });
+  it("red-borders a duplicate goal field after a blocked save", async () => {
+    const w = mountModal({
+      commitments: [
+        makeCommitment({ role: "Developer", allocation: 40, goals: ["Shared"] }),
+        makeCommitment({ role: "Advisor", allocation: 5, goals: ["Shared"] }),
+      ],
+      progress: [],
+    });
+    await w.find("[data-test='save']").trigger("click");
+    const dupGoalInputs = w.findAll("[data-test='goal-name']")
+      .filter(i => (i.element as HTMLInputElement).value === "Shared");
+    expect(dupGoalInputs.length).toBe(2);
+    expect(dupGoalInputs.every(i => i.classes().includes("border-[var(--color-danger)]"))).toBe(true);
+  });
+
+  it("clears the error and saves after the user fixes an invalid field", async () => {
+    (invoke as any).mockResolvedValue([]);
+    const w = mountModal();
+    await w.find("[data-test='role-name']").setValue("");
+    await w.find("[data-test='save']").trigger("click");
+    expect(invoke).not.toHaveBeenCalled();
+    expect(w.text()).toContain("Role name is required");
+    await w.find("[data-test='role-name']").setValue("Engineer");
+    await w.find("[data-test='save']").trigger("click");
+    expect(invoke).toHaveBeenCalledWith("set_commitments", expect.objectContaining({
+      commitments: expect.arrayContaining([expect.objectContaining({ role: "Engineer" })]),
+    }));
+    expect(w.text()).not.toContain("Role name is required");
+  });
+
+  it("blocks save with 'At least one role is required' when the draft is empty", async () => {
+    const w = mountModal({
+      commitments: [makeCommitment({ role: "Solo", allocation: 40, goals: [] })],
+      progress: [makeCommitmentProgress({ role: "Solo", allocation_minutes: 2400, spent_minutes: 0, goals: [] })],
+    });
+    await w.find("[data-test='role-delete']").trigger("click");      // 0-logged role → inline confirm
+    await w.find("[data-test='role-delete-confirm']").trigger("click"); // remove it → draft empty
+    await w.find("[data-test='save']").trigger("click");
+    expect(invoke).not.toHaveBeenCalled();
+    expect(w.text()).toContain("At least one role is required");
+  });
 });
