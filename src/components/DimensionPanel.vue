@@ -47,9 +47,9 @@ const activeChips = computed(() => {
         :key="chip.dim.key"
         class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs cursor-pointer border"
         :class="{
-          'bg-blue-50 border-blue-200 text-blue-800': chip.dim.source === 'monthly',
-          'bg-green-50 border-green-200 text-green-800': chip.dim.key === 'category',
-          'bg-amber-50 border-amber-200 text-amber-800': chip.dim.key === 'business-line' || chip.dim.source === 'static',
+          'bg-[var(--color-chip-goal-bg)] border-[var(--color-chip-goal-border)] text-[var(--color-chip-goal-text)]': chip.dim.source === 'monthly',
+          'bg-[var(--color-chip-category-bg)] border-[var(--color-chip-category-border)] text-[var(--color-chip-category-text)]': chip.dim.key === 'category',
+          'bg-[var(--color-chip-biz-bg)] border-[var(--color-chip-biz-border)] text-[var(--color-chip-biz-text)]': chip.dim.key === 'business-line' || chip.dim.source === 'static',
         }"
       >
         {{ chip.value }}
@@ -58,12 +58,12 @@ const activeChips = computed(() => {
     <!-- Selects (toggleable) -->
     <div class="flex flex-col gap-2">
       <div v-for="dim in effectiveDimensions" :key="dim.key" class="flex items-center gap-2">
-        <label class="text-xs text-gray-500 w-16 shrink-0">
-          {{ dim.name }}<span v-if="dim.required" class="text-red-500"> *</span>
+        <label class="text-[var(--text-sm)] text-[var(--color-text-secondary)] w-16 shrink-0">
+          {{ dim.name }}<span v-if="dim.required" class="text-[var(--color-danger)]"> *</span>
         </label>
         <select
           :value="values[dim.key] || ''"
-          class="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+          class="flex-1 px-[10px] py-[6px] text-[var(--text-sm)] border-2 border-[var(--color-border-form)] rounded-[var(--radius-form)] bg-[var(--color-surface)] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand-solid)] focus:shadow-[var(--shadow-focus-ring)] transition-all duration-200"
           @change="setValue(dim.key, ($event.target as HTMLSelectElement).value)"
         >
           <option value="">--</option>
@@ -71,20 +71,20 @@ const activeChips = computed(() => {
         </select>
       </div>
       <div v-if="monthlyDimension" class="flex items-center gap-2">
-        <label class="text-xs text-gray-500 w-16 shrink-0">
+        <label class="text-[var(--text-sm)] text-[var(--color-text-secondary)] w-16 shrink-0">
           {{ monthlyDimension.name }}<span v-if="monthlyDimension.required" class="text-red-500"> *</span>
         </label>
         <select
           :value="values[monthlyDimension.key] || ''"
-          class="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+          class="flex-1 px-[10px] py-[6px] text-[var(--text-sm)] border-2 border-[var(--color-border-form)] rounded-[var(--radius-form)] bg-[var(--color-surface)] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand-solid)] focus:shadow-[var(--shadow-focus-ring)] transition-all duration-200"
           @change="setValue(monthlyDimension.key, ($event.target as HTMLSelectElement).value)"
         >
           <option value="">--</option>
           <option v-for="g in goalOptions" :key="g" :value="g">{{ g }}</option>
         </select>
       </div>
-      <div class="text-[10px] text-gray-400 mt-1">
-        <span class="text-red-500">*</span> required
+      <div class="text-[var(--text-micro)] text-[var(--color-text-secondary)] mt-1">
+        <span class="text-[var(--color-danger)]">*</span> required
       </div>
     </div>
   </div>

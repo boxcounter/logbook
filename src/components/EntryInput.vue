@@ -79,12 +79,12 @@ const missingRequired = computed(() => {
 
 const chipClass = (key: string): string => {
   const map: Record<string, string> = {
-    goal: "bg-blue-50 text-blue-800",
-    "business-line": "bg-amber-50 text-amber-800",
-    "importance-urgency": "bg-pink-50 text-pink-800",
-    category: "bg-green-50 text-green-800",
+    goal: "bg-[var(--color-chip-goal-bg)] text-[var(--color-chip-goal-text)] border-[var(--color-chip-goal-border)]",
+    "business-line": "bg-[var(--color-chip-biz-bg)] text-[var(--color-chip-biz-text)] border-[var(--color-chip-biz-border)]",
+    "importance-urgency": "bg-[var(--color-chip-importance-bg)] text-[var(--color-chip-importance-text)] border-[var(--color-chip-importance-border)]",
+    category: "bg-[var(--color-chip-category-bg)] text-[var(--color-chip-category-text)] border-[var(--color-chip-category-border)]",
   };
-  return map[key] || "bg-gray-50 text-gray-600";
+  return map[key] || "bg-[var(--color-chip-missing-bg)] text-[var(--color-chip-missing-text)] border-[var(--color-chip-missing-border)]";
 };
 
 // ---- @mention menu (all reactive refs) ----
@@ -483,7 +483,7 @@ function onInputBlur() {
         ref="inputEl"
         v-model="input"
         type="text"
-        class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+        class="flex-1 px-[16px] py-[10px] border-2 border-[var(--color-border-form)] rounded-full text-[var(--text-base)] bg-[var(--color-surface)] text-[var(--color-text-primary)] outline-none transition-all duration-200 placeholder:text-[var(--color-placeholder)] focus:border-[var(--color-brand-solid)] focus:bg-[#fafaff] focus:shadow-[var(--shadow-focus-ring)]"
         placeholder="Sprint planning 1.5h  (type @ to set dimensions)"
         @keydown="onKeydown"
         @input="onInput"
@@ -491,7 +491,7 @@ function onInputBlur() {
       />
       <button
         type="button"
-        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 text-sm font-medium"
+        class="px-[24px] py-[10px] bg-gradient-to-br from-[var(--color-brand-gradient-from)] to-[var(--color-brand-gradient-to)] text-white rounded-full hover:-translate-y-px hover:shadow-[var(--shadow-button-hover)] transition-all duration-200 disabled:opacity-50 text-[var(--text-base)] font-semibold cursor-pointer"
         :disabled="!input.trim() || submitting"
         @click="handleSubmit"
       >
@@ -502,30 +502,30 @@ function onInputBlur() {
       <div
         v-if="menuVisible"
         ref="menuEl"
-        class="absolute left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg z-20 text-sm max-h-52 overflow-y-auto"
+        class="absolute left-0 right-0 bg-[var(--color-surface)] border border-[var(--color-border-decorative)] rounded-[var(--radius-popover)] shadow-[var(--shadow-popover)] z-20 text-[var(--text-base)] max-h-52 overflow-y-auto"
         style="top: 100%; margin-top: 4px;"
         @mousedown="onMenuMouseDown"
       >
         <!-- dim phase header -->
         <div
           v-if="menuPhase === 'dim'"
-          class="px-3 py-1.5 text-[10px] uppercase tracking-wide border-b border-gray-100 bg-gray-800 text-gray-200 flex items-center gap-2"
+          class="px-3 py-1.5 text-[10px] uppercase tracking-wide border-b border-[var(--color-divider)] bg-[var(--color-text-primary)] text-[var(--color-surface)] flex items-center gap-2"
         >
-          <span class="bg-gray-600 px-1.5 py-0.5 rounded text-[9px] font-medium">DIM</span>
+          <span class="bg-[var(--color-text-secondary)] px-1.5 py-0.5 rounded text-[9px] font-medium">DIM</span>
           Pick a dimension
         </div>
         <!-- val phase header -->
         <div
           v-else-if="menuPhase === 'val'"
-          class="px-3 py-1.5 text-[10px] border-b border-gray-100 bg-blue-50 text-blue-600 flex items-center gap-2"
+          class="px-3 py-1.5 text-[10px] border-b border-[var(--color-divider)] bg-[var(--color-brand-soft-bg)] text-[var(--color-brand-solid)] flex items-center gap-2"
         >
-          <button type="button" class="font-bold text-xs hover:text-blue-800 leading-none" @click="goBackToDim">&larr;</button>
-          <span>Pick a value for <b class="text-blue-800">{{ activeDimKey ? (DIM_ALIASES[activeDimKey] || activeDimKey) : '' }}</b></span>
+          <button type="button" class="font-bold text-[var(--text-sm)] hover:text-[var(--color-brand-link)] leading-none" @click="goBackToDim">&larr;</button>
+          <span>Pick a value for <b class="text-[var(--color-brand-link)]">{{ activeDimKey ? (DIM_ALIASES[activeDimKey] || activeDimKey) : '' }}</b></span>
         </div>
         <template v-for="(item, i) in getMenuItems()" :key="i">
           <div
-            class="mention-item flex items-center gap-2 px-3 py-1.5 cursor-pointer"
-            :class="{ 'bg-blue-50': i === selectedIndex }"
+            class="mention-item flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-[var(--color-divider)]"
+            :class="{ 'bg-[var(--color-brand-soft-bg)]': i === selectedIndex }"
             :data-idx="i"
           >
             <!-- Dim phase: colored bar; Val phase: no bar -->
@@ -541,22 +541,22 @@ function onInputBlur() {
             <!-- Dim phase right-side info: value count or filled checkmark -->
             <span
               v-if="menuPhase === 'dim' && item.required && !dimValues[item.key || '']"
-              class="text-[10px] text-gray-400"
+              class="text-[10px] text-[var(--color-text-secondary)]"
             >{{ getValueCount(props.dimensions, item.key || '', goalOptions) }} values</span>
             <span
               v-else-if="menuPhase === 'dim' && item.required && dimValues[item.key || '']"
-              class="text-[10px] text-green-500"
+              class="text-[10px] text-[var(--color-success)]"
             >{{ dimValues[item.key || ''] }} ✓</span>
           </div>
         </template>
-        <div v-if="getMenuItems().length === 0" class="px-3 py-2 text-gray-400 text-xs">
+        <div v-if="getMenuItems().length === 0" class="px-3 py-2 text-[var(--color-text-secondary)] text-[var(--text-sm)]">
           No matches
         </div>
         <!-- Dim phase footer: dot progress indicator -->
         <div
           v-if="menuPhase === 'dim' && totalRequiredDims > 0"
-          class="px-3 py-1.5 text-[10px] border-t border-gray-100 flex items-center gap-1"
-          :class="allRequiredFilled ? 'text-green-600' : 'text-gray-400'"
+          class="px-3 py-1.5 text-[10px] border-t border-[var(--color-divider)] flex items-center gap-1"
+          :class="allRequiredFilled ? 'text-[var(--color-success)]' : 'text-[var(--color-text-secondary)]'"
         >
           <template v-if="allRequiredFilled">
             All required ✓
@@ -566,7 +566,7 @@ function onInputBlur() {
               v-for="n in totalRequiredDims"
               :key="n"
               class="inline-block w-[6px] h-[6px] rounded-full"
-              :class="n <= (totalRequiredDims - requiredRemaining) ? 'bg-green-400' : 'bg-gray-300'"
+              :class="n <= (totalRequiredDims - requiredRemaining) ? 'bg-[var(--color-success)]' : 'bg-[var(--color-border-decorative)]'"
             ></span>
             <span class="ml-1">{{ requiredRemaining }} to go</span>
           </template>
@@ -574,7 +574,7 @@ function onInputBlur() {
         <!-- Val phase footer: navigation hint -->
         <div
           v-if="menuPhase === 'val'"
-          class="px-3 py-1.5 text-[10px] text-gray-400 border-t border-gray-100"
+          class="px-3 py-1.5 text-[10px] text-[var(--color-text-secondary)] border-t border-[var(--color-divider)]"
         >
           &larr; Back to dimensions · Type to filter
         </div>
@@ -582,8 +582,8 @@ function onInputBlur() {
     </div>
 
     <div class="flex justify-between mt-1 min-h-[1.25rem]">
-      <span v-if="parsedPreview" class="text-xs text-gray-500">Duration: {{ parsedPreview }}</span>
-      <span v-if="error" class="text-xs text-red-500">{{ error }}</span>
+      <span v-if="parsedPreview" class="text-[var(--text-sm)] text-[var(--color-text-secondary)]">Duration: {{ parsedPreview }}</span>
+      <span v-if="error" class="text-[var(--text-sm)] text-[var(--color-danger)]">{{ error }}</span>
     </div>
 
     <!-- #6: Dimension chips row -->
@@ -603,12 +603,12 @@ function onInputBlur() {
       <span
         v-for="m in missingRequired"
         :key="'missing-' + m.key"
-        class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs cursor-pointer border border-dashed border-red-400 bg-red-50 text-red-700"
+        class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs cursor-pointer border border-dashed border-[var(--color-chip-missing-border)] bg-[var(--color-chip-missing-bg)] text-[var(--color-chip-missing-text)]"
         @click="openValMenuDirect(m.key)"
       >
         + {{ m.name }}
       </span>
-      <span v-if="Object.values(dimValues).every(v => !v) && missingRequired.length === 0" class="text-xs text-gray-400 italic">
+      <span v-if="Object.values(dimValues).every(v => !v) && missingRequired.length === 0" class="text-[var(--text-sm)] text-[var(--color-text-secondary)] italic">
         @ to set dimensions
       </span>
     </div>

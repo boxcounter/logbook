@@ -261,7 +261,7 @@ describe("EntryInput", () => {
     // Second item should be highlighted
     const items = wrapper.findAll(".mention-item");
     expect(items.length).toBeGreaterThan(1);
-    expect(items[1].classes()).toContain("bg-blue-50");
+    expect(items[1].classes()).toContain("bg-[var(--color-brand-soft-bg)]");
   });
 
   it("ArrowUp at top clamps to 0", async () => {
@@ -270,7 +270,7 @@ describe("EntryInput", () => {
     await keydownOnInput(wrapper, "ArrowUp");
 
     const items = wrapper.findAll(".mention-item");
-    expect(items[0].classes()).toContain("bg-blue-50");
+    expect(items[0].classes()).toContain("bg-[var(--color-brand-soft-bg)]");
   });
 
   it("ArrowDown at bottom clamps", async () => {
@@ -283,7 +283,7 @@ describe("EntryInput", () => {
     }
     // Last item should be highlighted
     const freshItems = wrapper.findAll(".mention-item");
-    expect(freshItems[freshItems.length - 1].classes()).toContain("bg-blue-50");
+    expect(freshItems[freshItems.length - 1].classes()).toContain("bg-[var(--color-brand-soft-bg)]");
   });
 
   it("Ctrl+N / Ctrl+P navigate items", async () => {
@@ -292,11 +292,11 @@ describe("EntryInput", () => {
 
     await keydownOnInput(wrapper, "n", { ctrlKey: true });
     const items = wrapper.findAll(".mention-item");
-    expect(items[1].classes()).toContain("bg-blue-50");
+    expect(items[1].classes()).toContain("bg-[var(--color-brand-soft-bg)]");
 
     await keydownOnInput(wrapper, "p", { ctrlKey: true });
     const fresh = wrapper.findAll(".mention-item");
-    expect(fresh[0].classes()).toContain("bg-blue-50");
+    expect(fresh[0].classes()).toContain("bg-[var(--color-brand-soft-bg)]");
   });
 
   it("Ctrl+J confirms selection and advances to val phase", async () => {
@@ -375,7 +375,7 @@ describe("EntryInput", () => {
     // skipFilled=true should select Business Line (index 1) not Goal (index 0)
     const items = wrapper.findAll(".mention-item");
     // Business Line should be the highlighted item
-    expect(items[1].classes()).toContain("bg-blue-50");
+    expect(items[1].classes()).toContain("bg-[var(--color-brand-soft-bg)]");
     expect(items[1].text()).toContain("Business Line");
   });
 
@@ -389,7 +389,7 @@ describe("EntryInput", () => {
     expect(wrapper.text()).toContain("Pick a value");
 
     // Click the left arrow button in the val header
-    const backBtn = wrapper.find(".text-xs.hover\\:text-blue-800");
+    const backBtn = wrapper.find(".font-bold.leading-none");
     await backBtn.trigger("click");
 
     // Should be back in dim phase

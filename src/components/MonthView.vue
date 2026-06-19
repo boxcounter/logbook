@@ -276,9 +276,9 @@ async function openInEditor() {
 </script>
 
 <template>
-  <div class="flex gap-4 p-4 max-w-7xl mx-auto items-start">
+  <div class="flex gap-[16px] p-6 max-w-5xl mx-auto items-start">
     <!-- Left 1/3: Month sidebar -->
-    <div class="flex-1 min-w-[200px] flex flex-col gap-3 sticky top-4">
+    <div class="w-[280px] flex-shrink-0 flex flex-col gap-[12px] sticky top-6">
       <MonthNavigator
         :year="selectedYear"
         :month="selectedMonth"
@@ -297,7 +297,7 @@ async function openInEditor() {
     </div>
 
     <!-- Right 2/3: Day detail -->
-    <div class="flex-[2] min-w-0 flex flex-col gap-3">
+    <div class="flex-1 min-w-0 flex flex-col gap-[12px]">
       <DayStrip
         :dates="monthDates"
         :selectedDate="store.currentDate"
@@ -308,7 +308,7 @@ async function openInEditor() {
       <!-- DayNote -->
       <div
         ref="noteRef"
-        class="text-xs text-gray-500 outline-none rounded px-3 py-1.5 bg-white border border-gray-200 hover:bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 cursor-text min-h-[28px]"
+        class="text-[var(--text-base)] text-[var(--color-text-primary)] outline-none rounded-[var(--radius-card)] px-[16px] py-[12px] bg-[var(--color-surface)] shadow-[var(--shadow-card)] hover:bg-[var(--color-divider)] focus:bg-[var(--color-surface)] focus:shadow-[var(--shadow-focus-ring)] cursor-text min-h-[42px]"
         contenteditable="true"
         data-placeholder="Add a note…"
         @blur="saveNote"
@@ -328,7 +328,7 @@ async function openInEditor() {
       <!-- File path link -->
       <div v-if="store.rootPath" class="text-right">
         <button
-          class="text-xs text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
+          class="text-[var(--text-micro)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
           :title="store.rootPath + '/' + dayFilePath"
           @click="openInEditor"
         >
@@ -342,6 +342,6 @@ async function openInEditor() {
 <style scoped>
 [contenteditable]:empty::before {
   content: attr(data-placeholder);
-  color: #cbd5e1;
+  color: var(--color-placeholder);
 }
 </style>
