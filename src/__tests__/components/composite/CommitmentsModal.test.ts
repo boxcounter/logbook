@@ -93,4 +93,20 @@ describe("CommitmentsModal — base", () => {
     expect(invoke).not.toHaveBeenCalled();
     expect(w.emitted("close")).toBeTruthy();
   });
+
+  it("editing the draft does not mutate the commitments prop (working-copy isolation)", async () => {
+    const goals = ["Ship onboarding v2", "Review auth PR"];
+    const commitments = [makeCommitment({ role: "Developer", allocation: 40, goals })];
+    const w = mountModal({ commitments });
+
+    // Mutate the draft via the editor: role name, a goal name, and add a goal.
+    await w.find("[data-test='role-name']").setValue("Architect");
+    await w.findAll("[data-test='goal-name']")[0].setValue("Ship onboarding v3");
+    await w.find("[data-test='add-goal']").trigger("click");
+
+    // The original prop object (and its nested goals array) must be untouched.
+    expect(commitments[0].role).toBe("Developer");
+    expect(commitments[0].goals).toBe(goals); // same array reference, not replaced
+    expect(goals).toEqual(["Ship onboarding v2", "Review auth PR"]); // length + values intact
+  });
 });
