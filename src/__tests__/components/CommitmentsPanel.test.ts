@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { mount } from "@vue/test-utils";
-import { setupTauriMocks } from "../mocks/tauri";
 import CommitmentsPanel from "../../components/CommitmentsPanel.vue";
+import CommitmentsEditor from "../../components/composite/CommitmentsEditor.vue";
 import { makeCommitment, makeCommitmentProgress } from "../mocks/fixtures";
 import type { Commitment, CommitmentProgress } from "../../types";
 
@@ -217,210 +217,68 @@ describe("CommitmentsPanel edit mode", () => {
     const wrapper = mountPanelWithEdit(commitments);
     const editBtn = wrapper.find('[data-test="edit-btn"]');
     await editBtn.trigger("click");
-    expect(wrapper.text()).toContain("Save");
-    expect(wrapper.text()).toContain("Cancel");
+
+    // CommitmentsEditor should be rendered in edit mode
+    const editor = wrapper.findComponent(CommitmentsEditor);
+    expect(editor.exists()).toBe(true);
+    expect(editor.props("commitments")).toEqual(commitments);
   });
 
-  it("edit mode shows role and allocation inputs", async () => {
-    const commitments = [makeCommitmentObj({ role: "Developer", allocation: 40 })];
-    const wrapper = mountPanelWithEdit(commitments);
+  it("passes correct props to CommitmentsEditor", async () => {
+    const commitments = [makeCommitmentObj({ role: "Dev", allocation: 40 })];
+    const wrapper = mountPanelWithEdit(commitments, undefined, "/my/root");
+
+    // Enter edit mode
     await wrapper.find('[data-test="edit-btn"]').trigger("click");
 
-    const roleInput = wrapper.find('input[type="text"]');
-    expect((roleInput.element as HTMLInputElement).value).toBe("Developer");
-
-    const allocInput = wrapper.find("input[type='number']");
-    expect((allocInput.element as HTMLInputElement).value).toBe("40");
+    const editor = wrapper.findComponent(CommitmentsEditor);
+    expect(editor.props("commitments")).toEqual(commitments);
+    expect(editor.props("rootPath")).toBe("/my/root");
+    expect(editor.props("selectedYear")).toBe(2026);
+    expect(editor.props("selectedMonth")).toBe(6);
   });
 
-  it("edit mode shows goal names as inputs with delete buttons", async () => {
-    const commitments = [makeCommitmentObj({ goals: ["Goal A"] })];
-    const wrapper = mountPanelWithEdit(commitments);
-    await wrapper.find('[data-test="edit-btn"]').trigger("click");
-
-    // Goal names are bound as input values, not text content
-    const goalInputs = wrapper.findAll('input[type="text"]');
-    const goalInput = goalInputs[1]; // first is role input, second is goal input
-    expect((goalInput.element as HTMLInputElement).value).toBe("Goal A");
-    expect(wrapper.find('[data-test="delete-goal-btn"]').exists()).toBe(true);
+  it("not in edit mode when commitments is empty", async () => {
+    const wrapper = mountPanelWithEdit([]);
+    const editBtn = wrapper.find('[data-test="edit-btn"]');
+    expect(editBtn.exists()).toBe(false);
   });
 
-  it("can add a new goal to a role", async () => {
-    const commitments = [makeCommitmentObj({ goals: ["Goal A"] })];
-    const wrapper = mountPanelWithEdit(commitments);
-    await wrapper.find('[data-test="edit-btn"]').trigger("click");
-
-    const addGoalBtns = wrapper.findAll('[data-test="add-goal-btn"]');
-    expect(addGoalBtns.length).toBe(1);
-    await addGoalBtns[0].trigger("click");
-
-    expect((wrapper.vm as any).editingCommitments[0].goals.length).toBe(2);
-  });
-
-  it("can delete a goal from a role", async () => {
-    const commitments = [makeCommitmentObj({ goals: ["A", "B"] })];
-    const wrapper = mountPanelWithEdit(commitments);
-    await wrapper.find('[data-test="edit-btn"]').trigger("click");
-
-    const deleteBtns = wrapper.findAll('[data-test="delete-goal-btn"]');
-    await deleteBtns[0].trigger("click");
-
-    expect((wrapper.vm as any).editingCommitments[0].goals.length).toBe(1);
-    expect((wrapper.vm as any).editingCommitments[0].goals[0]).toBe("B");
-  });
-
-  it("can add a new role", async () => {
-    const commitments = [makeCommitmentObj()];
-    const wrapper = mountPanelWithEdit(commitments);
-    await wrapper.find('[data-test="edit-btn"]').trigger("click");
-
-    const addRoleBtn = wrapper.find('[data-test="add-role-btn"]');
-    expect(addRoleBtn.exists()).toBe(true);
-    await addRoleBtn.trigger("click");
-
-    expect((wrapper.vm as any).editingCommitments.length).toBe(2);
-  });
-
-  it("can remove a role if more than one", async () => {
-    const commitments = [
-      makeCommitmentObj({ role: "Dev" }),
-      makeCommitmentObj({ role: "PM" }),
-    ];
-    const wrapper = mountPanelWithEdit(commitments);
-    await wrapper.find('[data-test="edit-btn"]').trigger("click");
-
-    const roleDeleteBtns = wrapper.findAll('[data-test="delete-role-btn"]');
-    expect(roleDeleteBtns.length).toBe(2);
-
-    await roleDeleteBtns[0].trigger("click");
-    expect((wrapper.vm as any).editingCommitments.length).toBe(1);
-  });
-
-  it("last role has no delete button", async () => {
-    const commitments = [makeCommitmentObj()];
-    const wrapper = mountPanelWithEdit(commitments);
-    await wrapper.find('[data-test="edit-btn"]').trigger("click");
-
-    const roleDeleteBtns = wrapper.findAll('[data-test="delete-role-btn"]');
-    expect(roleDeleteBtns.length).toBe(0);
-  });
-
-  it("cancel restores snapshot and returns to display mode", async () => {
+  it("cancels and returns to display mode when CommitmentsEditor emits cancel", async () => {
     const commitments = [makeCommitmentObj({ allocation: 40 })];
     const wrapper = mountPanelWithEdit(commitments);
+
+    // Enter edit mode
     await wrapper.find('[data-test="edit-btn"]').trigger("click");
 
-    const allocInput = wrapper.find("input[type='number']");
-    await allocInput.setValue(99);
+    // Trigger cancel on CommitmentsEditor
+    const editor = wrapper.findComponent(CommitmentsEditor);
+    await editor.vm.$emit("cancel");
+    await wrapper.vm.$nextTick();
 
-    const cancelBtn = wrapper.find('[data-test="cancel-btn"]');
-    await cancelBtn.trigger("click");
-
+    // Should be back in display mode
+    expect(wrapper.findComponent(CommitmentsEditor).exists()).toBe(false);
     expect(wrapper.text()).toContain("40.0h");
   });
 
-  it("frontend pre-validation: empty role name blocked", async () => {
-    const commitments = [makeCommitmentObj({ role: "Dev" })];
-    const wrapper = mountPanelWithEdit(commitments);
-    const mocks = setupTauriMocks();
-
-    await wrapper.find('[data-test="edit-btn"]').trigger("click");
-
-    const roleInput = wrapper.find('input[type="text"]');
-    await roleInput.setValue("");
-
-    const saveBtn = wrapper.find('[data-test="save-btn"]');
-    await saveBtn.trigger("click");
-
-    expect(wrapper.text()).toContain("Role name cannot be empty");
-    expect(mocks.invoke).not.toHaveBeenCalledWith("set_commitments", expect.anything());
-  });
-
-  it("frontend pre-validation: zero allocation blocked", async () => {
-    const commitments = [makeCommitmentObj({ allocation: 40 })];
-    const wrapper = mountPanelWithEdit(commitments);
-    const mocks = setupTauriMocks();
-
-    await wrapper.find('[data-test="edit-btn"]').trigger("click");
-
-    const allocInput = wrapper.find("input[type='number']");
-    await allocInput.setValue(0);
-
-    const saveBtn = wrapper.find('[data-test="save-btn"]');
-    await saveBtn.trigger("click");
-
-    expect(wrapper.text()).toContain("must be greater than 0");
-    expect(mocks.invoke).not.toHaveBeenCalledWith("set_commitments", expect.anything());
-  });
-
-  it("frontend pre-validation: empty goal name blocked", async () => {
-    const commitments = [makeCommitmentObj({ goals: ["A"] })];
-    const wrapper = mountPanelWithEdit(commitments);
-    const mocks = setupTauriMocks();
-
-    await wrapper.find('[data-test="edit-btn"]').trigger("click");
-
-    const addGoalBtn = wrapper.find('[data-test="add-goal-btn"]');
-    await addGoalBtn.trigger("click");
-
-    const saveBtn = wrapper.find('[data-test="save-btn"]');
-    await saveBtn.trigger("click");
-
-    expect(wrapper.text()).toContain("Goal name cannot be empty");
-    expect(mocks.invoke).not.toHaveBeenCalledWith("set_commitments", expect.anything());
-  });
-
-  it("save calls invoke and emits saved event on success", async () => {
-    const commitments = [makeCommitmentObj({ allocation: 80 })];
-    setupTauriMocks();
-    const wrapper = mountPanelWithEdit(commitments);
-
-    await wrapper.find('[data-test="edit-btn"]').trigger("click");
-
-    const saveBtn = wrapper.find('[data-test="save-btn"]');
-    await saveBtn.trigger("click");
-
-    expect(wrapper.emitted("saved")).toBeTruthy();
-  });
-
-  it("displays backend error", async () => {
-    const commitments = [makeCommitmentObj()];
-    const mocks = setupTauriMocks();
-    const wrapper = mountPanelWithEdit(commitments);
-    mocks.invoke.mockRejectedValueOnce("Cannot delete goal 'X': used by 3 entries this month");
-
-    await wrapper.find('[data-test="edit-btn"]').trigger("click");
-
-    const saveBtn = wrapper.find('[data-test="save-btn"]');
-    await saveBtn.trigger("click");
-    await wrapper.vm.$nextTick();
-    await wrapper.vm.$nextTick();
-
-    expect(wrapper.text()).toContain("Cannot delete goal");
-  });
-
-  it("exits edit mode when commitments prop changes externally", async () => {
+  it("emits saved when CommitmentsEditor emits saved", async () => {
     const commitments = [makeCommitmentObj()];
     const wrapper = mountPanelWithEdit(commitments);
 
     // Enter edit mode
     await wrapper.find('[data-test="edit-btn"]').trigger("click");
-    expect((wrapper.vm as any).isEditing).toBe(true);
 
-    // Simulate external change: file watcher pushes new data for both props
-    const changedCommitments = [makeCommitmentObj({ allocation: 99 })];
-    const changedProgress = [
-      makeCommitmentProgress({ allocation_minutes: 99 * 60 }),
-    ];
-    await wrapper.setProps({
-      commitments: changedCommitments,
-      progress: changedProgress,
-    });
+    // Trigger saved on CommitmentsEditor
+    const editor = wrapper.findComponent(CommitmentsEditor);
+    await editor.vm.$emit("saved");
     await wrapper.vm.$nextTick();
 
-    // Should exit edit mode
-    expect((wrapper.vm as any).isEditing).toBe(false);
-    // Should be back in display mode showing new values
-    expect(wrapper.text()).toContain("99.0h");
+    expect(wrapper.emitted("saved")).toBeTruthy();
+  });
+
+  it("does not render CommitmentsEditor in display mode", () => {
+    const commitments = [makeCommitmentObj()];
+    const wrapper = mountPanelWithEdit(commitments);
+    expect(wrapper.findComponent(CommitmentsEditor).exists()).toBe(false);
   });
 });
