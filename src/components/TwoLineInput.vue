@@ -60,10 +60,7 @@ function closePopover() {
 }
 
 function onKeydown(e: KeyboardEvent) {
-  if (popoverOpen.value) {
-    if (e.key === "Escape") { e.preventDefault(); closePopover(); }
-    return;
-  }
+  if (popoverOpen.value) return; // popover owns Esc (capture-phase window listener)
   if (e.key === "@") { e.preventDefault(); popoverOpen.value = true; return; }
   if (e.key === "Enter") { e.preventDefault(); handleSubmit(); return; }
 }

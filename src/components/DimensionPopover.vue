@@ -1,6 +1,6 @@
 <!-- src/components/DimensionPopover.vue -->
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, onMounted, onUnmounted } from "vue";
 import type { Dimension, Commitment } from "../types";
 
 const props = defineProps<{
@@ -66,6 +66,19 @@ function goBack() {
   phase.value = "dim";
   activeDimKey.value = null;
 }
+
+// Esc handling (spec §5.1/§5.2): val phase → back to dim; dim phase → close.
+// Handled here (capture phase, window-level) so it works regardless of which
+// element has focus — the input may have lost focus to a mouse click in the menu.
+function onWindowKeydown(e: KeyboardEvent) {
+  if (e.key !== "Escape") return;
+  e.preventDefault();
+  e.stopPropagation();
+  if (phase.value === "val") goBack();
+  else emit("close");
+}
+onMounted(() => window.addEventListener("keydown", onWindowKeydown, true));
+onUnmounted(() => window.removeEventListener("keydown", onWindowKeydown, true));
 </script>
 
 <template>

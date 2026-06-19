@@ -1,8 +1,11 @@
 // src/__tests__/components/DimensionPopover.test.ts
-import { describe, it, expect } from "vitest";
-import { mount } from "@vue/test-utils";
+import { describe, it, expect, afterEach } from "vitest";
+import { mount, enableAutoUnmount } from "@vue/test-utils";
 import DimensionPopover from "../../components/DimensionPopover.vue";
 import { makeDimension, makeCommitment } from "../mocks/fixtures";
+
+// Unmount after each test so the popover's window keydown listener is removed.
+enableAutoUnmount(afterEach);
 
 const dimensions = [
   makeDimension({ name: "Category", key: "category", source: "static", values: ["Engineering", "PM"], required: true }),
@@ -58,5 +61,22 @@ describe("DimensionPopover", () => {
     await wrapper.findAll("[data-test='dim-item']")[0].trigger("click");
     await wrapper.find("[data-test='back-btn']").trigger("click");
     expect(wrapper.findAll("[data-test='dim-item']").length).toBe(3);
+  });
+
+  it("Esc in dim phase emits close", async () => {
+    const wrapper = mountPop();
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    await wrapper.vm.$nextTick();
+    expect(wrapper.emitted("close")).toBeTruthy();
+  });
+
+  it("Esc in val phase returns to dim phase without closing", async () => {
+    const wrapper = mountPop();
+    await wrapper.findAll("[data-test='dim-item']")[0].trigger("click"); // → val phase
+    expect(wrapper.find("[data-test='back-btn']").exists()).toBe(true);
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    await wrapper.vm.$nextTick();
+    expect(wrapper.findAll("[data-test='dim-item']").length).toBe(3); // back to dim
+    expect(wrapper.emitted("close")).toBeFalsy();
   });
 });
