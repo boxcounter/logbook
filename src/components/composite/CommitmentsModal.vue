@@ -3,11 +3,8 @@ import { ref, computed, watch } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import draggable from "vuedraggable";
 import RoleCard from "./RoleCard.vue";
-import type { Commitment, CommitmentProgress } from "../../types";
+import type { Commitment, CommitmentProgress, RoleRowModel, GoalRowModel } from "../../types";
 import { formatDuration } from "../../utils/format";
-
-interface GoalRow { name: string; origName: string | null; key: number }
-interface RoleRow { role: string; allocation: number; goals: GoalRow[]; origRole: string | null; key: number }
 
 const props = defineProps<{
   open: boolean;
@@ -24,20 +21,20 @@ const NEW_ROLE_ALLOC = 5;
 let _key = 0;
 const nextKey = () => ++_key;
 
-const draft = ref<RoleRow[]>([]);
+const draft = ref<RoleRowModel[]>([]);
 const error = ref("");
 const saving = ref(false);
 
 function buildDraft() {
-  draft.value = props.commitments.map(c => ({
+  draft.value = props.commitments.map((c): RoleRowModel => ({
     role: c.role, allocation: c.allocation, origRole: c.role, key: nextKey(),
-    goals: c.goals.map(g => ({ name: g, origName: g, key: nextKey() })),
+    goals: c.goals.map((g): GoalRowModel => ({ name: g, origName: g, key: nextKey() })),
   }));
   error.value = "";
 }
 watch(() => props.open, (o) => { if (o) buildDraft(); }, { immediate: true });
 
-function toCommitments(rows: RoleRow[]): Commitment[] {
+function toCommitments(rows: RoleRowModel[]): Commitment[] {
   return rows.map(r => ({
     role: r.role.trim(),
     allocation: r.allocation,

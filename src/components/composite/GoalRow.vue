@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { formatDuration } from "../../utils/format";
-
-interface GoalRowModel { name: string; origName: string | null; key: number }
+import type { GoalRowModel } from "../../types";
 
 defineProps<{
   goal: GoalRowModel;

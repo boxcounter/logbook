@@ -3,10 +3,7 @@ import { computed } from "vue";
 import draggable from "vuedraggable";
 import GoalRow from "./GoalRow.vue";
 import { formatDuration } from "../../utils/format";
-import type { CommitmentProgress } from "../../types";
-
-interface GoalRowModel { name: string; origName: string | null; key: number }
-interface RoleRowModel { role: string; allocation: number; goals: GoalRowModel[]; origRole: string | null; key: number }
+import type { CommitmentProgress, RoleRowModel } from "../../types";
 
 const props = defineProps<{
   role: RoleRowModel;

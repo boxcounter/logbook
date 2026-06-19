@@ -179,6 +179,13 @@ describe("CommitmentsModal — summary, progress & over-commit", () => {
     const w = mountModal(); // 870/2400 ≈ 36%
     expect((w.find("[data-test='bar-fill']").element as HTMLElement).style.width).toBe("36%");
   });
+  it("keeps per-goal logged matched by original name after a rename", async () => {
+    const w = mountModal();
+    // Rename the first goal; its logged time (matched by origName) must persist.
+    await w.findAll("[data-test='goal-name']")[0].setValue("Renamed goal");
+    const logged = w.findAll("[data-test='goal-logged']").map(n => n.text());
+    expect(logged.some(t => t.includes("14h 25m"))).toBe(true);
+  });
   it("turns amber + 'over by' when allocation drops below logged", async () => {
     const w = mountModal();
     const dec = w.find("[data-test='alloc-dec']");
