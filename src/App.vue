@@ -152,7 +152,9 @@ provide("focusRequestId", focusRequestId);
         Retry
       </button>
     </template>
-    <MonthView v-else-if="store.screen === 'ready'" />
+    <div v-else-if="store.screen === 'ready'" class="p-8">
+      <MonthView />
+    </div>
 
     <!-- Undo Toast -->
     <Toast

@@ -243,9 +243,9 @@ logInfo("MonthView", "mounted");
 </script>
 
 <template>
-  <div class="flex max-w-5xl mx-auto items-start min-h-screen">
+  <div class="flex min-h-[calc(100vh-64px)] bg-[var(--color-surface)] border border-[var(--color-border-form)] rounded-[var(--radius-lg)] overflow-hidden">
     <!-- Sidebar -->
-    <aside class="w-[220px] flex-shrink-0 flex flex-col gap-0 sticky top-0 bg-[var(--color-surface-muted)] border-r border-[var(--color-divider)] px-[16px] py-[24px]">
+    <aside class="w-[220px] flex-shrink-0 flex flex-col gap-0 bg-[var(--color-surface-muted)] border-r border-[var(--color-divider)] px-[16px] py-[24px]">
       <HeatmapCalendar
         :year="selectedYear"
         :month="selectedMonth"
