@@ -1,0 +1,507 @@
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f8fafc; padding: 32px; color: #1e293b; }
+  h2 { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; margin-bottom: 6px; }
+  .subtitle { font-size: 13px; color: #94a3b8; margin-bottom: 28px; }
+  .mockup-wrapper { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; margin-bottom: 32px; }
+  .layout { display: flex; min-height: 700px; }
+
+  /* === FONT: Mono for data === */
+  .mono { font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Menlo', monospace; }
+
+  .sidebar { width: 220px; background: #fafbfc; border-right: 1px solid #f1f5f9; padding: 24px 16px; display: flex; flex-direction: column; gap: 0; flex-shrink: 0; }
+  .section-label { font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+  .heatmap-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; text-align: center; margin-bottom: 4px; }
+  .heatmap-cell { width: 24px; height: 24px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; cursor: pointer; transition: all 0.15s; }
+  .heatmap-cell:hover { transform: scale(1.15); }
+  .heatmap-empty { background: #f1f5f9; color: #94a3b8; }
+  .heatmap-light { background: #dbeafe; color: #3b82f6; }
+  .heatmap-mid { background: #bfdbfe; color: #2563eb; }
+  .heatmap-heavy { background: #93c5fd; color: #fff; font-weight: 700; }
+  .heatmap-today { box-shadow: 0 0 0 2px #6366f1; }
+  .heatmap-selected { box-shadow: 0 0 0 2px #94a3b8; }
+  .sidebar-divider { border-top: 1px solid #f1f5f9; margin: 20px 0 16px; }
+
+  .commit-role { padding: 8px 10px; border-radius: 8px; cursor: pointer; transition: background 0.15s; margin-bottom: 2px; }
+  .commit-role:hover { background: #f1f5f9; }
+  .commit-role.expanded { background: #f8fafc; }
+  .commit-bar { height: 4px; background: #f1f5f9; border-radius: 2px; overflow: hidden; margin-top: 4px; }
+  .commit-bar-fill { height: 100%; border-radius: 2px; background: linear-gradient(90deg, #6366f1, #8b5cf6); }
+  .goal-row { font-size: 11px; color: #64748b; display: flex; justify-content: space-between; padding: 3px 0 3px 8px; }
+  .goal-row .goal-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 130px; }
+
+  .main { flex: 1; padding: 24px 28px; display: flex; flex-direction: column; min-width: 0; }
+  .main-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 20px; padding-bottom: 14px; border-bottom: 1px solid #f1f5f9; }
+  .day-title { font-size: 20px; font-weight: 700; color: #1e293b; letter-spacing: -0.3px; }
+  .today-badge { margin-left: 6px; font-size: 10px; padding: 2px 8px; border-radius: 4px; background: #eef2ff; color: #4f46e5; font-weight: 600; vertical-align: middle; }
+  .day-summary { font-size: 12px; color: #94a3b8; }
+
+  .entry-list { flex: 1; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; padding-right: 4px; }
+  .entry-row { padding: 9px 14px; border-radius: 8px; border: 1px solid transparent; display: flex; justify-content: space-between; align-items: flex-start; transition: all 0.15s; cursor: default; }
+  .entry-row:hover { background: #fafbfc; border-color: #f1f5f9; }
+  .entry-row:hover .edit-trigger { opacity: 1; }
+  .edit-trigger { opacity: 0; font-size: 14px; color: #94a3b8; cursor: pointer; flex-shrink: 0; margin-left: 8px; padding: 0 2px; transition: opacity 0.15s; }
+  .edit-trigger:hover { color: #6366f1; }
+  .entry-row.just-added { background: #eef2ff; border-color: #c7d2fe; animation: fadeHighlight 1.5s ease-out forwards; }
+  @keyframes fadeHighlight { 0% { background: #eef2ff; border-color: #c7d2fe; } 100% { background: transparent; border-color: transparent; } }
+  .entry-row.editing { background: #fff; border-color: #6366f1; box-shadow: 0 0 0 5px rgba(99,102,241,0.05); cursor: default; }
+  .entry-item { font-size: 14px; font-weight: 500; color: #1e293b; line-height: 1.4; word-break: break-word; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+
+  .entry-chips { display: flex; gap: 3px; margin-top: 3px; flex-wrap: wrap; }
+  .entry-chip { font-size: 10px; padding: 0px 6px; border-radius: 3px; font-weight: 450; line-height: 1.7; letter-spacing: -0.1px; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .entry-chip.cat { background: #f5f6fa; color: #5b63a6; }
+  .entry-chip.biz { background: #f7f5fa; color: #7b5ea7; }
+  .entry-chip.imp { background: #f5faf9; color: #3d7a73; }
+  .entry-chip.goal { background: #f5faf6; color: #4a7c59; }
+
+  .entry-duration { font-size: 13px; color: #1e293b; flex-shrink: 0; margin-left: 16px; padding-top: 1px; }
+
+  .day-note { margin-top: 16px; padding: 8px 0; }
+  .day-note-inner { font-size: 12px; color: #94a3b8; line-height: 1.5; font-style: italic; cursor: text; padding: 6px 10px; border-radius: 6px; transition: all 0.15s; }
+  .day-note-inner:hover { background: #f8fafc; color: #64748b; }
+
+  .input-section { margin-top: 12px; }
+  .input-card { background: #fff; border: 2px solid #e2e8f0; border-radius: 12px; padding: 10px 16px; transition: all 0.2s; }
+  .input-card.focused { border-color: #6366f1; box-shadow: 0 0 0 5px rgba(99,102,241,0.05); }
+  .input-row-main { display: flex; gap: 8px; align-items: center; }
+  .input-plus { color: #6366f1; font-size: 18px; line-height: 1; flex-shrink: 0; }
+  .input-field { flex: 1; border: none; outline: none; font-size: 14px; color: #1e293b; background: transparent; caret-color: #6366f1; line-height: 1.5; padding: 2px 0; }
+  .input-field::placeholder { color: #94a3b8; }
+  .input-enter { font-size: 9px; color: #94a3b8; padding: 3px 7px; border: 1px solid #e2e8f0; border-radius: 4px; font-weight: 600; flex-shrink: 0; opacity: 0.5; transition: opacity 0.2s; }
+  .input-card.focused .input-enter { opacity: 1; }
+
+  .token-row { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; align-items: center; min-height: 4px; padding-left: 2px; }
+  .input-token { font-size: 10px; padding: 1px 7px; border-radius: 3px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; line-height: 1.6; }
+  .input-token.cat { background: #eef2ff; color: #4338ca; }
+  .input-token.biz { background: #f5f3ff; color: #6d28d9; }
+  .input-token.imp { background: #f0fdfa; color: #0f766e; }
+  .input-token.goal { background: #f0fdf4; color: #15803d; }
+  .input-token.dur { background: #fff7ed; color: #c2410c; }
+  .token-remove { cursor: pointer; opacity: 0.4; font-size: 12px; line-height: 1; }
+  .token-remove:hover { opacity: 1; }
+
+  .missing-indicator { font-size: 10px; padding: 1px 8px; border-radius: 3px; border: 1.5px dashed #e2e8f0; color: #94a3b8; font-weight: 450; cursor: pointer; transition: all 0.15s; display: inline-flex; align-items: center; gap: 3px; }
+  .missing-indicator:hover { border-color: #94a3b8; color: #64748b; }
+  .missing-dot { width: 5px; height: 5px; border-radius: 50%; background: #cbd5e1; }
+
+  .input-hints { display: flex; gap: 14px; margin-top: 4px; font-size: 10px; color: #cbd5e1; transition: color 0.3s; }
+  .input-card.focused ~ .input-hints, .input-hints:hover { color: #94a3b8; }
+  .input-hints kbd { padding: 1px 5px; border: 1px solid #e2e8f0; border-radius: 3px; background: #fff; font-size: 9px; font-family: inherit; }
+
+  .step-section { margin: 36px 0; border-top: 1px solid #f1f5f9; padding-top: 24px; }
+  .step-section:first-child { border-top: none; padding-top: 0; }
+  .step-label { font-size: 12px; font-weight: 700; color: #6366f1; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .step-label .num { width: 22px; height: 22px; border-radius: 50%; background: #eef2ff; color: #4f46e5; display: flex; align-items: center; justify-content: center; font-size: 11px; }
+  .step-desc { font-size: 12px; color: #94a3b8; margin-bottom: 14px; line-height: 1.5; }
+
+  .popover { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 16px 48px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.03); overflow: hidden; width: 240px; }
+  .popover-header { padding: 8px 14px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #f1f5f9; }
+  .popover-header.dim { background: #fafaff; color: #6366f1; }
+  .popover-header.val { background: #fafaf9; color: #78716c; }
+  .popover-item { padding: 9px 14px; font-size: 13px; cursor: pointer; color: #1e293b; display: flex; align-items: center; gap: 10px; transition: background 0.1s; border-bottom: 1px solid #fafbfc; }
+  .popover-item:last-child { border-bottom: none; }
+  .popover-item:hover { background: #f8fafc; }
+  .popover-item.selected { background: #fafaff; color: #6366f1; font-weight: 600; }
+  .popover-item .dim-bar { width: 3px; height: 18px; border-radius: 2px; flex-shrink: 0; }
+  .dim-bar.goal-bar { background: #86efac; }
+  .dim-bar.cat-bar { background: #a5b4fc; }
+  .dim-bar.biz-bar { background: #c4b5fd; }
+  .dim-bar.imp-bar { background: #5eead4; }
+  .popover-item .meta { margin-left: auto; font-size: 10px; }
+  .meta.required { color: #f59e0b; font-weight: 500; }
+  .meta.optional { color: #cbd5e1; }
+  .popover-header.val .back-btn { cursor: pointer; font-weight: 700; font-size: 12px; }
+
+  .edit-row { display: flex; flex-direction: column; gap: 4px; width: 100%; }
+  .edit-item-input { font-size: 14px; border: none; outline: none; background: transparent; color: #1e293b; font-weight: 500; width: 100%; padding: 1px 0; }
+  .edit-item-input::placeholder { color: #94a3b8; font-weight: 400; }
+  .edit-dur-input { font-size: 13px; border: 1px solid #e2e8f0; border-radius: 5px; padding: 2px 8px; outline: none; color: #1e293b; width: 56px; text-align: right; margin-left: auto; }
+  .edit-dur-input:focus { border-color: #6366f1; }
+  .edit-chips { display: flex; gap: 3px; flex-wrap: wrap; margin-top: 2px; }
+  .edit-chip { font-size: 10px; padding: 1px 7px; border-radius: 3px; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+  .edit-chip.goal { background: #f0fdf4; color: #15803d; }
+  .edit-chip.cat { background: #eef2ff; color: #4338ca; }
+  .edit-chip.biz { background: #f5f3ff; color: #6d28d9; }
+  .edit-chip.imp { background: #f0fdfa; color: #0f766e; }
+  .edit-chip.placeholder { border: 1px dashed #e2e8f0; color: #94a3b8; background: transparent; cursor: pointer; }
+  .edit-chip.placeholder:hover { border-color: #94a3b8; color: #64748b; }
+  .edit-actions { display: flex; gap: 8px; margin-top: 4px; align-items: center; }
+  .edit-action-btn { font-size: 10px; padding: 2px 10px; border-radius: 5px; font-weight: 600; cursor: pointer; border: none; transition: all 0.15s; }
+  .edit-save { background: #6366f1; color: #fff; }
+  .edit-save:hover { background: #4f46e5; }
+  .edit-cancel { background: transparent; color: #94a3b8; }
+  .edit-cancel:hover { color: #64748b; }
+  .edit-delete { background: transparent; color: #cbd5e1; margin-left: auto; }
+  .edit-delete:hover { color: #ef4444; }
+</style>
+
+<h2>方案 C · 最终 Demo</h2>
+<p class="subtitle">全部决策已合并 · 字体方案 1（Mono for data）</p>
+
+<!-- ====== MAIN VIEW ====== -->
+<div class="mockup-wrapper">
+  <div class="layout">
+    <div class="sidebar">
+      <div>
+        <!-- Month navigator: ← → arrows + clickable label for quick-jump -->
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+          <span style="font-size:12px; color:#94a3b8; cursor:pointer; padding:2px 4px;" title="Previous month (⌘[)">←</span>
+          <span style="font-size:14px; font-weight:700; color:#1e293b; cursor:pointer;" title="Click for quick-jump">June <span style="font-weight:400; font-size:11px; color:#94a3b8;">2026 ▾</span></span>
+          <span style="font-size:12px; color:#94a3b8; cursor:pointer; padding:2px 4px;" title="Next month (⌘])">→</span>
+        </div>
+        <!-- Quick-jump popover (shown on click) -->
+        <div style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; box-shadow:0 12px 32px rgba(0,0,0,0.06); padding:10px 12px; margin-bottom:8px; display:flex; gap:8px; align-items:center;">
+          <select style="font-size:12px; border:1px solid #e2e8f0; border-radius:6px; padding:4px 8px; background:#fff; color:#1e293b; outline:none;">
+            <option>2026</option><option>2025</option>
+          </select>
+          <select style="font-size:12px; border:1px solid #e2e8f0; border-radius:6px; padding:4px 8px; background:#fff; color:#1e293b; outline:none;">
+            <option>January</option><option>February</option><option>March</option><option>April</option><option>May</option><option selected>June</option><option>July</option>
+          </select>
+          <span style="font-size:9px; color:#94a3b8; white-space:nowrap;">Go</span>
+        </div>
+        <div class="heatmap-grid" style="font-size:9px; color:#94a3b8;"><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span></div>
+        <div class="heatmap-grid">
+          <span style="grid-column:3;"></span>
+          <span class="heatmap-cell heatmap-empty mono">1</span><span class="heatmap-cell heatmap-light mono">2</span><span class="heatmap-cell heatmap-mid mono">3</span><span class="heatmap-cell heatmap-light mono">4</span><span class="heatmap-cell heatmap-empty mono">5</span><span class="heatmap-cell heatmap-empty mono">6</span><span class="heatmap-cell heatmap-empty mono">7</span>
+          <span class="heatmap-cell heatmap-light mono">8</span><span class="heatmap-cell heatmap-light mono">9</span><span class="heatmap-cell heatmap-mid mono">10</span><span class="heatmap-cell heatmap-light mono">11</span><span class="heatmap-cell heatmap-empty mono">12</span><span class="heatmap-cell heatmap-empty mono">13</span><span class="heatmap-cell heatmap-empty mono">14</span>
+          <span class="heatmap-cell heatmap-light mono">15</span><span class="heatmap-cell heatmap-light mono">16</span><span class="heatmap-cell heatmap-mid mono">17</span><span class="heatmap-cell heatmap-heavy mono">18</span><span class="heatmap-cell heatmap-heavy heatmap-today heatmap-selected mono">19</span>
+          <span class="heatmap-cell heatmap-empty mono" style="opacity:0.5;">20</span><span class="heatmap-cell heatmap-empty mono" style="opacity:0.3;">21</span>
+        </div>
+        <div style="margin-top:6px; font-size:11px; color:#1e293b; text-align:center; font-weight:600;"><span class="mono">58.5h</span> <span style="font-weight:400;font-size:10px;color:#94a3b8;">/ month</span></div>
+      </div>
+      <div class="sidebar-divider"></div>
+      <div>
+        <div class="section-label">Commitments</div>
+        <div class="commit-role expanded">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-weight:600; font-size:12px; color:#1e293b;">Developer ▾</span>
+            <span style="font-size:11px; color:#1e293b; font-weight:600;"><span class="mono">20.5</span><span style="font-weight:400;color:#94a3b8;" class="mono">/40h</span></span>
+          </div>
+          <div class="commit-bar"><div class="commit-bar-fill" style="width:51%;"></div></div>
+          <div style="margin-top:6px; display:flex; flex-direction:column; gap:1px;">
+            <div class="goal-row"><span class="goal-name" title="Sprint planning">Sprint planning</span><span class="mono" style="font-weight:500; color:#1e293b;">3.5h</span></div>
+            <div class="goal-row"><span class="goal-name" title="重构用户认证与权限管理系统">重构用户认证与权限管理系统</span><span class="mono" style="font-weight:500; color:#1e293b;">8h</span></div>
+            <div class="goal-row"><span class="goal-name" title="Code review">Code review</span><span class="mono" style="font-weight:500; color:#1e293b;">5h</span></div>
+            <div class="goal-row"><span class="goal-name" title="Documentation">Documentation</span><span class="mono" style="color:#94a3b8;">0</span></div>
+          </div>
+        </div>
+        <div class="commit-role">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-weight:600; font-size:12px; color:#1e293b;">PM ▸</span>
+            <span style="font-size:11px; color:#1e293b; font-weight:600;"><span class="mono">12</span><span style="font-weight:400;color:#94a3b8;" class="mono">/20h</span></span>
+          </div>
+          <div class="commit-bar"><div class="commit-bar-fill" style="width:60%;"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="main">
+      <div class="main-header">
+        <div><span class="day-title">Thursday, June 19</span><span class="today-badge">Today</span></div>
+        <span class="day-summary"><span class="mono">10</span> entries · <span class="mono">5h 45m</span></span>
+      </div>
+      <div class="entry-list">
+        <!-- Normal entry with edit trigger on hover -->
+        <div class="entry-row"><div style="flex:1; min-width:0;"><div class="entry-item">梳理 Slax Reader Q3 产品路线图</div><div class="entry-chips"><span class="entry-chip cat">PM</span><span class="entry-chip biz">Slax</span><span class="entry-chip goal" title="Q3产品路线图规划">Q3产品路线图规划</span></div></div><span class="entry-duration mono">1h</span><span class="edit-trigger" title="Double-click or click to edit">⋯</span></div>
+
+        <!-- Long item (70 chars) + long goal (15 chars) -->
+        <div class="entry-row"><div style="flex:1; min-width:0;"><div class="entry-item" title="关于用户认证模块的重构方案讨论以及后续的技术选型评估和风险评估报告撰写">关于用户认证模块的重构方案讨论以及后续的技术选型评估和风险评估报告撰写</div><div class="entry-chips"><span class="entry-chip cat">Engineering</span><span class="entry-chip biz">Slax</span><span class="entry-chip goal" title="用户认证与权限系统重构">用户认证与权限系统重构</span></div></div><span class="entry-duration mono">2h</span><span class="edit-trigger" title="Double-click or click to edit">⋯</span></div>
+
+        <div class="entry-row"><div style="flex:1; min-width:0;"><div class="entry-item">Code review — 后端 API 重构 PR #342</div><div class="entry-chips"><span class="entry-chip cat">Engineering</span><span class="entry-chip biz">Slax</span><span class="entry-chip goal">quality</span></div></div><span class="entry-duration mono">1h 30m</span><span class="edit-trigger" title="Double-click or click to edit">⋯</span></div>
+
+        <!-- EDIT MODE — triggered by clicking ⋯ or double-click -->
+        <div class="entry-row editing" style="cursor:default;">
+          <div class="edit-row">
+            <div style="display:flex; gap:8px; align-items:center;">
+              <input class="edit-item-input" value="跟 CTO 讨论 Logbook UX 重构方案">
+              <input class="edit-dur-input mono" value="45">
+              <span style="font-size:11px; color:#94a3b8;">min</span>
+            </div>
+            <div class="edit-chips">
+              <span class="edit-chip cat">Engineering <span style="font-size:11px;cursor:pointer;opacity:0.5;">×</span></span>
+              <span class="edit-chip biz">Platform <span style="font-size:11px;cursor:pointer;opacity:0.5;">×</span></span>
+              <span class="edit-chip imp">important <span style="font-size:11px;cursor:pointer;opacity:0.5;">×</span></span>
+              <span class="edit-chip placeholder">+ tag</span>
+            </div>
+            <div class="edit-actions">
+              <button class="edit-action-btn edit-save">Save</button>
+              <button class="edit-action-btn edit-cancel">Cancel</button>
+              <button class="edit-action-btn edit-delete">Delete</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="entry-row"><div style="flex:1; min-width:0;"><div class="entry-item">写周报 — 本周关键进展 & 风险项</div><div class="entry-chips"><span class="entry-chip cat">Management</span><span class="entry-chip biz">Platform</span></div></div><span class="entry-duration mono">30m</span><span class="edit-trigger" title="Double-click or click to edit">⋯</span></div>
+        <div class="entry-row"><div style="flex:1; min-width:0;"><div class="entry-item">回复客户关于支付模块的安全审计问题</div><div class="entry-chips"><span class="entry-chip cat">Support</span><span class="entry-chip biz">Platform</span><span class="entry-chip imp">urgent</span></div></div><span class="entry-duration mono">20m</span><span class="edit-trigger" title="Double-click or click to edit">⋯</span></div>
+        <div class="entry-row"><div style="flex:1; min-width:0;"><div class="entry-item">Review 运营团队数据看板需求文档</div><div class="entry-chips"><span class="entry-chip cat">PM</span><span class="entry-chip biz">Platform</span></div></div><span class="entry-duration mono">30m</span><span class="edit-trigger" title="Double-click or click to edit">⋯</span></div>
+        <div class="entry-row"><div style="flex:1; min-width:0;"><div class="entry-item">修 Bug — iOS 端暗黑模式下文字颜色异常</div><div class="entry-chips"><span class="entry-chip cat">Engineering</span><span class="entry-chip biz">Platform</span><span class="entry-chip goal">bug-fixes</span></div></div><span class="entry-duration mono">15m</span><span class="edit-trigger" title="Double-click or click to edit">⋯</span></div>
+        <div class="entry-row"><div style="flex:1; min-width:0;"><div class="entry-item">1:1 with 小李 — 试用期评估 & 后续方向</div><div class="entry-chips"><span class="entry-chip cat">Management</span><span class="entry-chip biz">Platform</span></div></div><span class="entry-duration mono">30m</span><span class="edit-trigger" title="Double-click or click to edit">⋯</span></div>
+        <div class="entry-row"><div style="flex:1; min-width:0;"><div class="entry-item">午休</div></div><span class="entry-duration mono" style="color:#cbd5e1;">—</span><span class="edit-trigger" title="Double-click or click to edit">⋯</span></div>
+      </div>
+      <div class="day-note"><div class="day-note-inner">今天主要产出是路线图定稿和 UX 方案，下午效率偏低…</div></div>
+
+      <!-- Two-line input -->
+      <div class="input-section">
+        <div class="input-card focused">
+          <div class="input-row-main"><span class="input-plus">+</span><input class="input-field" placeholder="What did you work on?" value="跟设计师讨论 Logbook UI 视觉"><span class="input-enter mono">⏎</span></div>
+          <div class="token-row">
+            <span class="input-token cat">Engineering <span class="token-remove">×</span></span>
+            <span class="input-token biz">Platform <span class="token-remove">×</span></span>
+            <span class="input-token dur mono">1h <span class="token-remove">×</span></span>
+            <span class="missing-indicator"><span class="missing-dot"></span> goal</span>
+          </div>
+        </div>
+        <div class="input-hints"><span><kbd class="mono">@</kbd> dim</span><span><kbd class="mono">#</kbd> time</span><span><kbd class="mono">⌘[</kbd> prev month</span><span><kbd class="mono">⌘]</kbd> next month</span></div>
+
+        <!-- File path -->
+        <div style="margin-top:10px; text-align:right;">
+          <span style="font-size:10px; color:#cbd5e1; cursor:pointer;" title="Open in editor">
+            …/2026/06/2026-06-19.md
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== INPUT FLOW ====== -->
+<h2>输入交互流程</h2>
+<p class="subtitle">Mono 字体应用于所有数字、时间、快捷键</p>
+
+<div style="background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:28px 32px;">
+
+  <div class="step-section">
+    <div class="step-label"><span class="num">1</span> 打字中 — 无 token</div>
+    <div class="input-card">
+      <div class="input-row-main"><span class="input-plus">+</span><input class="input-field" value="跟设计师讨论 Logbook UI 视觉方向"><span class="input-enter mono" style="opacity:0.3;">⏎</span></div>
+      <div class="token-row"></div>
+    </div>
+  </div>
+
+  <div class="step-section">
+    <div class="step-label"><span class="num">2</span> 输入 @ → 维度选择菜单</div>
+    <div class="step-desc">紫色 header + 颜色条。required / optional 标注。底部 <kbd class="mono">↵</kbd> <kbd class="mono">esc</kbd> 快捷键。</div>
+    <div style="display:flex; gap:24px; align-items:flex-start;">
+      <div style="flex:1;">
+        <div class="input-card focused">
+          <div class="input-row-main"><span class="input-plus">+</span><div style="flex:1; font-size:14px; line-height:1.5; color:#1e293b; padding:2px 0;">跟设计师讨论 Logbook UI 视觉方向<span style="color:#6366f1;">@</span><span style="display:inline-block;width:1px;height:16px;background:#6366f1;margin-left:1px;vertical-align:middle;"></span></div><span class="input-enter mono" style="opacity:0.4;">⏎</span></div>
+        </div>
+      </div>
+      <div style="flex-shrink:0;">
+        <div class="popover">
+          <div class="popover-header dim"><span style="background:#6366f1;color:#fff;padding:1px 6px;border-radius:3px;font-size:9px;font-family:system-ui;">DIM</span> Pick a dimension</div>
+          <div class="popover-item"><span class="dim-bar cat-bar"></span>category<span class="meta required">required</span></div>
+          <div class="popover-item selected"><span class="dim-bar goal-bar"></span>goal<span class="meta required">required</span></div>
+          <div class="popover-item"><span class="dim-bar biz-bar"></span>business-line<span class="meta optional">optional</span></div>
+          <div class="popover-item"><span class="dim-bar imp-bar"></span>importance-urgency<span class="meta optional">optional</span></div>
+          <div style="padding:6px 14px; font-size:9px; color:#cbd5e1; border-top:1px solid #f1f5f9; display:flex; gap:12px;">
+            <span><kbd class="mono" style="padding:1px 4px;border:1px solid #e2e8f0;border-radius:3px;background:#fff;font-size:8px;">↵</kbd> select</span>
+            <span><kbd class="mono" style="padding:1px 4px;border:1px solid #e2e8f0;border-radius:3px;background:#fff;font-size:8px;">esc</kbd> close</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="step-section">
+    <div class="step-label"><span class="num">3</span> 选中 goal → 取值菜单</div>
+    <div class="step-desc">暖灰 header + ← back。按 <kbd class="mono">esc</kbd> 返回维度选择。</div>
+    <div style="display:flex; gap:24px; align-items:flex-start;">
+      <div style="flex:1;">
+        <div class="input-card focused">
+          <div class="input-row-main"><span class="input-plus">+</span><div style="flex:1; font-size:14px; line-height:1.5; color:#1e293b; padding:2px 0;">跟设计师讨论 Logbook UI 视觉方向<span style="display:inline-block;width:1px;height:16px;background:#6366f1;margin-left:1px;vertical-align:middle;"></span></div><span class="input-enter mono" style="opacity:0.4;">⏎</span></div>
+        </div>
+      </div>
+      <div style="flex-shrink:0;">
+        <div class="popover">
+          <div class="popover-header val"><span class="back-btn">←</span> goal</div>
+          <div class="popover-item">Sprint planning</div>
+          <div class="popover-item selected">Bug fixes</div>
+          <div class="popover-item">Code review</div>
+          <div class="popover-item">Documentation</div>
+          <div style="padding:6px 14px; font-size:9px; color:#cbd5e1; border-top:1px solid #f1f5f9; display:flex; gap:12px;">
+            <span><kbd class="mono" style="padding:1px 4px;border:1px solid #e2e8f0;border-radius:3px;background:#fff;font-size:8px;">↵</kbd> select</span>
+            <span><kbd class="mono" style="padding:1px 4px;border:1px solid #e2e8f0;border-radius:3px;background:#fff;font-size:8px;">esc</kbd> back to dims</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="step-section">
+    <div class="step-label"><span class="num">4</span> 两种时长输入方式</div>
+    <div class="step-desc">方式 A：在 item 里自然写 <code class="mono">1h</code> / <code class="mono">45m</code> → 自动解析。方式 B：按 <kbd class="mono">#</kbd> 触发。token 显示无 <code class="mono">#</code> 前缀。</div>
+    <div class="input-card focused">
+      <div class="input-row-main"><span class="input-plus">+</span><input class="input-field" value="跟设计师讨论 Logbook UI 视觉 1h"><span class="input-enter mono">⏎</span></div>
+      <div class="token-row">
+        <span class="input-token cat">Engineering <span class="token-remove">×</span></span>
+        <span class="input-token biz">Platform <span class="token-remove">×</span></span>
+        <span class="input-token dur mono">1h <span class="token-remove">×</span></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="step-section">
+    <div class="step-label"><span class="num">5</span> 删掉 duration token → 回退解析</div>
+    <div class="step-desc">系统重新扫描 item text。有 duration pattern → 重新显示；没有 → 提示输入。</div>
+    <div style="display:flex; gap:24px;">
+      <div style="flex:1;">
+        <div style="font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; margin-bottom:8px;">文字里还有 <span class="mono">"1h"</span></div>
+        <div class="input-card">
+          <div class="input-row-main"><span class="input-plus">+</span><div style="flex:1; font-size:14px; line-height:1.5; color:#1e293b; padding:2px 0;">跟设计师讨论 Logbook UI 视觉 <span style="background:#fff7ed; border-radius:2px;" class="mono">1h</span></div><span class="input-enter mono">⏎</span></div>
+          <div class="token-row">
+            <span class="input-token dur mono">1h <span class="token-remove">×</span></span>
+            <span style="font-size:9px; color:#059669; margin-left:4px;">← re-parsed</span>
+          </div>
+        </div>
+      </div>
+      <div style="flex:1;">
+        <div style="font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; margin-bottom:8px;">文字里没有时间</div>
+        <div class="input-card">
+          <div class="input-row-main"><span class="input-plus">+</span><div style="flex:1; font-size:14px; line-height:1.5; color:#1e293b; padding:2px 0;">跟设计师讨论 Logbook UI 视觉</div><span class="input-enter mono" style="opacity:0.2; border-color:#f1f5f9; color:#cbd5e1;">⏎</span></div>
+          <div class="token-row">
+            <span style="font-size:10px; color:#f59e0b;">Need a duration — type <code class="mono">1h</code> or press <kbd class="mono" style="padding:1px 4px;border:1px solid #e2e8f0;border-radius:3px;background:#fff;font-size:9px;">#</kbd></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="step-section">
+    <div class="step-label"><span class="num">6</span> 软提示 — 必选维度未填，仍可提交</div>
+    <div class="step-desc">虚线 chip 轻声提示。Enter 不拦截。</div>
+    <div class="input-card focused">
+      <div class="input-row-main"><span class="input-plus">+</span><input class="input-field" value="跟设计师讨论 Logbook UI 视觉 1h"><span class="input-enter mono">⏎</span></div>
+      <div class="token-row">
+        <span class="input-token cat">Engineering <span class="token-remove">×</span></span>
+        <span class="input-token biz">Platform <span class="token-remove">×</span></span>
+        <span class="input-token dur mono">1h <span class="token-remove">×</span></span>
+        <span class="missing-indicator"><span class="missing-dot"></span> goal</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="step-section">
+    <div class="step-label"><span class="num">7</span> Enter 后 — <span class="mono">1.5s</span> 蓝色高亮反馈</div>
+    <div style="padding:9px 14px; border-radius:8px; background:#eef2ff; border:2px solid #c7d2fe; display:flex; justify-content:space-between; align-items:flex-start;">
+      <div><div class="entry-item">跟设计师讨论 Logbook UI 视觉</div><div class="entry-chips"><span class="entry-chip goal">Bug fixes</span><span class="entry-chip cat">Engineering</span><span class="entry-chip biz">Platform</span></div></div>
+      <span class="entry-duration mono">1h</span>
+    </div>
+  </div>
+</div>
+
+<!-- ====== EDIT MODE ====== -->
+<h2 style="margin-top:36px;">文本溢出 & 编辑触发</h2>
+<p class="subtitle">长 item 截断 2 行 · 长 goal 截断省略 · hover 出现 ⋯ 触发编辑</p>
+
+<div style="background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:28px 32px; margin-bottom:24px;">
+
+  <div class="step-section">
+    <div class="step-label"><span class="num">1</span> 长文本处理</div>
+    <div class="step-desc"><strong>Item（≤70 字）</strong>：最多显示 2 行，超出截断省略。hover tooltip 看全文。<br><strong>Goal（≤15 字）</strong>：chip 限宽 100px，超出截断省略。sidebar goal name 限宽 130px。</div>
+    <div style="display:flex; gap:24px;">
+      <div style="flex:1; background:#fafbfc; border-radius:8px; padding:12px;">
+        <div style="font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; margin-bottom:8px;">长 item（70 字，2 行截断）</div>
+        <div style="font-size:14px; font-weight:500; color:#1e293b; line-height:1.4; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;">关于用户认证模块的重构方案讨论以及后续的技术选型评估和风险评估报告撰写，包括与安全团队的对齐会议纪要</div>
+      </div>
+      <div style="flex:1; background:#fafbfc; border-radius:8px; padding:12px;">
+        <div style="font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; margin-bottom:8px;">长 goal chip（15 字截断 + tooltip）</div>
+        <span class="entry-chip goal" style="max-width:100px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:inline-block;" title="用户认证与权限系统重构">用户认证与权限系统重构</span>
+        <div style="margin-top:6px; font-size:10px; color:#94a3b8;">hover 显示全文</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="step-section">
+    <div class="step-label"><span class="num">2</span> 编辑触发 — hover 显示 ⋯ · 双击也可进入</div>
+    <div class="step-desc">不再单击进入编辑（防误触）。hover 时行尾出现 <code>⋯</code> 图标，点击进入编辑模式。同时保留双击整行进入编辑（power user 快捷操作）。</div>
+    <div class="entry-row" style="background:#fafbfc; border-color:#f1f5f9;">
+      <div style="flex:1; min-width:0;"><div class="entry-item">回复客户关于支付模块的安全审计问题</div><div class="entry-chips"><span class="entry-chip cat">Support</span><span class="entry-chip biz">Platform</span></div></div>
+      <span class="entry-duration mono">20m</span>
+      <span class="edit-trigger" style="opacity:1; color:#6366f1;">⋯</span>
+    </div>
+    <div style="margin-top:8px; font-size:11px; color:#94a3b8;">hover 时 ⋯ 出现（opacity 0→1），click → 进入编辑。双击整行 → 同样进入编辑。</div>
+  </div>
+</div>
+
+<h2 style="margin-top:36px;">Entry 编辑模式</h2>
+<p class="subtitle">⋮ 或双击进入编辑 · Save / Cancel / Delete · +tag 复用维度 picker</p>
+
+<div style="background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:28px 32px;">
+  <div style="display:flex; flex-direction:column; gap:8px;">
+
+    <div class="step-section">
+      <div class="step-label"><span class="num">1</span> ⋮ 或双击 → 进入编辑模式</div>
+      <div class="step-desc">蓝色边框 + focus ring。item 可编辑，duration 数字框（mono），chips 可删可加。</div>
+      <div class="entry-row editing" style="cursor:default;">
+        <div class="edit-row">
+          <div style="display:flex; gap:8px; align-items:center;">
+            <input class="edit-item-input" value="跟 CTO 讨论 Logbook UX 重构方案">
+            <input class="edit-dur-input mono" value="45">
+            <span style="font-size:11px; color:#94a3b8;">min</span>
+          </div>
+          <div class="edit-chips">
+            <span class="edit-chip cat">Engineering <span style="font-size:11px;cursor:pointer;opacity:0.5;">×</span></span>
+            <span class="edit-chip biz">Platform <span style="font-size:11px;cursor:pointer;opacity:0.5;">×</span></span>
+            <span class="edit-chip imp">important <span style="font-size:11px;cursor:pointer;opacity:0.5;">×</span></span>
+            <span class="edit-chip placeholder">+ tag</span>
+          </div>
+          <div class="edit-actions">
+            <button class="edit-action-btn edit-save">Save</button>
+            <button class="edit-action-btn edit-cancel">Cancel</button>
+            <button class="edit-action-btn edit-delete">Delete</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step-section">
+      <div class="step-label"><span class="num">2</span> 点击 <span style="border:1px dashed #e2e8f0;color:#94a3b8;padding:1px 7px;border-radius:3px;font-size:10px;">+ tag</span> → 弹出维度菜单</div>
+      <div class="step-desc">和新增时的维度/值 picker 同一组件。</div>
+      <div style="display:flex; gap:24px; align-items:flex-start;">
+        <div style="flex:1;">
+          <div class="entry-row editing" style="cursor:default;">
+            <div class="edit-row">
+              <div style="display:flex; gap:8px; align-items:center;">
+                <div style="flex:1; font-size:14px; font-weight:500; color:#1e293b; padding:2px 0;">跟 CTO 讨论 Logbook UX 重构方案</div>
+                <div style="font-size:13px; color:#1e293b; font-weight:500;"><span class="mono">45</span><span style="font-size:11px;color:#94a3b8;font-weight:400;">min</span></div>
+              </div>
+              <div class="edit-chips">
+                <span class="edit-chip cat">Engineering <span style="font-size:11px;cursor:pointer;opacity:0.5;">×</span></span>
+                <span class="edit-chip biz">Platform <span style="font-size:11px;cursor:pointer;opacity:0.5;">×</span></span>
+                <span class="edit-chip placeholder" style="background:#fafaff; border-color:#6366f1; color:#6366f1;">+ tag</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="flex-shrink:0;">
+          <div class="popover">
+            <div class="popover-header dim"><span style="background:#6366f1;color:#fff;padding:1px 6px;border-radius:3px;font-size:9px;font-family:system-ui;">DIM</span> Pick a dimension</div>
+            <div class="popover-item"><span class="dim-bar goal-bar"></span>goal<span class="meta required">required</span></div>
+            <div class="popover-item"><span class="dim-bar imp-bar"></span>importance-urgency<span class="meta optional">optional</span></div>
+            <div style="padding:6px 14px; font-size:9px; color:#cbd5e1; border-top:1px solid #f1f5f9; display:flex; gap:12px;">
+              <span><kbd class="mono" style="padding:1px 4px;border:1px solid #e2e8f0;border-radius:3px;background:#fff;font-size:8px;">↵</kbd> select</span>
+              <span><kbd class="mono" style="padding:1px 4px;border:1px solid #e2e8f0;border-radius:3px;background:#fff;font-size:8px;">esc</kbd> close</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div style="margin-top:28px; font-size:13px; color:#64748b; line-height:1.7;">
+  <strong>最终决策汇总：</strong>
+  <ul style="padding-left:18px; margin-top:6px;">
+    <li><strong>布局</strong>：三区一体 — 侧栏（热力图+Commitments）+ 主区（entry list）+ 底部输入</li>
+    <li><strong>输入</strong>：两行 — 上行 item text，下行 token chips + 缺失指示</li>
+    <li><strong>维度</strong>：@ 触发 popover → 选维度（紫色 header + 颜色条）→ 选值（暖灰 header + ← back）→ token 内嵌</li>
+    <li><strong>时长</strong>：item 内自然写 <code class="mono">1h</code> 或 <kbd class="mono">#</kbd> 触发。token 无 # 前缀。删除后回退解析</li>
+    <li><strong>必选维度</strong>：软提示（虚线 chip），不拦截 Enter</li>
+    <li><strong>编辑</strong>：hover 显示 ⋯ → 点击进入 editor（item / duration / chips / Save / Cancel / Delete / +tag）。双击整行也可进入</li>
+    <li><strong>长文本</strong>：item 截断 2 行，goal chip 限宽 100px 省略，sidebar goal 限宽 130px 省略。hover tooltip 看全文</li>
+    <li><strong>字体</strong>：方案 1 — 数字、时间、快捷键用 <span class="mono">SF Mono</span>，其余 system-ui</li>
+    <li><strong>月份导航</strong>：← → 箭头翻月 · 点击「June 2026」弹双下拉快速跳转 · <kbd class="mono">⌘[</kbd> / <kbd class="mono">⌘]</kbd> 键盘翻月</li>
+  </ul>
+</div>
