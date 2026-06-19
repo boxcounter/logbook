@@ -110,3 +110,34 @@ describe("CommitmentsModal — base", () => {
     expect(goals).toEqual(["Ship onboarding v2", "Review auth PR"]); // length + values intact
   });
 });
+
+describe("CommitmentsModal — allocation stepper", () => {
+  it("increments by 5 on +", async () => {
+    const w = mountModal();
+    await w.find("[data-test='alloc-inc']").trigger("click");
+    expect((w.find("[data-test='alloc']").element as HTMLInputElement).value).toBe("45");
+  });
+  it("decrements by 5 on -", async () => {
+    const w = mountModal();
+    await w.find("[data-test='alloc-dec']").trigger("click");
+    expect((w.find("[data-test='alloc']").element as HTMLInputElement).value).toBe("35");
+  });
+  it("disables - at the 5h floor and never goes below 5", async () => {
+    const w = mountModal({
+      commitments: [makeCommitment({ role: "Developer", allocation: 5, goals: [] })],
+      progress: [makeCommitmentProgress({ role: "Developer", allocation_minutes: 300, spent_minutes: 0, goals: [] })],
+    });
+    const dec = w.find("[data-test='alloc-dec']");
+    expect((dec.element as HTMLButtonElement).disabled).toBe(true);
+    await dec.trigger("click");
+    expect((w.find("[data-test='alloc']").element as HTMLInputElement).value).toBe("5");
+  });
+  it("Arrow Up/Down adjusts by 5", async () => {
+    const w = mountModal();
+    const inp = w.find("[data-test='alloc']");
+    await inp.trigger("keydown", { key: "ArrowUp" });
+    expect((inp.element as HTMLInputElement).value).toBe("45");
+    await inp.trigger("keydown", { key: "ArrowDown" });
+    expect((inp.element as HTMLInputElement).value).toBe("40");
+  });
+});

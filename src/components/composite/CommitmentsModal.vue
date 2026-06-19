@@ -50,6 +50,16 @@ function addGoal(ri: number) {
   draft.value[ri].goals.push({ name: "", origName: null, key: nextKey() });
 }
 
+const STEP = 5;
+const MIN_ALLOC = 5;
+function stepAlloc(ri: number, delta: number) {
+  draft.value[ri].allocation = Math.max(MIN_ALLOC, (draft.value[ri].allocation || 0) + delta);
+}
+function onAllocInput(ri: number, e: Event) {
+  const v = Math.floor(Number((e.target as HTMLInputElement).value));
+  draft.value[ri].allocation = Number.isFinite(v) && v >= 1 ? v : 1;
+}
+
 const monthLabel = computed(() =>
   new Date(props.selectedYear, props.selectedMonth - 1, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" })
 );
@@ -109,13 +119,35 @@ function cancel() { emit("close"); }
                            text-[length:var(--app-text-base)] font-semibold text-[var(--color-text-primary)]
                            bg-[var(--color-surface)] outline-none focus:border-[var(--color-brand-solid)]"
                   />
-                  <input
-                    v-model.number="r.allocation" type="number" data-test="alloc"
-                    class="w-[42px] text-center px-[4px] py-[4px] border border-[var(--color-border-form)] rounded-[var(--radius-form)]
-                           text-[length:var(--app-text-base)] font-semibold text-[var(--color-text-primary)] mono
-                           bg-[var(--color-surface)] outline-none focus:border-[var(--color-brand-solid)]"
-                  />
-                  <span class="text-[length:var(--app-text-xs-alt)] text-[var(--color-text-muted)]">h</span>
+                  <span class="inline-flex items-center gap-[5px]">
+                    <button
+                      data-test="alloc-dec" :disabled="r.allocation <= MIN_ALLOC"
+                      class="w-[24px] h-[26px] flex items-center justify-center border border-[var(--color-border-form)] rounded-[var(--radius-form)]
+                             text-[length:var(--app-text-base)] text-[var(--color-text-secondary)] bg-[var(--color-surface)]
+                             hover:border-[var(--color-brand-solid)] hover:text-[var(--color-brand-link)]
+                             disabled:text-[var(--color-text-disabled)] disabled:cursor-not-allowed disabled:hover:border-[var(--color-border-form)]
+                             cursor-pointer transition-[border-color,color] duration-150"
+                      @click="stepAlloc(ri, -STEP)"
+                    >&minus;</button>
+                    <input
+                      :value="r.allocation" type="number" data-test="alloc"
+                      class="w-[42px] text-center px-[4px] py-[4px] border border-[var(--color-border-form)] rounded-[var(--radius-form)]
+                             text-[length:var(--app-text-base)] font-semibold text-[var(--color-text-primary)] mono
+                             bg-[var(--color-surface)] outline-none focus:border-[var(--color-brand-solid)]"
+                      @input="onAllocInput(ri, $event)"
+                      @keydown.up.prevent="stepAlloc(ri, STEP)"
+                      @keydown.down.prevent="stepAlloc(ri, -STEP)"
+                    />
+                    <button
+                      data-test="alloc-inc"
+                      class="w-[24px] h-[26px] flex items-center justify-center border border-[var(--color-border-form)] rounded-[var(--radius-form)]
+                             text-[length:var(--app-text-base)] text-[var(--color-text-secondary)] bg-[var(--color-surface)]
+                             hover:border-[var(--color-brand-solid)] hover:text-[var(--color-brand-link)]
+                             cursor-pointer transition-[border-color,color] duration-150"
+                      @click="stepAlloc(ri, STEP)"
+                    >+</button>
+                    <span class="text-[length:var(--app-text-xs-alt)] text-[var(--color-text-muted)]">h</span>
+                  </span>
                 </div>
 
                 <div class="mt-[12px]">
