@@ -38,11 +38,11 @@ describe("TwoLineInput", () => {
     expect(wrapper.text()).toContain("Goal");
   });
 
-  it("emits submit with item, minutes, and dimensions on Enter", async () => {
-    const wrapper = mountInput({ category: "Engineering" });
+  it("emits submit with item, minutes, and dimensions on Enter (all required filled)", async () => {
+    const wrapper = mountInput({ category: "Engineering", goal: "Bug fixes" });
     await wrapper.find("input").setValue("Code review 1h");
     await wrapper.find("input").trigger("keydown", { key: "Enter" });
-    expect(wrapper.emitted("submit")?.[0]).toEqual(["Code review", 60, { category: "Engineering" }]);
+    expect(wrapper.emitted("submit")?.[0]).toEqual(["Code review", 60, { category: "Engineering", goal: "Bug fixes" }]);
   });
 
   it("does NOT emit submit when there is no parseable duration", async () => {
@@ -53,11 +53,13 @@ describe("TwoLineInput", () => {
     expect(wrapper.text()).toContain("Need a duration");
   });
 
-  it("submits even when required dimensions are missing (soft hint)", async () => {
-    const wrapper = mountInput(); // nothing filled
+  it("does NOT submit when a required dimension is unfilled, and flags the missing chips", async () => {
+    const wrapper = mountInput(); // category & goal required & unfilled
     await wrapper.find("input").setValue("Quick note 30m");
     await wrapper.find("input").trigger("keydown", { key: "Enter" });
-    expect(wrapper.emitted("submit")?.[0]).toEqual(["Quick note", 30, {}]);
+    expect(wrapper.emitted("submit")).toBeFalsy();
+    // after a blocked attempt the missing chips are emphasized in the warning color
+    expect(wrapper.find("[data-test='missing']").classes()).toContain("text-[var(--color-warning)]");
   });
 
   it("opens DimensionPopover on @ keydown", async () => {
@@ -67,12 +69,12 @@ describe("TwoLineInput", () => {
   });
 
   it("Enter submits even while the popover is open (does not swallow Enter)", async () => {
-    const wrapper = mountInput({ category: "Engineering" });
+    const wrapper = mountInput({ category: "Engineering", goal: "Bug fixes" });
     await wrapper.find("input").setValue("Code review 1h");
     await wrapper.find("input").trigger("keydown", { key: "@" }); // open popover
     expect(wrapper.findComponent({ name: "DimensionPopover" }).exists()).toBe(true);
     await wrapper.find("input").trigger("keydown", { key: "Enter" });
-    expect(wrapper.emitted("submit")?.[0]).toEqual(["Code review", 60, { category: "Engineering" }]);
+    expect(wrapper.emitted("submit")?.[0]).toEqual(["Code review", 60, { category: "Engineering", goal: "Bug fixes" }]);
   });
 
   it("opens the popover upward (bottom-full) since the input is bottom-anchored", async () => {

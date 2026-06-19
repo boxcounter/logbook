@@ -19,6 +19,9 @@ const text = ref("");
 const inputEl = ref<HTMLInputElement | null>(null);
 const popoverOpen = ref(false);
 const dimValues = ref<Record<string, string>>({ ...props.initialValues });
+// Set true after a submit blocked by missing required dimensions, to emphasize
+// the missing chips (frontend hard-block; the backend also rejects them).
+const submitAttempted = ref(false);
 
 watch(
   () => props.initialValues,
@@ -77,6 +80,13 @@ function handleSubmit() {
   if (!trimmed) return;
   const d = parsedDuration.value;
   if (!d) return; // duration required; template shows the hint
+  if (missingRequired.value.length > 0) {
+    // Hard-block: the backend rejects entries missing required dimensions, so
+    // stop here and flag the missing chips instead of failing silently.
+    submitAttempted.value = true;
+    return;
+  }
+  submitAttempted.value = false;
   const item = stripDurations(trimmed);
   emit("submit", item, d, { ...dimValues.value });
 }
@@ -142,8 +152,10 @@ watch(focusRequestId, () => {
           v-for="m in missingRequired" :key="'missing-' + m.key"
           data-test="missing"
           class="text-[length:var(--app-text-micro)] font-[450] px-[8px] py-[1px] rounded-[var(--radius-sm)]
-                 border-[1.5px] border-dashed border-[var(--color-missing-border)] text-[var(--color-missing-text)]
-                 inline-flex items-center gap-[3px] cursor-pointer hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
+                 border-[1.5px] border-dashed inline-flex items-center gap-[3px] cursor-pointer transition-colors"
+          :class="submitAttempted
+            ? 'border-[var(--color-warning)] text-[var(--color-warning)]'
+            : 'border-[var(--color-missing-border)] text-[var(--color-missing-text)] hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'"
           @click="popoverOpen = true"
         >
           <span class="w-[5px] h-[5px] rounded-full bg-[var(--color-missing-dot)]"></span>{{ m.name }}
