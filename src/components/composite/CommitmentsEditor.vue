@@ -74,7 +74,7 @@ async function save() {
 
 <template>
   <div>
-    <div v-if="error" class="mb-[12px] p-[8px] bg-red-50 border border-red-200 rounded-[var(--radius-form)] text-[var(--app-text-sm)] text-[var(--color-danger)]">
+    <div v-if="error" class="mb-[12px] p-[8px] bg-red-50 border border-red-200 rounded-[var(--radius-form)] text-[length:var(--app-text-sm)] text-[var(--color-danger)]">
       {{ error }}
     </div>
 
@@ -84,27 +84,27 @@ async function save() {
           v-model="c.role"
           placeholder="Role"
           class="w-[130px] px-[12px] py-[8px] border-2 border-[var(--color-border-form)]
-                 rounded-[var(--radius-form)] text-[var(--app-text-base)]
+                 rounded-[var(--radius-form)] text-[length:var(--app-text-base)]
                  bg-[var(--color-surface)] text-[var(--color-text-primary)]
                  outline-none transition-all duration-200
                  focus:border-[var(--color-brand-solid)] focus:bg-[#fafaff]
                  focus:shadow-[var(--shadow-focus-ring)]"
         />
-        <span class="text-[var(--app-text-sm)] text-[var(--color-text-secondary)]">Alloc:</span>
+        <span class="text-[length:var(--app-text-sm)] text-[var(--color-text-secondary)]">Alloc:</span>
         <input
           v-model.number="c.allocation"
           type="number" min="1" placeholder="hours"
           class="w-[56px] text-center px-[12px] py-[8px] border-2 border-[var(--color-border-form)]
-                 rounded-[var(--radius-form)] text-[var(--app-text-base)]
+                 rounded-[var(--radius-form)] text-[length:var(--app-text-base)]
                  bg-[var(--color-surface)] text-[var(--color-text-primary)]
                  outline-none transition-all duration-200
                  focus:border-[var(--color-brand-solid)] focus:bg-[#fafaff]
                  focus:shadow-[var(--shadow-focus-ring)]"
         />
-        <span class="text-[var(--app-text-sm)] text-[var(--color-text-secondary)]">h</span>
+        <span class="text-[length:var(--app-text-sm)] text-[var(--color-text-secondary)]">h</span>
         <button
           v-if="editingCommitments.length > 1"
-          class="ml-auto text-[var(--app-text-sm)] text-[var(--color-text-secondary)]
+          class="ml-auto text-[length:var(--app-text-sm)] text-[var(--color-text-secondary)]
                  hover:text-[var(--color-danger)] cursor-pointer transition-colors"
           @click="removeRole(ri)"
         >
@@ -118,7 +118,7 @@ async function save() {
             v-model="c.goals[gi]"
             placeholder="Goal name"
             class="flex-1 px-[12px] py-[8px] border-2 border-[var(--color-border-form)]
-                   rounded-[var(--radius-form)] text-[var(--app-text-base)]
+                   rounded-[var(--radius-form)] text-[length:var(--app-text-base)]
                    bg-[var(--color-surface)] text-[var(--color-text-primary)]
                    outline-none transition-all duration-200
                    focus:border-[var(--color-brand-solid)] focus:bg-[#fafaff]
@@ -133,7 +133,7 @@ async function save() {
           </button>
         </div>
         <button
-          class="text-[var(--app-text-sm)] text-[var(--color-brand-link)] font-medium cursor-pointer hover:underline"
+          class="text-[length:var(--app-text-sm)] text-[var(--color-brand-link)] font-medium cursor-pointer hover:underline"
           @click="addGoal(ri)"
         >
           + Add Goal
@@ -144,7 +144,7 @@ async function save() {
     </div>
 
     <button
-      class="text-[var(--app-text-sm)] text-[var(--color-brand-link)] font-medium cursor-pointer hover:underline block mb-[16px]"
+      class="text-[length:var(--app-text-sm)] text-[var(--color-brand-link)] font-medium cursor-pointer hover:underline block mb-[16px]"
       @click="addRole"
     >
       + Add Role

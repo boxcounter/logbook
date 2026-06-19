@@ -35,10 +35,10 @@ function cancelEdit() { isEditing.value = false; }
 <template>
   <div v-if="progress.length > 0 || (commitments && commitments.length > 0) || isEditing" data-test="commitments-panel">
     <div class="flex justify-between items-center mb-[10px]">
-      <h3 class="text-[var(--app-text-micro)] font-bold text-[var(--color-text-secondary)] uppercase tracking-[0.5px]">Commitments</h3>
+      <h3 class="text-[length:var(--app-text-micro)] font-bold text-[var(--color-text-secondary)] uppercase tracking-[0.5px]">Commitments</h3>
       <button
         v-if="!isEditing && commitments && commitments.length > 0"
-        class="text-[var(--app-text-xs)] text-[var(--color-brand-link)] font-medium cursor-pointer"
+        class="text-[length:var(--app-text-xs)] text-[var(--color-brand-link)] font-medium cursor-pointer"
         data-test="edit-btn"
         @click="enterEdit"
       >Edit</button>
@@ -51,10 +51,10 @@ function cancelEdit() { isEditing.value = false; }
           class="flex justify-between items-center cursor-pointer rounded-[var(--radius-form-lg)] px-[10px] py-[8px] mb-[2px] hover:bg-[var(--color-divider)]"
           @click="toggle(s.role)"
         >
-          <span class="text-[var(--app-text-xs)] font-semibold text-[var(--color-text-primary)]">
+          <span class="text-[length:var(--app-text-xs)] font-semibold text-[var(--color-text-primary)]">
             {{ s.role }} {{ collapsed[s.role] ? "▸" : "▾" }}
           </span>
-          <span class="text-[var(--app-text-xs-alt)] font-semibold text-[var(--color-text-primary)]">
+          <span class="text-[length:var(--app-text-xs-alt)] font-semibold text-[var(--color-text-primary)]">
             <span class="mono">{{ formatDuration(s.spent_minutes) }}</span><span class="mono font-normal text-[var(--color-text-secondary)]"> / {{ (s.allocation_minutes / 60).toFixed(0) }}h</span>
           </span>
         </div>
@@ -69,7 +69,7 @@ function cancelEdit() { isEditing.value = false; }
           <div
             v-for="g in s.goals" :key="g.name"
             data-test="goal-row"
-            class="flex justify-between text-[var(--app-text-xs-alt)] text-[var(--color-text-secondary)] py-[3px] pl-[8px]"
+            class="flex justify-between text-[length:var(--app-text-xs-alt)] text-[var(--color-text-secondary)] py-[3px] pl-[8px]"
           >
             <span class="overflow-hidden text-ellipsis whitespace-nowrap max-w-[130px]" :title="g.name">{{ g.name }}</span>
             <span v-if="g.spent_minutes > 0" class="mono font-medium text-[var(--color-text-primary)]">{{ formatDuration(g.spent_minutes) }}</span>

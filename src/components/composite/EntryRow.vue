@@ -59,19 +59,19 @@ function onSave(item: string, durationMinutes: number, dims: Record<string, stri
   >
     <div class="flex-1 min-w-0">
       <div
-        class="text-[var(--app-text-base)] font-medium text-[var(--color-text-primary)] leading-[1.4] break-words overflow-hidden [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical]"
+        class="text-[length:var(--app-text-base)] font-medium text-[var(--color-text-primary)] leading-[1.4] break-words overflow-hidden [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical]"
         :title="entry.item"
       >{{ entry.item }}</div>
       <div v-if="filledDims.length" class="flex gap-[3px] mt-[3px] flex-wrap">
         <span
           v-for="d in filledDims" :key="d.key"
-          class="text-[var(--app-text-micro)] font-[450] px-[6px] rounded-[var(--radius-sm)] leading-[1.7] max-w-[100px] overflow-hidden text-ellipsis whitespace-nowrap"
+          class="text-[length:var(--app-text-micro)] font-[450] px-[6px] rounded-[var(--radius-sm)] leading-[1.7] max-w-[100px] overflow-hidden text-ellipsis whitespace-nowrap"
           :class="chipClass(d.key)"
           :title="entry.dimensions[d.key]"
         >{{ entry.dimensions[d.key] }}</span>
       </div>
     </div>
-    <span class="mono text-[var(--app-text-sm)] text-[var(--color-text-primary)] flex-shrink-0 ml-[16px] pt-[1px]">
+    <span class="mono text-[length:var(--app-text-sm)] text-[var(--color-text-primary)] flex-shrink-0 ml-[16px] pt-[1px]">
       {{ entry.duration > 0 ? formatDuration(entry.duration) : "—" }}
     </span>
     <span

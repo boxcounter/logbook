@@ -43,13 +43,13 @@ function onMonthChange(month: number) {
   >
     <select
       v-model.number="selectedYear"
-      class="text-[var(--app-text-xs)] text-[var(--color-text-primary)] bg-[var(--color-surface)]
+      class="text-[length:var(--app-text-xs)] text-[var(--color-text-primary)] bg-[var(--color-surface)]
              border border-[var(--color-border-form)] rounded-[var(--radius-form-lg)] px-[8px] py-[4px] outline-none"
     >
       <option v-for="y in years" :key="y" :value="y">{{ y }}</option>
     </select>
     <select
-      class="text-[var(--app-text-xs)] text-[var(--color-text-primary)] bg-[var(--color-surface)]
+      class="text-[length:var(--app-text-xs)] text-[var(--color-text-primary)] bg-[var(--color-surface)]
              border border-[var(--color-border-form)] rounded-[var(--radius-form-lg)] px-[8px] py-[4px] outline-none"
       @change="onMonthChange(parseInt(($event.target as HTMLSelectElement).value, 10))"
     >
@@ -58,6 +58,6 @@ function onMonthChange(month: number) {
         :selected="m === month && selectedYear === year"
       >{{ MONTH_NAMES[m - 1] }}</option>
     </select>
-    <span class="text-[var(--app-text-2xs)] text-[var(--color-text-secondary)] whitespace-nowrap">Go</span>
+    <span class="text-[length:var(--app-text-2xs)] text-[var(--color-text-secondary)] whitespace-nowrap">Go</span>
   </div>
 </template>

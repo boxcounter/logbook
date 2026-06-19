@@ -286,7 +286,7 @@ logInfo("MonthView", "mounted");
       <div class="mt-[16px] py-[8px]">
         <div
           ref="noteRef"
-          class="text-[var(--app-text-xs)] italic text-[var(--color-text-secondary)] leading-[1.5] cursor-text px-[10px] py-[6px] rounded-[var(--radius-form-lg)] outline-none hover:bg-[var(--color-page-bg)]"
+          class="text-[length:var(--app-text-xs)] italic text-[var(--color-text-secondary)] leading-[1.5] cursor-text px-[10px] py-[6px] rounded-[var(--radius-form-lg)] outline-none hover:bg-[var(--color-page-bg)]"
           contenteditable="true"
           data-placeholder="Add a note…"
           @blur="saveNote"
@@ -307,7 +307,7 @@ logInfo("MonthView", "mounted");
 
       <div v-if="store.rootPath" class="mt-[10px] text-right">
         <button
-          class="text-[var(--app-text-micro)] text-[var(--color-text-disabled)] hover:text-[var(--color-text-secondary)] cursor-pointer"
+          class="text-[length:var(--app-text-micro)] text-[var(--color-text-disabled)] hover:text-[var(--color-text-secondary)] cursor-pointer"
           :title="store.rootPath + '/' + dayFilePath"
           @click="openInEditor"
         >{{ displayPath }}</button>

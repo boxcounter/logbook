@@ -14,7 +14,8 @@
 - `demos/UX-REDESIGN-DEMO.html` — visual source of truth
 
 **Conventions in this codebase (follow exactly):**
-- Tokens used via Tailwind arbitrary values: `class="text-[var(--app-text-base)] bg-[var(--color-surface)]"`.
+- Tokens used via Tailwind arbitrary values: `class="text-[length:var(--app-text-base)] bg-[var(--color-surface)]"`.
+  - **CRITICAL (Tailwind v4):** font-size tokens MUST use the `length:` type hint — `text-[length:var(--app-text-*)]`. Without it, `text-[var(--app-text-*)]` is interpreted as a text *color* (`color: 14px`, invalid → ignored) and all font sizes silently fall back to 16px. Color tokens (`text-[var(--color-*)]`) need no hint. A guard test (`src/__tests__/tailwind-token-usage.test.ts`) enforces this.
 - Mono/numeric text uses a `.mono` class (added in Phase 0), matching the demo.
 - Tests live in `src/__tests__/components/Foo.test.ts` and import components as `../../components/Foo.vue` (composite: `../../components/composite/Foo.vue`). **Two `../`, not three.**
 - jsdom does not compute Tailwind styles — tests assert on **structure, text, emitted events, and `data-test` hooks**, never on colors/pixels.

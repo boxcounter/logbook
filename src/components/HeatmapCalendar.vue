@@ -104,12 +104,12 @@ function onJump(payload: { year: number; month: number }) {
   <div>
     <!-- Nav row -->
     <div class="flex items-center justify-between mb-[8px]">
-      <span data-test="prev-month" class="text-[var(--app-text-xs)] text-[var(--color-text-secondary)] cursor-pointer px-[4px] py-[2px] hover:text-[var(--color-text-primary)]" title="Previous month (⌘[)" @click="shift(-1)">←</span>
-      <span data-test="month-label" class="text-[var(--app-text-base)] font-bold text-[var(--color-text-primary)] cursor-pointer" @click="onLabelClick">
+      <span data-test="prev-month" class="text-[length:var(--app-text-xs)] text-[var(--color-text-secondary)] cursor-pointer px-[4px] py-[2px] hover:text-[var(--color-text-primary)]" title="Previous month (⌘[)" @click="shift(-1)">←</span>
+      <span data-test="month-label" class="text-[length:var(--app-text-base)] font-bold text-[var(--color-text-primary)] cursor-pointer" @click="onLabelClick">
         {{ MONTH_NAMES[month - 1] }}
-        <span class="font-normal text-[var(--app-text-xs-alt)] text-[var(--color-text-secondary)]">{{ year }} ▾</span>
+        <span class="font-normal text-[length:var(--app-text-xs-alt)] text-[var(--color-text-secondary)]">{{ year }} ▾</span>
       </span>
-      <span data-test="next-month" class="text-[var(--app-text-xs)] text-[var(--color-text-secondary)] cursor-pointer px-[4px] py-[2px] hover:text-[var(--color-text-primary)]" title="Next month (⌘])" @click="shift(1)">→</span>
+      <span data-test="next-month" class="text-[length:var(--app-text-xs)] text-[var(--color-text-secondary)] cursor-pointer px-[4px] py-[2px] hover:text-[var(--color-text-primary)]" title="Next month (⌘])" @click="shift(1)">→</span>
     </div>
 
     <QuickJumpPopover
@@ -120,7 +120,7 @@ function onJump(payload: { year: number; month: number }) {
     />
 
     <!-- Weekday headers -->
-    <div class="grid grid-cols-7 gap-[3px] text-center text-[var(--app-text-2xs)] text-[var(--color-text-secondary)] mb-[4px]">
+    <div class="grid grid-cols-7 gap-[3px] text-center text-[length:var(--app-text-2xs)] text-[var(--color-text-secondary)] mb-[4px]">
       <span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span>
     </div>
 
@@ -130,16 +130,16 @@ function onJump(payload: { year: number; month: number }) {
       <span
         v-for="date in dates" :key="date"
         data-test="day-cell"
-        class="mono w-[24px] h-[24px] rounded-[var(--radius-md)] flex items-center justify-center text-[var(--app-text-micro)] transition-all"
+        class="mono w-[24px] h-[24px] rounded-[var(--radius-md)] flex items-center justify-center text-[length:var(--app-text-micro)] transition-all"
         :class="cellClass(date)"
         @click="clickDay(date)"
       >{{ dayNum(date) }}</span>
     </div>
 
     <!-- Month total -->
-    <div class="mt-[6px] text-center text-[var(--app-text-xs-alt)] font-semibold text-[var(--color-text-primary)]">
+    <div class="mt-[6px] text-center text-[length:var(--app-text-xs-alt)] font-semibold text-[var(--color-text-primary)]">
       <span class="mono">{{ monthTotalHours }}h</span>
-      <span class="font-normal text-[var(--app-text-micro)] text-[var(--color-text-secondary)]"> / month</span>
+      <span class="font-normal text-[length:var(--app-text-micro)] text-[var(--color-text-secondary)]"> / month</span>
     </div>
   </div>
 </template>

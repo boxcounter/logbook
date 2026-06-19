@@ -76,17 +76,17 @@ function goBack() {
     <!-- Dim phase -->
     <template v-if="phase === 'dim'">
       <div
-        class="px-[14px] py-[8px] text-[var(--app-text-micro)] font-bold uppercase tracking-wider
+        class="px-[14px] py-[8px] text-[length:var(--app-text-micro)] font-bold uppercase tracking-wider
                text-[var(--color-popover-dim-header-text)] bg-[var(--color-popover-dim-header-bg)]
                border-b border-[var(--color-divider)] flex items-center gap-[8px]"
       >
-        <span class="bg-[var(--color-brand-solid)] text-white px-[6px] py-[1px] rounded-[var(--radius-sm)] text-[var(--app-text-2xs)]">DIM</span>
+        <span class="bg-[var(--color-brand-solid)] text-white px-[6px] py-[1px] rounded-[var(--radius-sm)] text-[length:var(--app-text-2xs)]">DIM</span>
         Pick a dimension
       </div>
       <div
         v-for="d in dimensions" :key="d.key"
         data-test="dim-item"
-        class="px-[14px] py-[9px] text-[var(--app-text-sm)]
+        class="px-[14px] py-[9px] text-[length:var(--app-text-sm)]
                flex items-center gap-[10px] cursor-pointer border-b border-[var(--color-surface-muted)]
                last:border-b-0 hover:bg-[var(--color-divider)]"
         :class="dimValues[d.key] ? 'bg-[var(--color-popover-item-selected-bg)] text-[var(--color-brand-solid)] font-semibold' : 'text-[var(--color-text-primary)]'"
@@ -95,12 +95,12 @@ function goBack() {
         <span class="w-[3px] h-[18px] rounded-[var(--radius-sm)] flex-shrink-0" :class="barClass(d.key)"></span>
         {{ d.name }}
         <span
-          class="ml-auto text-[var(--app-text-micro)]"
+          class="ml-auto text-[length:var(--app-text-micro)]"
           :class="d.required ? 'text-[var(--color-warning)] font-medium' : 'text-[var(--color-text-disabled)]'"
         >{{ d.required ? "required" : "optional" }}</span>
       </div>
       <div
-        class="px-[14px] py-[6px] text-[var(--app-text-2xs)] text-[var(--color-text-disabled)]
+        class="px-[14px] py-[6px] text-[length:var(--app-text-2xs)] text-[var(--color-text-disabled)]
                border-t border-[var(--color-divider)] flex gap-[12px]"
       >
         <span><kbd class="mono px-[4px] border border-[var(--color-border-form)] rounded-[var(--radius-sm)] bg-[var(--color-surface)]">↵</kbd> select</span>
@@ -111,7 +111,7 @@ function goBack() {
     <!-- Val phase -->
     <template v-else>
       <div
-        class="px-[14px] py-[8px] text-[var(--app-text-micro)] font-bold uppercase tracking-wider
+        class="px-[14px] py-[8px] text-[length:var(--app-text-micro)] font-bold uppercase tracking-wider
                text-[var(--color-popover-val-header-text)] bg-[var(--color-popover-val-header-bg)]
                border-b border-[var(--color-divider)] flex items-center gap-[8px]"
       >
@@ -121,14 +121,14 @@ function goBack() {
       <div
         v-for="v in activeValues" :key="v"
         data-test="val-item"
-        class="px-[14px] py-[9px] text-[var(--app-text-sm)]
+        class="px-[14px] py-[9px] text-[length:var(--app-text-sm)]
                cursor-pointer border-b border-[var(--color-surface-muted)] last:border-b-0
                hover:bg-[var(--color-divider)]"
         :class="activeDimKey && dimValues[activeDimKey] === v ? 'bg-[var(--color-popover-item-selected-bg)] text-[var(--color-brand-solid)] font-semibold' : 'text-[var(--color-text-primary)]'"
         @click="selectVal(v)"
       >{{ v }}</div>
       <div
-        class="px-[14px] py-[6px] text-[var(--app-text-2xs)] text-[var(--color-text-disabled)]
+        class="px-[14px] py-[6px] text-[length:var(--app-text-2xs)] text-[var(--color-text-disabled)]
                border-t border-[var(--color-divider)] flex gap-[12px]"
       >
         <span><kbd class="mono px-[4px] border border-[var(--color-border-form)] rounded-[var(--radius-sm)] bg-[var(--color-surface)]">↵</kbd> select</span>
