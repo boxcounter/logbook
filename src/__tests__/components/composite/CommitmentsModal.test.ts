@@ -377,4 +377,12 @@ describe("CommitmentsModal — keyboard", () => {
     await w.find("[data-test='overlay']").trigger("keydown", { key: "Enter", metaKey: true });
     expect(invoke).toHaveBeenCalledWith("set_commitments", expect.anything());
   });
+  it("Cmd+Enter in a goal input does NOT insert a goal row (only saves)", async () => {
+    (invoke as any).mockResolvedValue([]);
+    const w = mountModal();
+    const before = w.findAll("[data-test='goal-name']").length;
+    await w.findAll("[data-test='goal-name']")[0].trigger("keydown", { key: "Enter", metaKey: true });
+    expect(w.findAll("[data-test='goal-name']").length).toBe(before); // .enter.exact: no insert
+    expect(invoke).toHaveBeenCalledWith("set_commitments", expect.anything()); // bubbled to overlay → save
+  });
 });
