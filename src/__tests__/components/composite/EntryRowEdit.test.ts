@@ -1,17 +1,23 @@
 // src/__tests__/components/composite/EntryRowEdit.test.ts
-import { describe, it, expect } from "vitest";
-import { mount } from "@vue/test-utils";
+import { describe, it, expect, afterEach } from "vitest";
+import { mount, enableAutoUnmount } from "@vue/test-utils";
 import EntryRowEdit from "../../../components/composite/EntryRowEdit.vue";
 import { makeEntry, makeDimension, makeCommitment } from "../../mocks/fixtures";
+
+// DimensionPopover registers a window keydown listener; unmount after each test.
+enableAutoUnmount(afterEach);
 
 const dimensions = [
   makeDimension({ name: "Category", key: "category", source: "static", values: ["Engineering"], required: true }),
   makeDimension({ name: "Goal", key: "goal", source: "monthly", required: true }),
+  makeDimension({ name: "Business Line", key: "business-line", source: "static", values: ["Slax"], required: false }),
 ];
 const commitments = [makeCommitment({ goals: ["Bug fixes"] })];
 
+const fullDims = { category: "Engineering", goal: "Bug fixes", "business-line": "Slax" };
+
 function mountEdit(entryOverrides = {}) {
-  const entry = makeEntry({ item: "Old item", duration: 45, dimensions: { category: "Engineering" }, ...entryOverrides });
+  const entry = makeEntry({ item: "Old item", duration: 45, dimensions: { ...fullDims }, ...entryOverrides });
   return mount(EntryRowEdit, { props: { entry, dimensions, commitments } });
 }
 
@@ -23,20 +29,20 @@ describe("EntryRowEdit", () => {
     expect((inputs[1].element as HTMLInputElement).value).toBe("45");
   });
 
-  it("emits save with edited values", async () => {
+  it("emits save with edited values (all required present)", async () => {
     const wrapper = mountEdit();
     const inputs = wrapper.findAll("input");
     await inputs[0].setValue("New item");
     await inputs[1].setValue("60");
     await wrapper.find("[data-test='save']").trigger("click");
-    expect(wrapper.emitted("save")?.[0]).toEqual(["New item", 60, { category: "Engineering" }]);
+    expect(wrapper.emitted("save")?.[0]).toEqual(["New item", 60, fullDims]);
   });
 
   it("resolves a delta duration like +15", async () => {
     const wrapper = mountEdit();
     await wrapper.findAll("input")[1].setValue("+15");
     await wrapper.find("[data-test='save']").trigger("click");
-    expect(wrapper.emitted("save")?.[0]).toEqual(["Old item", 60, { category: "Engineering" }]);
+    expect(wrapper.emitted("save")?.[0]).toEqual(["Old item", 60, fullDims]);
   });
 
   it("emits cancel", async () => {
@@ -51,11 +57,22 @@ describe("EntryRowEdit", () => {
     expect(wrapper.emitted("delete")).toBeTruthy();
   });
 
-  it("removes a dimension chip and excludes it from save", async () => {
+  it("removes an OPTIONAL dimension chip and excludes it from save", async () => {
     const wrapper = mountEdit();
-    await wrapper.find("[data-test='chip-remove']").trigger("click");
+    // chips render in dimension order: category, goal, business-line(optional)
+    const removes = wrapper.findAll("[data-test='chip-remove']");
+    await removes[2].trigger("click"); // business-line (optional)
     await wrapper.find("[data-test='save']").trigger("click");
-    expect(wrapper.emitted("save")?.[0]).toEqual(["Old item", 45, {}]);
+    expect(wrapper.emitted("save")?.[0]).toEqual(["Old item", 45, { category: "Engineering", goal: "Bug fixes" }]);
+  });
+
+  it("does NOT save when a required dimension chip is removed; shows a required hint", async () => {
+    const wrapper = mountEdit();
+    const removes = wrapper.findAll("[data-test='chip-remove']");
+    await removes[0].trigger("click"); // category (required)
+    await wrapper.find("[data-test='save']").trigger("click");
+    expect(wrapper.emitted("save")).toBeFalsy();
+    expect(wrapper.find("[data-test='required-hint']").exists()).toBe(true);
   });
 
   it("opens DimensionPopover when + tag is clicked", async () => {

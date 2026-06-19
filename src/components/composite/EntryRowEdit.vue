@@ -1,6 +1,6 @@
 <!-- src/components/composite/EntryRowEdit.vue -->
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, computed } from "vue";
 import type { Entry, Dimension, Commitment } from "../../types";
 import { resolveDelta } from "../../utils/format";
 import DimensionPopover from "../DimensionPopover.vue";
@@ -21,6 +21,11 @@ const item = ref(props.entry.item);
 const durText = ref(String(props.entry.duration));
 const dimValues = ref<Record<string, string>>({ ...props.entry.dimensions });
 const popoverOpen = ref(false);
+const submitAttempted = ref(false);
+
+const missingRequired = computed(() =>
+  props.dimensions.filter(d => d.required && !dimValues.value[d.key])
+);
 
 function chipClass(key: string): string {
   const map: Record<string, string> = {
@@ -47,6 +52,12 @@ function onSelect(dimKey: string, value: string) {
 }
 
 function save() {
+  // Hard-block: the backend's update_entry rejects entries missing a required
+  // dimension, so block here and flag it instead of failing silently.
+  if (missingRequired.value.length > 0) {
+    submitAttempted.value = true;
+    return;
+  }
   const minutes = resolveDelta(durText.value, props.entry.duration);
   emit("save", item.value.trim() || "(untitled)", minutes, { ...dimValues.value });
 }
@@ -89,6 +100,11 @@ function save() {
                cursor-pointer hover:border-[var(--color-text-muted)]"
         @click="popoverOpen = true"
       >+ tag</span>
+      <span
+        v-if="submitAttempted && missingRequired.length"
+        data-test="required-hint"
+        class="text-[length:var(--app-text-micro)] text-[var(--color-warning)]"
+      >Required: {{ missingRequired.map(d => d.name).join(", ") }}</span>
     </div>
 
     <div class="flex gap-[8px] mt-[4px] items-center">
