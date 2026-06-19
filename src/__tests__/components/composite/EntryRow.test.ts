@@ -1,87 +1,72 @@
+// src/__tests__/components/composite/EntryRow.test.ts
 import { describe, it, expect } from "vitest";
 import { mount } from "@vue/test-utils";
+import { reactive } from "vue";
 import EntryRow from "../../../components/composite/EntryRow.vue";
-import { makeEntry, makeConfig } from "../../mocks/fixtures";
 import { STORE_KEY } from "../../../stores/useStore";
-import { createTestStore } from "../../mocks/store";
+import { makeEntry, makeConfig, makeCommitment } from "../../mocks/fixtures";
 
-function mountRow(entryOverrides: Record<string, unknown> = {}, configOverrides: Record<string, unknown> = {}) {
-  const store = createTestStore({ config: makeConfig(configOverrides as any) });
-  const entry = makeEntry(entryOverrides as any);
-  const wrapper = mount(EntryRow, {
+function mountRow(entryOverrides = {}) {
+  const store = reactive({
+    config: makeConfig(),
+    commitments: [makeCommitment({ goals: ["Bug fixes"] })],
+  });
+  const entry = makeEntry({ item: "Review PR", duration: 90, dimensions: { category: "Coding" }, ...entryOverrides });
+  return mount(EntryRow, {
     props: { entry, index: 0 },
     global: { provide: { [STORE_KEY as symbol]: store } },
   });
-  return { wrapper, store, entry };
 }
 
 describe("EntryRow", () => {
-  it("renders index, item text, and formatted duration", () => {
-    const { wrapper } = mountRow({ item: "Write tests", duration: 75 });
-    const text = wrapper.text();
-    expect(text).toContain("1");
-    expect(text).toContain("Write tests");
-    expect(text).toContain("1h 15m");
+  it("renders item text and formatted duration", () => {
+    const wrapper = mountRow();
+    expect(wrapper.text()).toContain("Review PR");
+    expect(wrapper.text()).toContain("1h 30m");
   });
 
-  it("double-click item text enters edit mode", async () => {
-    const { wrapper } = mountRow({ item: "Original" });
-    const display = wrapper.find("span.min-w-0");
-    await display.trigger("dblclick");
-    expect(wrapper.find("input.flex-1").exists()).toBe(true);
+  it("renders a chip per filled dimension", () => {
+    const wrapper = mountRow();
+    expect(wrapper.text()).toContain("Coding");
   });
 
-  it("edit item: Enter commits the change", async () => {
-    const { wrapper } = mountRow({ id: "e1", item: "Old", duration: 30 });
-    const display = wrapper.find("span.min-w-0");
-    await display.trigger("dblclick");
-    const input = wrapper.find("input.flex-1");
-    await input.setValue("New item");
-    await input.trigger("keydown", { key: "Enter" });
-    expect(wrapper.emitted("update")?.[0]).toEqual(["e1", "New item", 30]);
+  it("enters edit mode on double-click", async () => {
+    const wrapper = mountRow();
+    await wrapper.find("[data-test='entry-row']").trigger("dblclick");
+    expect(wrapper.findComponent({ name: "EntryRowEdit" }).exists()).toBe(true);
   });
 
-  it("edit item: Escape cancels", async () => {
-    const { wrapper } = mountRow({ item: "Original" });
-    const display = wrapper.find("span.min-w-0");
-    await display.trigger("dblclick");
-    const input = wrapper.find("input.flex-1");
-    await input.setValue("Changed");
-    await input.trigger("keydown", { key: "Escape" });
-    expect(wrapper.emitted("update")).toBeUndefined();
-    expect(wrapper.text()).toContain("Original");
+  it("enters edit mode when the ⋯ trigger is clicked", async () => {
+    const wrapper = mountRow();
+    await wrapper.find("[data-test='edit-trigger']").trigger("click");
+    expect(wrapper.findComponent({ name: "EntryRowEdit" }).exists()).toBe(true);
   });
 
-  it("double-click duration enters edit mode", async () => {
-    const { wrapper } = mountRow({ duration: 45 });
-    // There are two .tabular-nums elements: index span (0) and duration span (1)
-    const durDisplay = wrapper.findAll(".tabular-nums")[1];
-    await durDisplay.trigger("dblclick");
-    expect(wrapper.find("input[class*='w-\\[56px\\]']").exists()).toBe(true);
+  it("emits update on save when item/duration changed", async () => {
+    const wrapper = mountRow();
+    await wrapper.find("[data-test='entry-row']").trigger("dblclick");
+    const editor = wrapper.findComponent({ name: "EntryRowEdit" });
+    editor.vm.$emit("save", "Review PR #2", 120, { category: "Coding" });
+    await wrapper.vm.$nextTick();
+    expect(wrapper.emitted("update")?.[0]).toEqual([wrapper.props("entry").id, "Review PR #2", 120]);
+    expect(wrapper.emitted("updateDimensions")).toBeFalsy();
   });
 
-  it("edit duration: delta +30 adds to existing", async () => {
-    const { wrapper } = mountRow({ id: "e1", item: "Task", duration: 60 });
-    const durDisplay = wrapper.findAll(".tabular-nums")[1];
-    await durDisplay.trigger("dblclick");
-    const input = wrapper.find("input[class*='w-\\[56px\\]']");
-    await input.setValue("+30");
-    await input.trigger("keydown", { key: "Enter" });
-    expect(wrapper.emitted("update")?.[0]).toEqual(["e1", "Task", 90]);
+  it("emits updateDimensions on save when only dimensions changed", async () => {
+    const wrapper = mountRow();
+    await wrapper.find("[data-test='entry-row']").trigger("dblclick");
+    const editor = wrapper.findComponent({ name: "EntryRowEdit" });
+    editor.vm.$emit("save", "Review PR", 90, { category: "Coding", goal: "Bug fixes" });
+    await wrapper.vm.$nextTick();
+    expect(wrapper.emitted("updateDimensions")?.[0]).toEqual([wrapper.props("entry").id, { category: "Coding", goal: "Bug fixes" }]);
+    expect(wrapper.emitted("update")).toBeFalsy();
   });
 
-  it("emits delete on button click", async () => {
-    const { wrapper } = mountRow({ id: "del-me" });
-    const btn = wrapper.find("button");
-    await btn.trigger("click");
-    expect(wrapper.emitted("delete")?.[0]).toEqual(["del-me"]);
-  });
-
-  it("shows dimension chips for set dimensions", () => {
-    const { wrapper } = mountRow({
-      dimensions: { goal: "Ship feature", "business-line": "Platform" },
-    });
-    expect(wrapper.text()).toContain("Ship feature");
-    expect(wrapper.text()).toContain("Platform");
+  it("emits delete from the editor", async () => {
+    const wrapper = mountRow();
+    await wrapper.find("[data-test='entry-row']").trigger("dblclick");
+    wrapper.findComponent({ name: "EntryRowEdit" }).vm.$emit("delete");
+    await wrapper.vm.$nextTick();
+    expect(wrapper.emitted("delete")?.[0]).toEqual([wrapper.props("entry").id]);
   });
 });
