@@ -6,14 +6,14 @@ import EntryRow from "../../../components/composite/EntryRow.vue";
 import { STORE_KEY } from "../../../stores/useStore";
 import { makeEntry, makeConfig, makeCommitment } from "../../mocks/fixtures";
 
-function mountRow(entryOverrides = {}) {
+function mountRow(entryOverrides = {}, extraProps: Record<string, unknown> = {}) {
   const store = reactive({
     config: makeConfig(),
     commitments: [makeCommitment({ goals: ["Bug fixes"] })],
   });
   const entry = makeEntry({ item: "Review PR", duration: 90, dimensions: { category: "Coding" }, ...entryOverrides });
   return mount(EntryRow, {
-    props: { entry, index: 0 },
+    props: { entry, index: 0, ...extraProps },
     global: { provide: { [STORE_KEY as symbol]: store } },
   });
 }
@@ -23,6 +23,13 @@ describe("EntryRow", () => {
     const wrapper = mountRow();
     expect(wrapper.text()).toContain("Review PR");
     expect(wrapper.text()).toContain("1h 30m");
+  });
+
+  it("applies the just-added highlight class only when justAdded is true", () => {
+    const plain = mountRow();
+    expect(plain.find("[data-test='entry-row']").classes()).not.toContain("just-added");
+    const added = mountRow({}, { justAdded: true });
+    expect(added.find("[data-test='entry-row']").classes()).toContain("just-added");
   });
 
   it("renders a chip per filled dimension", () => {

@@ -15,6 +15,10 @@ import { datesInMonth, yearMonthFromDate, parseDate } from "../utils/dates";
 const store = useStore();
 const inputRef = ref<InstanceType<typeof TwoLineInput> | null>(null);
 
+// Newly-added entry highlight (spec §5.2 step 7): mark the id, clear after 1.5s.
+const justAddedId = ref<string | null>(null);
+let highlightTimer: ReturnType<typeof setTimeout> | null = null;
+
 const selectedYear = computed(() => yearMonthFromDate(store.currentDate).year);
 const selectedMonth = computed(() => yearMonthFromDate(store.currentDate).month);
 
@@ -109,11 +113,15 @@ async function handleSubmit(item: string, durationMinutes: number, dimensions: R
     const result = await invoke("append_entry", { rootPath: store.rootPath, date: store.currentDate, entry: newEntry });
     store.lastDimensions = { ...finalDimensions };
     inputRef.value?.clearInput();
+    const added = result as Entry;
     if (store.today) {
-      const entries = [...store.today.entries, result as Entry];
+      const entries = [...store.today.entries, added];
       store.today = { ...store.today, entries };
       store.monthEntries[store.currentDate] = entries;
     }
+    justAddedId.value = added.id;
+    if (highlightTimer) clearTimeout(highlightTimer);
+    highlightTimer = setTimeout(() => { justAddedId.value = null; }, 1500);
     await loadCommitmentProgress(selectedYear.value, selectedMonth.value);
   } catch (e) { logError("MonthView.handleSubmit", e); }
 }
@@ -237,6 +245,7 @@ onMounted(async () => {
 onUnmounted(() => {
   window.removeEventListener("keydown", onGlobalKeydown);
   if (pendingDeleteTimer) clearTimeout(pendingDeleteTimer);
+  if (highlightTimer) clearTimeout(highlightTimer);
 });
 
 logInfo("MonthView", "mounted");
@@ -278,6 +287,7 @@ logInfo("MonthView", "mounted");
 
       <EntryList
         :entries="dayEntries"
+        :just-added-id="justAddedId"
         @update="handleUpdateEntry"
         @delete="handleDeleteEntry"
         @update-dimensions="handleUpdateDimensions"

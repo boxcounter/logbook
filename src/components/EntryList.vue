@@ -3,7 +3,7 @@
 import type { Entry } from "../types";
 import EntryRow from "./composite/EntryRow.vue";
 
-defineProps<{ entries: Entry[] }>();
+defineProps<{ entries: Entry[]; justAddedId?: string | null }>();
 
 const emit = defineEmits<{
   update: [entryId: string, item: string, durationMinutes: number];
@@ -22,6 +22,7 @@ const emit = defineEmits<{
       :key="entry.id"
       :entry="entry"
       :index="index"
+      :just-added="entry.id === justAddedId"
       @update="(id, item, dur) => emit('update', id, item, dur)"
       @delete="(id) => emit('delete', id)"
       @update-dimensions="(id, dims) => emit('updateDimensions', id, dims)"

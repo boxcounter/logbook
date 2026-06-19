@@ -6,7 +6,7 @@ import { formatDuration } from "../../utils/format";
 import { useStore } from "../../stores/useStore";
 import EntryRowEdit from "./EntryRowEdit.vue";
 
-const props = defineProps<{ entry: Entry; index: number }>();
+const props = defineProps<{ entry: Entry; index: number; justAdded?: boolean }>();
 
 const emit = defineEmits<{
   update: [entryId: string, item: string, durationMinutes: number];
@@ -55,6 +55,7 @@ function onSave(item: string, durationMinutes: number, dims: Record<string, stri
     data-test="entry-row"
     class="group flex justify-between items-start gap-[8px] px-[14px] py-[9px] rounded-[var(--radius-form-lg)]
            border border-transparent hover:bg-[var(--color-surface-muted)] hover:border-[var(--color-divider)] transition-all"
+    :class="{ 'just-added': justAdded }"
     @dblclick="editing = true"
   >
     <div class="flex-1 min-w-0">
@@ -82,3 +83,12 @@ function onSave(item: string, durationMinutes: number, dims: Record<string, stri
     >⋯</span>
   </div>
 </template>
+
+<style scoped>
+/* Newly-added entry: blue highlight that fades over 1.5s (spec §5.2 step 7). */
+@keyframes fadeHighlight {
+  0% { background-color: var(--anim-highlight-bg); border-color: var(--anim-highlight-border); }
+  100% { background-color: transparent; border-color: transparent; }
+}
+.just-added { animation: fadeHighlight var(--anim-highlight-duration) ease-out forwards; }
+</style>
