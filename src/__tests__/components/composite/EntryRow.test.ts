@@ -26,14 +26,14 @@ describe("EntryRow", () => {
 
   it("double-click item text enters edit mode", async () => {
     const { wrapper } = mountRow({ item: "Original" });
-    const display = wrapper.find("span.flex-1");
+    const display = wrapper.find("span.min-w-0");
     await display.trigger("dblclick");
     expect(wrapper.find("input.flex-1").exists()).toBe(true);
   });
 
   it("edit item: Enter commits the change", async () => {
     const { wrapper } = mountRow({ id: "e1", item: "Old", duration: 30 });
-    const display = wrapper.find("span.flex-1");
+    const display = wrapper.find("span.min-w-0");
     await display.trigger("dblclick");
     const input = wrapper.find("input.flex-1");
     await input.setValue("New item");
@@ -43,7 +43,7 @@ describe("EntryRow", () => {
 
   it("edit item: Escape cancels", async () => {
     const { wrapper } = mountRow({ item: "Original" });
-    const display = wrapper.find("span.flex-1");
+    const display = wrapper.find("span.min-w-0");
     await display.trigger("dblclick");
     const input = wrapper.find("input.flex-1");
     await input.setValue("Changed");

@@ -87,63 +87,66 @@ function onDimChange(dimKey: string, value: string) {
       {{ index + 1 }}
     </span>
 
-    <!-- Item text -->
-    <template v-if="editingItem">
-      <input
-        v-model="itemInput"
-        class="flex-1 px-[8px] py-[3px] border-2 border-[var(--color-brand-solid)]
-               rounded-[var(--radius-form)] text-[var(--text-base)] leading-[1.4]
-               outline-none bg-[#fafaff]
-               shadow-[var(--shadow-focus-ring)]"
-        @keydown.enter.prevent="commitItem"
-        @keydown.escape.prevent="editingItem = false"
-        @blur="commitItem"
-        autofocus
-      />
-    </template>
-    <template v-else>
-      <span
-        class="flex-1 text-[var(--text-base)] min-w-0 cursor-default
-               rounded px-[2px] -mx-[2px] hover:bg-[var(--color-divider)]"
-        @dblclick="startEditItem"
-      >
-        {{ entry.item }}
-      </span>
-    </template>
+    <!-- Content area: item text + chips share flex-1 space -->
+    <div class="flex-1 min-w-0 flex items-center gap-[8px] flex-wrap">
+      <!-- Item text -->
+      <template v-if="editingItem">
+        <input
+          v-model="itemInput"
+          class="flex-1 px-[8px] py-[3px] border-2 border-[var(--color-brand-solid)]
+                 rounded-[var(--radius-form)] text-[var(--text-base)] leading-[1.4]
+                 outline-none bg-[#fafaff] min-w-0
+                 shadow-[var(--shadow-focus-ring)]"
+          @keydown.enter.prevent="commitItem"
+          @keydown.escape.prevent="editingItem = false"
+          @blur="commitItem"
+          autofocus
+        />
+      </template>
+      <template v-else>
+        <span
+          class="text-[var(--text-base)] min-w-0 cursor-default
+                 rounded px-[2px] -mx-[2px] hover:bg-[var(--color-divider)]"
+          @dblclick="startEditItem"
+        >
+          {{ entry.item }}
+        </span>
+      </template>
 
-    <!-- Dimension editing -->
-    <template v-if="editingDimensions">
-      <select
-        v-for="dim in orderedDimensions"
-        :key="dim.key"
-        :value="entry.dimensions[dim.key] || ''"
-        class="px-[10px] py-[3px] border-2 border-[var(--color-border-form)]
-               rounded-[var(--radius-form)] text-[var(--text-base)] leading-[1.4]
-               bg-[var(--color-surface)] text-[var(--color-text-secondary)]
-               focus:border-[var(--color-brand-solid)] focus:bg-[#fafaff]
-               focus:shadow-[var(--shadow-focus-ring)] outline-none
-               transition-all duration-200"
-        @change="onDimChange(dim.key, ($event.target as HTMLSelectElement).value)"
-        @blur="editingDimensions = false"
-      >
-        <option value="">-- {{ dim.name }} --</option>
-        <template v-if="dim.source === 'monthly'">
-          <option v-for="g in goalOptions" :key="g" :value="g">{{ g }}</option>
-        </template>
-        <template v-else>
-          <option v-for="v in (dim.values || [])" :key="v" :value="v">{{ v }}</option>
-        </template>
-      </select>
-    </template>
-    <template v-else>
-      <AppChip
-        v-for="dim in orderedDimensions.filter(d => entry.dimensions[d.key])"
-        :key="dim.key"
-        :color="chipColor(dim.key)"
-        :value="entry.dimensions[dim.key]"
-        @click="editingDimensions = true"
-      />
-    </template>
+      <!-- Dimension editing -->
+      <template v-if="editingDimensions">
+        <select
+          v-for="dim in orderedDimensions"
+          :key="dim.key"
+          :value="entry.dimensions[dim.key] || ''"
+          class="px-[10px] py-[3px] border-2 border-[var(--color-border-form)]
+                 rounded-[var(--radius-form)] text-[var(--text-base)] leading-[1.4]
+                 bg-[var(--color-surface)] text-[var(--color-text-secondary)]
+                 focus:border-[var(--color-brand-solid)] focus:bg-[#fafaff]
+                 focus:shadow-[var(--shadow-focus-ring)] outline-none
+                 transition-all duration-200"
+          @change="onDimChange(dim.key, ($event.target as HTMLSelectElement).value)"
+          @blur="editingDimensions = false"
+        >
+          <option value="">-- {{ dim.name }} --</option>
+          <template v-if="dim.source === 'monthly'">
+            <option v-for="g in goalOptions" :key="g" :value="g">{{ g }}</option>
+          </template>
+          <template v-else>
+            <option v-for="v in (dim.values || [])" :key="v" :value="v">{{ v }}</option>
+          </template>
+        </select>
+      </template>
+      <template v-else>
+        <AppChip
+          v-for="dim in orderedDimensions.filter(d => entry.dimensions[d.key])"
+          :key="dim.key"
+          :color="chipColor(dim.key)"
+          :value="entry.dimensions[dim.key]"
+          @click="editingDimensions = true"
+        />
+      </template>
+    </div>
 
     <!-- Duration -->
     <template v-if="editingDuration">
