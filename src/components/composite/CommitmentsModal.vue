@@ -26,6 +26,7 @@ const draft = ref<RoleRowModel[]>([]);
 const error = ref("");
 const saving = ref(false);
 const showErrors = ref(false);
+const showDiscard = ref(false);
 
 function buildDraft() {
   draft.value = props.commitments.map((c): RoleRowModel => ({
@@ -34,6 +35,7 @@ function buildDraft() {
   }));
   error.value = "";
   showErrors.value = false;
+  showDiscard.value = false;
 }
 watch(() => props.open, (o) => { if (o) buildDraft(); }, { immediate: true });
 
@@ -82,6 +84,14 @@ function validate(): string | null {
   return null;
 }
 
+const isDirty = computed(() =>
+  JSON.stringify(toCommitments(draft.value)) !==
+  JSON.stringify(props.commitments.map(c => ({ role: c.role.trim(), allocation: c.allocation, goals: [...c.goals] })))
+);
+function requestClose() { if (isDirty.value) { showDiscard.value = true; return; } emit("close"); }
+function confirmDiscard() { showDiscard.value = false; emit("close"); }
+function keepEditing() { showDiscard.value = false; }
+
 async function save() {
   const msg = validate();
   if (msg) { showErrors.value = true; error.value = msg; return; }
@@ -102,10 +112,9 @@ async function save() {
     saving.value = false;
   }
 }
-function cancel() { emit("close"); }
-
 function onModalKeydown(e: KeyboardEvent) {
-  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); save(); }
+  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); save(); return; }
+  if (e.key === "Escape") { e.preventDefault(); requestClose(); }
 }
 </script>
 
@@ -115,6 +124,7 @@ function onModalKeydown(e: KeyboardEvent) {
       v-if="open"
       data-test="overlay" tabindex="-1"
       @keydown="onModalKeydown"
+      @click.self="requestClose"
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
     >
       <div
@@ -158,13 +168,24 @@ function onModalKeydown(e: KeyboardEvent) {
           <button
             data-test="cancel"
             class="text-[length:var(--app-text-sm)] font-semibold text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] rounded-[var(--radius-form)] px-[14px] py-[6px] cursor-pointer"
-            @click="cancel"
+            @click="requestClose"
           >Cancel</button>
           <button
             data-test="save" :disabled="saving"
             class="text-[length:var(--app-text-sm)] font-semibold text-white bg-[var(--color-brand-solid)] hover:bg-[var(--color-brand-link)] rounded-[var(--radius-form)] px-[14px] py-[6px] cursor-pointer disabled:opacity-50"
             @click="save"
           >{{ saving ? "Saving…" : "Save" }}</button>
+        </div>
+
+        <div v-if="showDiscard" data-test="discard-confirm" class="absolute inset-0 flex items-center justify-center bg-black/10">
+          <div class="bg-[var(--color-surface)] border border-[var(--color-border-form)] rounded-[var(--radius-card)] shadow-[var(--shadow-toast)] p-[16px] max-w-[300px]">
+            <div class="text-[length:var(--app-text-base)] font-semibold text-[var(--color-text-primary)] mb-[4px]">Discard changes?</div>
+            <div class="text-[length:var(--app-text-xs)] text-[var(--color-text-secondary)] mb-[14px]">Your edits to this month's commitments won't be saved.</div>
+            <div class="flex justify-end gap-[8px]">
+              <button class="text-[length:var(--app-text-xs)] font-semibold text-[var(--color-text-muted)] px-[12px] py-[6px] cursor-pointer" @click="keepEditing">Keep editing</button>
+              <button data-test="discard-yes" class="text-[length:var(--app-text-xs)] font-semibold text-[var(--color-danger)] bg-red-50 rounded-[var(--radius-form)] px-[12px] py-[6px] cursor-pointer" @click="confirmDiscard">Discard</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

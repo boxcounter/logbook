@@ -386,3 +386,30 @@ describe("CommitmentsModal — keyboard", () => {
     expect(invoke).toHaveBeenCalledWith("set_commitments", expect.anything()); // bubbled to overlay → save
   });
 });
+
+describe("CommitmentsModal — close & discard", () => {
+  it("Esc closes immediately when there are no changes", async () => {
+    const w = mountModal();
+    await w.find("[data-test='overlay']").trigger("keydown", { key: "Escape" });
+    expect(w.emitted("close")).toBeTruthy();
+  });
+  it("Esc with changes shows discard confirm instead of closing", async () => {
+    const w = mountModal();
+    await w.find("[data-test='role-name']").setValue("Changed");
+    await w.find("[data-test='overlay']").trigger("keydown", { key: "Escape" });
+    expect(w.emitted("close")).toBeFalsy();
+    expect(w.find("[data-test='discard-confirm']").exists()).toBe(true);
+  });
+  it("Discard in the confirm emits close", async () => {
+    const w = mountModal();
+    await w.find("[data-test='role-name']").setValue("Changed");
+    await w.find("[data-test='cancel']").trigger("click");
+    await w.find("[data-test='discard-yes']").trigger("click");
+    expect(w.emitted("close")).toBeTruthy();
+  });
+  it("clicking the backdrop behaves like cancel (no changes → close)", async () => {
+    const w = mountModal();
+    await w.find("[data-test='overlay']").trigger("click");
+    expect(w.emitted("close")).toBeTruthy();
+  });
+});
