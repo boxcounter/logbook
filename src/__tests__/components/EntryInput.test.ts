@@ -74,20 +74,20 @@ describe("EntryInput", () => {
 
   it("renders Log submit button", () => {
     const { wrapper } = mountInput();
-    const btn = wrapper.find("button[type='button']");
+    const btn = wrapper.find("button");
     expect(btn.text()).toBe("Log");
   });
 
   it("Log button disabled when input empty", () => {
     const { wrapper } = mountInput();
-    const btn = wrapper.find("button[type='button']");
+    const btn = wrapper.find("button");
     expect((btn.element as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("Log button enabled when input has text", async () => {
     const { wrapper } = mountInput();
     await typeIn(wrapper, "Meeting 30m");
-    const btn = wrapper.find("button[type='button']");
+    const btn = wrapper.find("button");
     expect((btn.element as HTMLButtonElement).disabled).toBe(false);
   });
 
@@ -129,7 +129,7 @@ describe("EntryInput", () => {
     });
     await typeIn(wrapper, "Sprint planning 1.5h");
 
-    const btn = wrapper.find("button[type='button']");
+    const btn = wrapper.find("button");
     await btn.trigger("click");
 
     expect(wrapper.emitted("submit")).toBeTruthy();
@@ -143,7 +143,7 @@ describe("EntryInput", () => {
     const { wrapper } = mountInput({ initialValues: {} });
     await typeIn(wrapper, "Task 30m");
 
-    const btn = wrapper.find("button[type='button']");
+    const btn = wrapper.find("button");
     await btn.trigger("click");
 
     expect(wrapper.text()).toContain("Missing required");
@@ -156,7 +156,7 @@ describe("EntryInput", () => {
     });
     await typeIn(wrapper, "Just text");
 
-    const btn = wrapper.find("button[type='button']");
+    const btn = wrapper.find("button");
     await btn.trigger("click");
 
     expect(wrapper.text()).toContain("Could not parse duration");
@@ -165,7 +165,7 @@ describe("EntryInput", () => {
 
   it("empty input: no submit", async () => {
     const { wrapper } = mountInput();
-    const btn = wrapper.find("button[type='button']");
+    const btn = wrapper.find("button");
     await btn.trigger("click");
 
     expect(wrapper.emitted("submit")).toBeFalsy();
@@ -195,9 +195,11 @@ describe("EntryInput", () => {
     const { wrapper } = mountInput({
       initialValues: { goal: "Ship feature X" },
     });
-    // Find the chip and click it
-    const chip = wrapper.find(".inline-flex.items-center.gap-1.px-2");
-    await chip.trigger("click");
+    // Find the Goal chip by its text content
+    const allSpans = wrapper.findAll("span");
+    const chip = allSpans.find(s => s.text().includes("Goal: Ship feature X"));
+    expect(chip).toBeTruthy();
+    await chip!.trigger("click");
 
     // The hint text should reappear (goal cleared, business-line still required)
     expect(wrapper.text()).toContain("+ Business Line");

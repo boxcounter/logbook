@@ -4,6 +4,9 @@ import type { Dimension, Commitment } from "../types";
 import { parseDurationFromText, stripDurations, formatDuration } from "../utils/format";
 import { logInfo } from "../utils/errorLog";
 import { dimBarColor, getValueCount, firstUnfilledRequiredIndex } from '../utils/mentionHelpers';
+import AppInput from './base/AppInput.vue';
+import AppButton from './base/AppButton.vue';
+import AppChip from './base/AppChip.vue';
 
 const props = defineProps<{
   dimensions: Dimension[];
@@ -13,7 +16,7 @@ const props = defineProps<{
 
 const input = ref("");
 const error = ref("");
-const inputEl = ref<HTMLInputElement | null>(null);
+const inputEl = ref<InstanceType<typeof AppInput> | null>(null);
 const menuEl = ref<HTMLElement | null>(null);
 
 const emit = defineEmits<{
@@ -77,15 +80,15 @@ const missingRequired = computed(() => {
     .map(d => ({ key: d.key, name: d.name }));
 });
 
-const chipClass = (key: string): string => {
-  const map: Record<string, string> = {
-    goal: "bg-[var(--color-chip-goal-bg)] text-[var(--color-chip-goal-text)] border-[var(--color-chip-goal-border)]",
-    "business-line": "bg-[var(--color-chip-biz-bg)] text-[var(--color-chip-biz-text)] border-[var(--color-chip-biz-border)]",
-    "importance-urgency": "bg-[var(--color-chip-importance-bg)] text-[var(--color-chip-importance-text)] border-[var(--color-chip-importance-border)]",
-    category: "bg-[var(--color-chip-category-bg)] text-[var(--color-chip-category-text)] border-[var(--color-chip-category-border)]",
+function chipColor(key: string): 'category' | 'biz' | 'importance' | 'goal' | 'missing' {
+  const map: Record<string, 'category' | 'biz' | 'importance' | 'goal' | 'missing'> = {
+    goal: 'goal',
+    'business-line': 'biz',
+    'importance-urgency': 'importance',
+    category: 'category',
   };
-  return map[key] || "bg-[var(--color-chip-missing-bg)] text-[var(--color-chip-missing-text)] border-[var(--color-chip-missing-border)]";
-};
+  return map[key] || 'missing';
+}
 
 // ---- @mention menu (all reactive refs) ----
 interface MenuItem {
@@ -151,20 +154,20 @@ function openValMenuDirect(dimKey: string) {
   filterText.value = "";
   menuVisible.value = true;
   // Focus the input so keyboard navigation works
-  inputEl.value?.focus();
+  inputEl.value?.inputEl?.focus();
 }
 
 /// Insert a bare @ at cursor position, so `extractFilterFromInput`
 /// can still extract filter text when the menu loops back to dim phase.
 function insertAtChar() {
-  const cursorPos = inputEl.value?.selectionStart ?? input.value.length;
+  const cursorPos = inputEl.value?.inputEl?.selectionStart ?? input.value.length;
   input.value = input.value.slice(0, cursorPos) + "@" + input.value.slice(cursorPos);
 }
 
 function replaceMentionWithDimKey(dimKey: string) {
   // Replace "@filterText" in input with "@dimKey " so val-phase filter has a space delimiter
   const val = input.value;
-  const cursorPos = inputEl.value?.selectionStart ?? val.length;
+  const cursorPos = inputEl.value?.inputEl?.selectionStart ?? val.length;
   const textBefore = val.slice(0, cursorPos);
   const lastAt = textBefore.lastIndexOf("@");
   if (lastAt === -1) return;
@@ -194,7 +197,7 @@ function closeMenu() {
 /// Go back from val phase to dim phase (reverse of replaceMentionWithDimKey)
 function goBackToDim() {
   const val = input.value;
-  const cursorPos = inputEl.value?.selectionStart ?? val.length;
+  const cursorPos = inputEl.value?.inputEl?.selectionStart ?? val.length;
   const textBefore = val.slice(0, cursorPos);
   const lastAt = textBefore.lastIndexOf('@');
   if (lastAt === -1) return;
@@ -221,7 +224,7 @@ function confirmSelection() {
     removeMentionFromInput();
     if (allRequiredFilled.value) {
       closeMenu();
-      inputEl.value?.focus();
+      inputEl.value?.inputEl?.focus();
     } else {
       skipIndexReset = true;
       insertAtChar();     // re-insert @ so filter works in dim phase
@@ -241,7 +244,7 @@ function selectByIndex(idx: number) {
     removeMentionFromInput();
     if (allRequiredFilled.value) {
       closeMenu();
-      inputEl.value?.focus();
+      inputEl.value?.inputEl?.focus();
     } else {
       skipIndexReset = true;
       insertAtChar();
@@ -252,7 +255,7 @@ function selectByIndex(idx: number) {
 
 function extractFilterFromInput(): string {
   const val = input.value;
-  const cursorPos = inputEl.value?.selectionStart ?? val.length;
+  const cursorPos = inputEl.value?.inputEl?.selectionStart ?? val.length;
   const textBeforeCursor = val.slice(0, cursorPos);
   const lastAt = textBeforeCursor.lastIndexOf("@");
   if (lastAt === -1) return "";
@@ -267,7 +270,7 @@ function extractFilterFromInput(): string {
 
 function removeMentionFromInput() {
   const val = input.value;
-  const cursorPos = inputEl.value?.selectionStart ?? val.length;
+  const cursorPos = inputEl.value?.inputEl?.selectionStart ?? val.length;
   const textBefore = val.slice(0, cursorPos);
   const lastAt = textBefore.lastIndexOf("@");
   if (lastAt === -1) return;
@@ -292,7 +295,7 @@ const focusRequestId = inject<Ref<number>>("focusRequestId", ref(0));
 watch(focusRequestId, () => {
   const active = document.activeElement;
   if (!active || active === document.body || active.tagName === "BODY") {
-    inputEl.value?.focus();
+    inputEl.value?.inputEl?.focus();
   }
 });
 
@@ -405,7 +408,7 @@ function onKeydown(e: KeyboardEvent) {
       e.preventDefault();
       removeMentionFromInput();
       closeMenu();
-      inputEl.value?.focus();
+      inputEl.value?.inputEl?.focus();
       return;
     }
   }
@@ -422,13 +425,13 @@ function onKeydown(e: KeyboardEvent) {
     e.preventDefault();
     removeMentionFromInput();
     closeMenu();
-    inputEl.value?.focus();
+    inputEl.value?.inputEl?.focus();
     return;
   }
 
   // Backspace: go back from val → dim when filter is empty
   if (e.key === "Backspace" && menuPhase.value === "val" && filterText.value === "") {
-    const cursorPos = inputEl.value?.selectionStart ?? 0;
+    const cursorPos = inputEl.value?.inputEl?.selectionStart ?? 0;
     const val = input.value;
     const textBefore = val.slice(0, cursorPos);
     const lastAt = textBefore.lastIndexOf("@");
@@ -479,24 +482,20 @@ function onInputBlur() {
   <div>
     <!-- Input row -->
     <div class="flex gap-2 relative">
-      <input
+      <AppInput
         ref="inputEl"
         v-model="input"
-        type="text"
-        class="flex-1 px-[16px] py-[10px] border-2 border-[var(--color-border-form)] rounded-full text-[var(--text-base)] bg-[var(--color-surface)] text-[var(--color-text-primary)] outline-none transition-all duration-200 placeholder:text-[var(--color-placeholder)] focus:border-[var(--color-brand-solid)] focus:bg-[#fafaff] focus:shadow-[var(--shadow-focus-ring)]"
         placeholder="Sprint planning 1.5h  (type @ to set dimensions)"
         @keydown="onKeydown"
         @input="onInput"
         @blur="onInputBlur"
       />
-      <button
-        type="button"
-        class="px-[24px] py-[10px] bg-gradient-to-br from-[var(--color-brand-gradient-from)] to-[var(--color-brand-gradient-to)] text-white rounded-full hover:-translate-y-px hover:shadow-[var(--shadow-button-hover)] transition-all duration-200 disabled:opacity-50 text-[var(--text-base)] font-semibold cursor-pointer"
+      <AppButton
         :disabled="!input.trim() || submitting"
         @click="handleSubmit"
       >
         Log
-      </button>
+      </AppButton>
 
       <!-- @mention menu -->
       <div
@@ -588,17 +587,16 @@ function onInputBlur() {
 
     <!-- #6: Dimension chips row -->
     <div class="flex flex-wrap gap-1.5 mt-2 min-h-[24px] items-center">
-      <span
+      <AppChip
         v-for="dim in dimensions"
         :key="dim.key"
         v-show="dimValues[dim.key]"
-        class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs cursor-pointer border"
-        :class="chipClass(dim.key)"
-        @click="dimValues = { ...dimValues, [dim.key]: '' }"
-      >
-        {{ dim.name }}: {{ dimValues[dim.key] }}
-        <span class="opacity-40 hover:opacity-100 leading-none">&times;</span>
-      </span>
+        :color="chipColor(dim.key)"
+        :label="dim.name"
+        :value="dimValues[dim.key]"
+        closable
+        @close="dimValues = { ...dimValues, [dim.key]: '' }"
+      />
       <!-- Missing required chips (red dashed) -->
       <span
         v-for="m in missingRequired"

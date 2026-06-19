@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { ref } from 'vue';
+
 defineProps<{
   modelValue?: string;
   placeholder?: string;
@@ -7,10 +9,14 @@ defineProps<{
 defineEmits<{
   'update:modelValue': [value: string];
 }>();
+
+const inputEl = ref<HTMLInputElement | null>(null);
+defineExpose({ inputEl });
 </script>
 
 <template>
   <input
+    ref="inputEl"
     type="text"
     :value="modelValue"
     :placeholder="placeholder"

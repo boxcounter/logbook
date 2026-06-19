@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useStore } from "../stores/useStore";
 import EntryInput from "./EntryInput.vue";
 import DimensionPanel from "./DimensionPanel.vue";
+import AppButton from "./base/AppButton.vue";
 import { logError, logInfo } from "../utils/errorLog";
 
 const emit = defineEmits<{
@@ -64,9 +65,9 @@ async function handleSubmit(item: string, durationMinutes: number, dimensions: R
       :initialValues="dimValues"
       @submit="handleSubmit"
     />
-    <button class="text-[var(--text-sm)] text-[var(--color-brand-link)] hover:opacity-80 font-medium cursor-pointer" @click="showDimensions = !showDimensions">
+    <AppButton variant="outline" size="sm" @click="showDimensions = !showDimensions">
       {{ showDimensions ? "Hide" : "Show" }} Dimensions
-    </button>
+    </AppButton>
     <DimensionPanel
       v-if="showDimensions"
       :dimensions="store.config?.dimensions || []"
