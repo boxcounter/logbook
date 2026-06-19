@@ -46,6 +46,11 @@ function addRole() {
   draft.value.push({ role: "", allocation: NEW_ROLE_ALLOC, origRole: null, key: nextKey(), goals: [{ name: "", origName: null, key: nextKey() }] });
 }
 
+function removeRole(r: RoleRowModel) {
+  const i = draft.value.findIndex(x => x.key === r.key);
+  if (i >= 0) draft.value.splice(i, 1);
+}
+
 const monthLabel = computed(() =>
   new Date(props.selectedYear, props.selectedMonth - 1, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" })
 );
@@ -103,7 +108,7 @@ function cancel() { emit("close"); }
         <div class="px-[28px] pt-[16px] pb-[4px] overflow-y-auto">
           <draggable v-model="draft" item-key="key" handle=".drag-grip-role" tag="div" :animation="150">
             <template #item="{ element: r }">
-              <RoleCard :role="r" :progress="progress" :next-key="nextKey" />
+              <RoleCard :role="r" :progress="progress" :next-key="nextKey" @delete="removeRole(r)" />
             </template>
           </draggable>
 

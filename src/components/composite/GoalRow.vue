@@ -25,8 +25,11 @@ defineEmits<{ remove: [] }>();
       :class="logged > 0 ? 'text-[var(--color-text-muted)]' : 'text-[var(--color-text-disabled)]'"
     >{{ logged > 0 ? formatDuration(logged) : "0" }}</span>
     <button
-      data-test="goal-remove"
-      class="text-[length:var(--app-text-base)] text-[var(--color-text-disabled)] hover:text-[var(--color-danger)] cursor-pointer px-[4px]"
+      data-test="goal-remove" :disabled="logged > 0"
+      :title="logged > 0 ? `${formatDuration(logged)} logged — rename instead` : 'Remove goal'"
+      class="text-[length:var(--app-text-base)] cursor-pointer px-[4px] transition-[color] duration-150
+             text-[var(--color-text-disabled)] hover:text-[var(--color-danger)]
+             disabled:text-[var(--color-divider)] disabled:cursor-not-allowed disabled:hover:text-[var(--color-divider)]"
       @click="$emit('remove')"
     >&times;</button>
   </div>

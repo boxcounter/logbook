@@ -195,3 +195,45 @@ describe("CommitmentsModal — summary, progress & over-commit", () => {
     expect(w.find("[data-test='bar-fill']").classes().join(" ")).toContain("color-warning");
   });
 });
+
+describe("CommitmentsModal — delete constraints", () => {
+  it("disables goal remove when the goal has logged time", () => {
+    const w = mountModal();
+    expect(w.findAll("[data-test='goal-remove']").every(b => (b.element as HTMLButtonElement).disabled)).toBe(true);
+  });
+  it("enables remove for a freshly added (0-logged) goal", async () => {
+    const w = mountModal();
+    await w.find("[data-test='add-goal']").trigger("click");
+    const removes = w.findAll("[data-test='goal-remove']");
+    expect((removes[removes.length - 1].element as HTMLButtonElement).disabled).toBe(false);
+  });
+  it("removes a 0-logged goal on click", async () => {
+    const w = mountModal();
+    await w.find("[data-test='add-goal']").trigger("click");
+    const before = w.findAll("[data-test='goal-name']").length;
+    const removes = w.findAll("[data-test='goal-remove']");
+    await removes[removes.length - 1].trigger("click");
+    expect(w.findAll("[data-test='goal-name']").length).toBe(before - 1);
+  });
+  it("disables role Delete when any goal has logged time", () => {
+    const w = mountModal();
+    expect((w.find("[data-test='role-delete']").element as HTMLButtonElement).disabled).toBe(true);
+  });
+  it("role Delete on a 0-logged role shows inline confirm then removes", async () => {
+    const w = mountModal({
+      commitments: [
+        makeCommitment({ role: "Developer", allocation: 40, goals: ["Ship onboarding v2"] }),
+        makeCommitment({ role: "Advisor", allocation: 5, goals: ["Office hours"] }),
+      ],
+      progress: [
+        makeCommitmentProgress({ role: "Developer", spent_minutes: 870, allocation_minutes: 2400, goals: [{ name: "Ship onboarding v2", spent_minutes: 870 }] }),
+        makeCommitmentProgress({ role: "Advisor", spent_minutes: 0, allocation_minutes: 300, goals: [{ name: "Office hours", spent_minutes: 0 }] }),
+      ],
+    });
+    const advisorDel = w.findAll("[data-test='role-delete']")[1];
+    expect((advisorDel.element as HTMLButtonElement).disabled).toBe(false);
+    await advisorDel.trigger("click");
+    await w.find("[data-test='role-delete-confirm']").trigger("click");
+    expect(w.findAll("[data-test='role-name']").length).toBe(1);
+  });
+});

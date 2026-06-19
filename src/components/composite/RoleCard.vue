@@ -1,15 +1,16 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import draggable from "vuedraggable";
 import GoalRow from "./GoalRow.vue";
 import { formatDuration } from "../../utils/format";
-import type { CommitmentProgress, RoleRowModel } from "../../types";
+import type { CommitmentProgress, RoleRowModel, GoalRowModel } from "../../types";
 
 const props = defineProps<{
   role: RoleRowModel;
   progress: CommitmentProgress[];
   nextKey: () => number;
 }>();
+const emit = defineEmits<{ delete: [] }>();
 
 const STEP = 5;
 const MIN_ALLOC = 5;
@@ -56,6 +57,17 @@ const barPct = computed(() => {
   return Math.min(100, Math.round((roleSpent.value / a) * 100));
 });
 const overBy = computed(() => formatDuration(roleSpent.value - allocMinutes.value));
+
+const confirming = ref(false);
+const roleDeletable = computed(() => props.role.goals.every(g => goalLogged(g.origName) === 0));
+function requestDelete() { if (roleDeletable.value) confirming.value = true; }
+function confirmDelete() { confirming.value = false; emit("delete"); }
+function cancelDelete() { confirming.value = false; }
+function removeGoal(g: GoalRowModel) {
+  if (goalLogged(g.origName) > 0) return; // UI also disables; guard defensively
+  const i = props.role.goals.findIndex(x => x.key === g.key);
+  if (i >= 0) props.role.goals.splice(i, 1);
+}
 </script>
 
 <template>
@@ -97,6 +109,20 @@ const overBy = computed(() => formatDuration(roleSpent.value - allocMinutes.valu
         >+</button>
         <span class="text-[length:var(--app-text-xs-alt)] text-[var(--color-text-muted)]">h</span>
       </span>
+      <span v-if="confirming" class="inline-flex items-center gap-[10px] text-[length:var(--app-text-xs)]">
+        <span class="text-[var(--color-danger)] whitespace-nowrap">Delete role?</span>
+        <a data-test="role-delete-confirm" class="font-semibold text-[var(--color-danger)] cursor-pointer" @click="confirmDelete">Delete</a>
+        <a class="font-semibold text-[var(--color-text-muted)] cursor-pointer" @click="cancelDelete">Cancel</a>
+      </span>
+      <button
+        v-else
+        data-test="role-delete" :disabled="!roleDeletable"
+        :title="roleDeletable ? 'Delete role' : `Has logged time — can't delete this month`"
+        class="text-[length:var(--app-text-xs-alt)] cursor-pointer px-[5px] py-[4px] transition-[color] duration-150
+               text-[var(--color-text-muted)] hover:text-[var(--color-danger)]
+               disabled:text-[var(--color-text-disabled)] disabled:cursor-not-allowed disabled:hover:text-[var(--color-text-disabled)]"
+        @click="requestDelete"
+      >Delete</button>
     </div>
 
     <div class="flex items-center gap-[8px] mt-[8px]">
@@ -120,8 +146,8 @@ const overBy = computed(() => formatDuration(roleSpent.value - allocMinutes.valu
 
     <div class="mt-[12px]">
       <draggable v-model="role.goals" item-key="key" handle=".drag-grip-goal" tag="div" class="flex flex-col gap-[8px]" :animation="150">
-        <template #item="{ element: g, index: gi }">
-          <GoalRow :goal="g" :logged="goalLogged(g.origName)" @remove="role.goals.splice(gi, 1)" />
+        <template #item="{ element: g }">
+          <GoalRow :goal="g" :logged="goalLogged(g.origName)" @remove="removeGoal(g)" />
         </template>
       </draggable>
       <button
