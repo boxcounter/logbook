@@ -48,7 +48,7 @@ function cancelEdit() { isEditing.value = false; }
       <div v-for="s in progress" :key="s.role" class="mb-[16px] last:mb-0">
         <div
           data-test="role-toggle"
-          class="flex justify-between items-center cursor-pointer rounded-[var(--radius-form-lg)] px-[2px] py-[1px] hover:bg-[var(--color-divider)]"
+          class="flex justify-between items-center cursor-pointer rounded-[var(--radius-form-lg)] px-[10px] py-[8px] mb-[2px] hover:bg-[var(--color-divider)]"
           @click="toggle(s.role)"
         >
           <span class="text-[var(--app-text-xs)] font-semibold text-[var(--color-text-primary)]">

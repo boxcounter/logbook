@@ -86,9 +86,10 @@ function goBack() {
       <div
         v-for="d in dimensions" :key="d.key"
         data-test="dim-item"
-        class="px-[14px] py-[9px] text-[var(--app-text-sm)] text-[var(--color-text-primary)]
+        class="px-[14px] py-[9px] text-[var(--app-text-sm)]
                flex items-center gap-[10px] cursor-pointer border-b border-[var(--color-surface-muted)]
                last:border-b-0 hover:bg-[var(--color-divider)]"
+        :class="dimValues[d.key] ? 'bg-[var(--color-popover-item-selected-bg)] text-[var(--color-brand-solid)] font-semibold' : 'text-[var(--color-text-primary)]'"
         @click="selectDim(d.key)"
       >
         <span class="w-[3px] h-[18px] rounded-[var(--radius-sm)] flex-shrink-0" :class="barClass(d.key)"></span>
@@ -120,9 +121,10 @@ function goBack() {
       <div
         v-for="v in activeValues" :key="v"
         data-test="val-item"
-        class="px-[14px] py-[9px] text-[var(--app-text-sm)] text-[var(--color-text-primary)]
+        class="px-[14px] py-[9px] text-[var(--app-text-sm)]
                cursor-pointer border-b border-[var(--color-surface-muted)] last:border-b-0
                hover:bg-[var(--color-divider)]"
+        :class="activeDimKey && dimValues[activeDimKey] === v ? 'bg-[var(--color-popover-item-selected-bg)] text-[var(--color-brand-solid)] font-semibold' : 'text-[var(--color-text-primary)]'"
         @click="selectVal(v)"
       >{{ v }}</div>
       <div

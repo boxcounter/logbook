@@ -70,7 +70,7 @@ function cellClass(date: string): string {
   const rings: string[] = [];
   if (date === todayStr()) rings.push("shadow-[0_0_0_2px_var(--heatmap-today-ring)]");
   if (date === props.selectedDate) rings.push("shadow-[0_0_0_2px_var(--heatmap-selected-ring)]");
-  return [base, ...rings, isFuture(date) ? "opacity-40 cursor-default" : "cursor-pointer hover:scale-110"].join(" ");
+  return [base, ...rings, isFuture(date) ? "opacity-40 cursor-default" : "cursor-pointer hover:scale-[1.15]"].join(" ");
 }
 
 function dayNum(date: string): number {

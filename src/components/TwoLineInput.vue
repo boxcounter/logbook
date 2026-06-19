@@ -95,7 +95,7 @@ watch(focusRequestId, () => {
 <template>
   <div class="relative">
     <div
-      class="bg-[var(--color-surface)] border-2 border-[var(--color-border-form)] rounded-[var(--radius-card)] px-[16px] py-[10px]
+      class="group bg-[var(--color-surface)] border-2 border-[var(--color-border-form)] rounded-[var(--radius-card)] px-[16px] py-[10px]
              focus-within:border-[var(--color-brand-solid)] focus-within:shadow-[var(--shadow-focus-ring)] transition-all"
     >
       <!-- Line 1: item text -->
@@ -111,7 +111,8 @@ watch(focusRequestId, () => {
           @keydown="onKeydown"
         />
         <span class="mono text-[var(--app-text-2xs)] font-semibold text-[var(--color-text-secondary)]
-                     border border-[var(--color-border-form)] rounded-[var(--radius-md)] px-[7px] py-[3px] flex-shrink-0">⏎</span>
+                     border border-[var(--color-border-form)] rounded-[var(--radius-md)] px-[7px] py-[3px] flex-shrink-0
+                     opacity-50 group-focus-within:opacity-100 transition-opacity">⏎</span>
       </div>
 
       <!-- Line 2: tokens + missing indicators -->
