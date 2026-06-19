@@ -732,9 +732,15 @@ fn validate_commitments(commitments: &[Commitment]) -> Result<(), String> {
     if commitments.is_empty() {
         return Err("At least one role is required".to_string());
     }
+    let mut role_set = std::collections::HashSet::new();
+    let mut goal_set = std::collections::HashSet::new();
     for c in commitments {
-        if c.role.trim().is_empty() {
+        let role = c.role.trim();
+        if role.is_empty() {
             return Err("Role name cannot be empty".to_string());
+        }
+        if !role_set.insert(role.to_string()) {
+            return Err(format!("Role '{}' already exists", role));
         }
         if c.allocation == 0 {
             return Err(format!(
@@ -742,13 +748,13 @@ fn validate_commitments(commitments: &[Commitment]) -> Result<(), String> {
                 c.role
             ));
         }
-        let mut goal_set = std::collections::HashSet::new();
         for g in &c.goals {
-            if g.trim().is_empty() {
+            let goal = g.trim();
+            if goal.is_empty() {
                 return Err("Goal name cannot be empty".to_string());
             }
-            if !goal_set.insert(g) {
-                return Err(format!("Goal '{}' already exists in '{}'", g, c.role));
+            if !goal_set.insert(goal.to_string()) {
+                return Err(format!("Goal '{}' already exists", goal));
             }
         }
     }
@@ -1285,7 +1291,45 @@ mod tests {
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(err.contains("already exists"));
+        assert!(err.contains("Ship it"));
+    }
+
+    #[test]
+    fn test_validate_commitments_duplicate_goal_across_roles() {
+        let c = make_commitments(vec![
+            ("Dev", 40, vec!["Shared goal"]),
+            ("TL", 20, vec!["Shared goal"]),
+        ]);
+        let result = validate_commitments(&c);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.contains("already exists"));
+        assert!(err.contains("Shared goal"));
+    }
+
+    #[test]
+    fn test_validate_commitments_duplicate_role() {
+        let c = make_commitments(vec![
+            ("Dev", 40, vec!["A"]),
+            ("Dev", 20, vec!["B"]),
+        ]);
+        let result = validate_commitments(&c);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.contains("Role"));
+        assert!(err.contains("already exists"));
         assert!(err.contains("Dev"));
+    }
+
+    // Guard: reordering goals within a role (same set, different order) must
+    // NOT be misread as a rename by detect_goal_changes.
+    #[test]
+    fn test_detect_goal_changes_reorder_is_not_rename() {
+        let old = make_commitments(vec![("Dev", 40, vec!["A", "B", "C"])]);
+        let new = make_commitments(vec![("Dev", 40, vec!["C", "A", "B"])]);
+        let changes = detect_goal_changes(&old, &new);
+        assert!(changes.renames.is_empty(), "reorder must not produce renames");
+        assert!(changes.deleted.is_empty(), "reorder must not produce deletions");
     }
 
     #[test]
