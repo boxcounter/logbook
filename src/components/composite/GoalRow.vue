@@ -5,6 +5,7 @@ import type { GoalRowModel } from "../../types";
 defineProps<{
   goal: GoalRowModel;
   logged: number;
+  invalid: boolean;
 }>();
 
 defineEmits<{ remove: [] }>();
@@ -18,6 +19,7 @@ defineEmits<{ remove: [] }>();
       class="flex-1 px-[10px] py-[4px] border border-[var(--color-border-form)] rounded-[var(--radius-form)]
              text-[length:var(--app-text-sm)] text-[var(--color-text-secondary)]
              bg-[var(--color-surface)] outline-none focus:border-[var(--color-brand-solid)]"
+      :class="invalid ? 'border-[var(--color-danger)]' : ''"
     />
     <span
       data-test="goal-logged"

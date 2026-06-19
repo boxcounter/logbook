@@ -261,3 +261,50 @@ describe("CommitmentsModal — delete constraints", () => {
     expect(w.findAll("[data-test='goal-name']").length).toBe(before); // guard blocks removal
   });
 });
+
+describe("CommitmentsModal — validation", () => {
+  it("blocks save + message on empty role name", async () => {
+    const w = mountModal();
+    await w.find("[data-test='role-name']").setValue("");
+    await w.find("[data-test='save']").trigger("click");
+    expect(invoke).not.toHaveBeenCalled();
+    expect(w.text()).toContain("Role name is required");
+  });
+  it("blocks save on duplicate role names", async () => {
+    const w = mountModal({
+      commitments: [makeCommitment({ role: "Developer", allocation: 40, goals: [] }), makeCommitment({ role: "Developer", allocation: 20, goals: [] })],
+      progress: [],
+    });
+    await w.find("[data-test='save']").trigger("click");
+    expect(invoke).not.toHaveBeenCalled();
+    expect(w.text()).toContain("Duplicate role name");
+  });
+  it("blocks save on duplicate goal names across roles", async () => {
+    const w = mountModal({
+      commitments: [makeCommitment({ role: "Developer", allocation: 40, goals: ["Shared"] }), makeCommitment({ role: "Advisor", allocation: 5, goals: ["Shared"] })],
+      progress: [],
+    });
+    await w.find("[data-test='save']").trigger("click");
+    expect(invoke).not.toHaveBeenCalled();
+    expect(w.text()).toContain("Duplicate goal name");
+  });
+  it("blocks emptying a goal that has logged time", async () => {
+    const w = mountModal();
+    await w.findAll("[data-test='goal-name']")[0].setValue("");
+    await w.find("[data-test='save']").trigger("click");
+    expect(invoke).not.toHaveBeenCalled();
+    expect(w.text()).toContain("can't be empty");
+  });
+  it("silently drops a blank 0-logged goal row on save", async () => {
+    (invoke as any).mockResolvedValue([]);
+    const w = mountModal({
+      commitments: [makeCommitment({ role: "Developer", allocation: 40, goals: ["Ship onboarding v2"] })],
+      progress: [makeCommitmentProgress({ role: "Developer", spent_minutes: 0, allocation_minutes: 2400, goals: [{ name: "Ship onboarding v2", spent_minutes: 0 }] })],
+    });
+    await w.find("[data-test='add-goal']").trigger("click");
+    await w.find("[data-test='save']").trigger("click");
+    expect(invoke).toHaveBeenCalledWith("set_commitments", expect.objectContaining({
+      commitments: [{ role: "Developer", allocation: 40, goals: ["Ship onboarding v2"] }],
+    }));
+  });
+});

@@ -5,6 +5,7 @@ import draggable from "vuedraggable";
 import RoleCard from "./RoleCard.vue";
 import type { Commitment, CommitmentProgress, RoleRowModel, GoalRowModel } from "../../types";
 import { formatDuration } from "../../utils/format";
+import { goalLoggedMinutes } from "../../utils/commitments";
 
 const props = defineProps<{
   open: boolean;
@@ -24,6 +25,7 @@ const nextKey = () => ++_key;
 const draft = ref<RoleRowModel[]>([]);
 const error = ref("");
 const saving = ref(false);
+const showErrors = ref(false);
 
 function buildDraft() {
   draft.value = props.commitments.map((c): RoleRowModel => ({
@@ -31,6 +33,7 @@ function buildDraft() {
     goals: c.goals.map((g): GoalRowModel => ({ name: g, origName: g, key: nextKey() })),
   }));
   error.value = "";
+  showErrors.value = false;
 }
 watch(() => props.open, (o) => { if (o) buildDraft(); }, { immediate: true });
 
@@ -58,7 +61,30 @@ const monthLabel = computed(() =>
 const committedHours = computed(() => draft.value.reduce((s, r) => s + (r.allocation || 0), 0));
 const loggedTotal = computed(() => props.progress.reduce((s, p) => s + p.spent_minutes, 0));
 
+function dupSet(names: string[]): Set<string> {
+  const seen = new Set<string>(), dup = new Set<string>();
+  for (const n of names) { const t = n.trim(); if (!t) continue; if (seen.has(t)) dup.add(t); else seen.add(t); }
+  return dup;
+}
+const dupRoles = computed(() => dupSet(draft.value.map(r => r.role)));
+const dupGoals = computed(() => dupSet(draft.value.flatMap(r => r.goals.map(g => g.name))));
+
+function validate(): string | null {
+  if (draft.value.length === 0) return "At least one role is required";
+  for (const r of draft.value) {
+    if (r.role.trim() === "") return "Role name is required";
+    if (dupRoles.value.has(r.role.trim())) return "Duplicate role name — each role must be unique";
+    for (const g of r.goals) {
+      if (g.name.trim() === "" && goalLoggedMinutes(props.progress, g.origName) > 0) return "Goal with logged time can't be empty";
+    }
+  }
+  if (dupGoals.value.size > 0) return "Duplicate goal name — each goal must be unique";
+  return null;
+}
+
 async function save() {
+  const msg = validate();
+  if (msg) { showErrors.value = true; error.value = msg; return; }
   saving.value = true;
   error.value = "";
   try {
@@ -108,7 +134,9 @@ function cancel() { emit("close"); }
         <div class="px-[28px] pt-[16px] pb-[4px] overflow-y-auto">
           <draggable v-model="draft" item-key="key" handle=".drag-grip-role" tag="div" :animation="150">
             <template #item="{ element: r }">
-              <RoleCard :role="r" :progress="progress" :next-key="nextKey" @delete="removeRole(r)" />
+              <RoleCard :role="r" :progress="progress" :next-key="nextKey"
+                :show-errors="showErrors" :dup-roles="dupRoles" :dup-goals="dupGoals"
+                @delete="removeRole(r)" />
             </template>
           </draggable>
 

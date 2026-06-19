@@ -3,12 +3,16 @@ import { computed, ref } from "vue";
 import draggable from "vuedraggable";
 import GoalRow from "./GoalRow.vue";
 import { formatDuration } from "../../utils/format";
+import { goalLoggedMinutes } from "../../utils/commitments";
 import type { CommitmentProgress, RoleRowModel, GoalRowModel } from "../../types";
 
 const props = defineProps<{
   role: RoleRowModel;
   progress: CommitmentProgress[];
   nextKey: () => number;
+  showErrors: boolean;
+  dupRoles: Set<string>;
+  dupGoals: Set<string>;
 }>();
 const emit = defineEmits<{ delete: [] }>();
 
@@ -37,12 +41,17 @@ function addGoal() {
 }
 
 function goalLogged(origName: string | null): number {
-  if (!origName) return 0;
-  for (const p of props.progress) {
-    const g = p.goals.find(x => x.name === origName);
-    if (g) return g.spent_minutes;
-  }
-  return 0;
+  return goalLoggedMinutes(props.progress, origName);
+}
+
+const roleNameInvalid = computed(() => {
+  const t = props.role.role.trim();
+  return t === "" || props.dupRoles.has(t);
+});
+function goalNameInvalid(g: GoalRowModel): boolean {
+  const t = g.name.trim();
+  if (t === "") return goalLogged(g.origName) > 0;
+  return props.dupGoals.has(t);
 }
 
 const roleSpent = computed(() => {
@@ -81,6 +90,7 @@ function removeGoal(g: GoalRowModel) {
         class="flex-1 px-[10px] py-[6px] border border-[var(--color-border-form)] rounded-[var(--radius-form)]
                text-[length:var(--app-text-base)] font-semibold text-[var(--color-text-primary)]
                bg-[var(--color-surface)] outline-none focus:border-[var(--color-brand-solid)]"
+        :class="showErrors && roleNameInvalid ? 'border-[var(--color-danger)]' : ''"
       />
       <span class="inline-flex items-center gap-[5px]">
         <button
@@ -149,7 +159,7 @@ function removeGoal(g: GoalRowModel) {
     <div class="mt-[12px]">
       <draggable v-model="role.goals" item-key="key" handle=".drag-grip-goal" tag="div" class="flex flex-col gap-[8px]" :animation="150">
         <template #item="{ element: g }">
-          <GoalRow :goal="g" :logged="goalLogged(g.origName)" @remove="removeGoal(g)" />
+          <GoalRow :goal="g" :logged="goalLogged(g.origName)" :invalid="showErrors && goalNameInvalid(g)" @remove="removeGoal(g)" />
         </template>
       </draggable>
       <button
