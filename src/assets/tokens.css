@@ -141,9 +141,6 @@
   --shadow-button: 0 2px 12px rgba(99,102,241,0.25);
   --shadow-button-hover: 0 4px 20px rgba(99,102,241,0.35);
 
-  /* === Legacy aliases — retained for components not yet migrated to new tokens === */
-  /* Popover.vue and AppSelect.vue reference --radius-popover; maps to --radius-lg (same value: 14px) */
-  --radius-popover: var(--radius-lg);
 }
 
 /* Dark mode — minimal override (brand, chip, radius, shadow tokens unchanged) */
