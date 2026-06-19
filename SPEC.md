@@ -27,6 +27,7 @@ update_entry(root_path: String, date: String, entry_id: String, update: UpdateEn
 delete_entry(root_path: String, date: String, entry_id: String) → Result<DayFile, String>
 set_day_note(root_path: String, date: String, note: String) → Result<DayFile, String>
 get_commitments(root_path: String, year: i32, month: u32) → Result<Vec<Commitment>, String>
+set_commitments(root_path: String, year: i32, month: u32, commitments: Vec<Commitment>) → Result<Vec<Commitment>, String>
 get_commitment_progress(root_path: String, year: i32, month: u32) → Result<Vec<CommitmentProgress>, String>
 get_available_months(root_path: String) → Result<Vec<AvailableMonth>, String>  // 扫描有数据的年月，懒加载
 open_in_editor(root_path: String, date: String) → Result<(), String>  // 用系统编辑器打开文件
@@ -37,7 +38,7 @@ log_info(message: String)                               // 前端 info → info.
 
 Phase 3 将新增：`get_stats(root_path: String, year: i32, month: u32) → MonthStats`
 
-`validate_config`、`validate_monthly`、`watch_files` 是内部函数，通过 `init` 和 Tauri `setup` hook 调用，不暴露为命令。Commitments 通过直接编辑 `_monthly.md` 文件写入（文件监听自动重新读取），不提供 `set_commitments` 命令。`root_path` 由前端状态持有，每次调用时传入。
+`validate_config`、`validate_monthly`、`watch_files` 是内部函数，通过 `init` 和 Tauri `setup` hook 调用，不暴露为命令。Commitments 通过 `set_commitments(root_path, year, month, commitments)` 写入（校验 + goal 改名批量更新 entry + 原子写 `_monthly.md`；文件监听随后重新读取）；外部直接编辑 `_monthly.md` 仍由文件监听重新读取。校验：role 名非空且唯一、allocation > 0、goal 名非空且全局唯一、删除有 entry 引用的 goal 拒绝。`root_path` 由前端状态持有，每次调用时传入。
 
 ### 数据结构
 
