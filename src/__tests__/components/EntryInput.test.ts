@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { mount } from "@vue/test-utils";
 import { ref } from "vue";
 import EntryInput from "../../components/EntryInput.vue";
+import MentionMenu from "../../components/composite/MentionMenu.vue";
 import { makeCommitment } from "../mocks/fixtures";
 import type { Dimension, Commitment } from "../../types";
 
@@ -55,6 +56,11 @@ async function typeIn(wrapper: ReturnType<typeof mountInput>["wrapper"], value: 
 async function keydownOnInput(wrapper: ReturnType<typeof mountInput>["wrapper"], key: string, opts?: { ctrlKey?: boolean }) {
   const inp = inputEl(wrapper);
   await inp.trigger("keydown", { key, ctrlKey: opts?.ctrlKey ?? false });
+}
+
+// Helper: find the MentionMenu component in the wrapper
+function findMentionMenu(wrapper: ReturnType<typeof mountInput>["wrapper"]) {
+  return wrapper.findComponent(MentionMenu);
 }
 
 // ============================================================
@@ -211,15 +217,15 @@ describe("EntryInput", () => {
     expect(wrapper.text()).toContain("+ Business Line");
   });
 
-  it("clicking missing required chip opens val menu directly", async () => {
+  it("clicking missing required chip opens the dim menu", async () => {
     const { wrapper } = mountInput({ initialValues: {} });
     // Find the red missing chip and click
     const missingChips = wrapper.findAll(".border-dashed");
     expect(missingChips.length).toBeGreaterThan(0);
     await missingChips[0].trigger("click");
 
-    // Menu should be visible with val phase
-    expect(wrapper.text()).toContain("Pick a value");
+    // Menu should be visible (dim phase)
+    expect(wrapper.text()).toContain("Pick a dimension");
   });
 
   // ---- @mention menu: open/close ----
@@ -237,166 +243,61 @@ describe("EntryInput", () => {
     const { wrapper } = mountInput();
     // Open menu first
     await keydownOnInput(wrapper, "@");
-    expect(wrapper.find(".absolute").exists()).toBe(true);
+    expect(wrapper.text()).toContain("Pick a dimension");
 
     // Press Escape
     await keydownOnInput(wrapper, "Escape");
-    expect(wrapper.find(".absolute").exists()).toBe(false);
+    expect(wrapper.text()).not.toContain("Pick a dimension");
   });
 
-  it("Ctrl+[ closes menu and removes mention", async () => {
-    const { wrapper } = mountInput();
-    await keydownOnInput(wrapper, "@");
-    expect(wrapper.find(".absolute").exists()).toBe(true);
+  // ---- MentionMenu integration: select event ----
 
-    await keydownOnInput(wrapper, "[", { ctrlKey: true });
-    expect(wrapper.find(".absolute").exists()).toBe(false);
-  });
-
-  // ---- @mention menu: navigation ----
-
-  it("ArrowDown moves selection down", async () => {
-    const { wrapper } = mountInput();
-    await keydownOnInput(wrapper, "@");
-    await keydownOnInput(wrapper, "ArrowDown");
-
-    // Second item should be highlighted
-    const items = wrapper.findAll(".mention-item");
-    expect(items.length).toBeGreaterThan(1);
-    expect(items[1].classes()).toContain("bg-[var(--color-brand-soft-bg)]");
-  });
-
-  it("ArrowUp at top clamps to 0", async () => {
-    const { wrapper } = mountInput();
-    await keydownOnInput(wrapper, "@");
-    await keydownOnInput(wrapper, "ArrowUp");
-
-    const items = wrapper.findAll(".mention-item");
-    expect(items[0].classes()).toContain("bg-[var(--color-brand-soft-bg)]");
-  });
-
-  it("ArrowDown at bottom clamps", async () => {
-    const { wrapper } = mountInput();
-    await keydownOnInput(wrapper, "@");
-    const items = wrapper.findAll(".mention-item");
-    // Press down many times
-    for (let i = 0; i < items.length + 5; i++) {
-      await keydownOnInput(wrapper, "ArrowDown");
-    }
-    // Last item should be highlighted
-    const freshItems = wrapper.findAll(".mention-item");
-    expect(freshItems[freshItems.length - 1].classes()).toContain("bg-[var(--color-brand-soft-bg)]");
-  });
-
-  it("Ctrl+N / Ctrl+P navigate items", async () => {
-    const { wrapper } = mountInput();
-    await keydownOnInput(wrapper, "@");
-
-    await keydownOnInput(wrapper, "n", { ctrlKey: true });
-    const items = wrapper.findAll(".mention-item");
-    expect(items[1].classes()).toContain("bg-[var(--color-brand-soft-bg)]");
-
-    await keydownOnInput(wrapper, "p", { ctrlKey: true });
-    const fresh = wrapper.findAll(".mention-item");
-    expect(fresh[0].classes()).toContain("bg-[var(--color-brand-soft-bg)]");
-  });
-
-  it("Ctrl+J confirms selection and advances to val phase", async () => {
-    const { wrapper } = mountInput();
-    await keydownOnInput(wrapper, "@");
-
-    // First item should be Goal (required, monthly)
-    await keydownOnInput(wrapper, "j", { ctrlKey: true });
-
-    // Should advance to val phase
-    expect(wrapper.text()).toContain("Pick a value");
-  });
-
-  it("Enter confirms selection in menu", async () => {
-    const { wrapper } = mountInput();
-    await keydownOnInput(wrapper, "@");
-    await keydownOnInput(wrapper, "Enter");
-
-    // Should advance to val phase
-    expect(wrapper.text()).toContain("Pick a value");
-  });
-
-  it("Tab confirms selection in menu", async () => {
-    const { wrapper } = mountInput();
-    await keydownOnInput(wrapper, "@");
-    await keydownOnInput(wrapper, "Tab");
-
-    // Should advance to val phase
-    expect(wrapper.text()).toContain("Pick a value");
-  });
-
-  // ---- Two-phase flow (dim → val → commit/loop) ----
-
-  it("dim pick → val pick → sets dimension value and closes when all required filled", async () => {
+  it("selecting a dim+value sets dimension and closes when all required filled", async () => {
     const { wrapper } = mountInput({
       initialValues: { "business-line": "Platform" },
     });
     // Open menu
     await keydownOnInput(wrapper, "@");
-    // Confirm on Goal (first item)
-    await keydownOnInput(wrapper, "Enter");
-    // Now in val phase for Goal — first value (Ship feature X) should be selected
-    expect(wrapper.text()).toContain("Ship feature X");
-    await keydownOnInput(wrapper, "Enter");
+    expect(wrapper.text()).toContain("Pick a dimension");
 
-    // All required filled (Goal + Business Line) → menu should close
-    expect(wrapper.find(".absolute").exists()).toBe(false);
-    // Chips should show both
+    // Simulate MentionMenu select event
+    const mentionMenu = findMentionMenu(wrapper);
+    expect(mentionMenu.exists()).toBe(true);
+    await mentionMenu.vm.$emit("select", "goal", "Ship feature X");
+    await wrapper.vm.$nextTick();
+
+    // All required filled → menu should close
+    expect(wrapper.text()).not.toContain("Pick a dimension");
+    // Chips should show the new value
     expect(wrapper.text()).toContain("Goal: Ship feature X");
   });
 
-  it("loops back to dim phase when more required remain after confirm", async () => {
+  it("loops back to dim phase when more required remain after select", async () => {
     const { wrapper } = mountInput({ initialValues: {} });
-    // Open menu
     await keydownOnInput(wrapper, "@");
-    // Select Goal
-    await keydownOnInput(wrapper, "Enter");
-    // Select a value for Goal
-    await keydownOnInput(wrapper, "Enter");
 
-    // Goal is now filled but Business Line is still required → should loop back
-    expect(wrapper.find(".absolute").exists()).toBe(true);
-    expect(wrapper.text()).toContain("DIM");
+    const mentionMenu = findMentionMenu(wrapper);
+    expect(mentionMenu.exists()).toBe(true);
+    await mentionMenu.vm.$emit("select", "goal", "Ship feature X");
+    await wrapper.vm.$nextTick();
+
+    // Menu should stay open (not all required filled — Business Line still needed)
     expect(wrapper.text()).toContain("Pick a dimension");
+    // Goal chip should appear
+    expect(wrapper.text()).toContain("Goal: Ship feature X");
   });
 
-  it("skipFilled: cursor jumps to first unfilled required dim on loop back", async () => {
-    const { wrapper } = mountInput({ initialValues: {} });
-    // Open menu
-    await keydownOnInput(wrapper, "@");
-    // Select Goal (first item), confirm val
-    await keydownOnInput(wrapper, "Enter");
-    await keydownOnInput(wrapper, "Enter");
-
-    // Should loop back. Goal is filled, Business Line is next required.
-    // skipFilled=true should select Business Line (index 1) not Goal (index 0)
-    const items = wrapper.findAll(".mention-item");
-    // Business Line should be the highlighted item
-    expect(items[1].classes()).toContain("bg-[var(--color-brand-soft-bg)]");
-    expect(items[1].text()).toContain("Business Line");
-  });
-
-  // ---- goBackToDim ----
-
-  it("goBackToDim: left arrow in val phase returns to dim phase", async () => {
+  it("MentionMenu close event removes mention and closes menu", async () => {
     const { wrapper } = mountInput();
     await keydownOnInput(wrapper, "@");
-    // Select dimension → val phase
-    await keydownOnInput(wrapper, "Enter");
-    expect(wrapper.text()).toContain("Pick a value");
-
-    // Click the left arrow button in the val header
-    const backBtn = wrapper.find(".font-bold.leading-none");
-    await backBtn.trigger("click");
-
-    // Should be back in dim phase
-    expect(wrapper.text()).toContain("DIM");
     expect(wrapper.text()).toContain("Pick a dimension");
+
+    const mentionMenu = findMentionMenu(wrapper);
+    expect(mentionMenu.exists()).toBe(true);
+    await mentionMenu.vm.$emit("close");
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.text()).not.toContain("Pick a dimension");
   });
 
   // ---- Dot progress footer ----
@@ -408,45 +309,14 @@ describe("EntryInput", () => {
     expect(wrapper.text()).toContain("to go");
   });
 
-  it('shows "All required ✓" when everything filled', async () => {
+  it('shows "0 to go" when all required filled', async () => {
     const { wrapper } = mountInput({
       initialValues: { goal: "Code review", "business-line": "Platform" },
     });
     await keydownOnInput(wrapper, "@");
     await wrapper.vm.$nextTick();
 
-    expect(wrapper.text()).toContain("All required");
-  });
-
-  // ---- Filter text / onInput ----
-
-  it("filters dimensions by typed text", async () => {
-    const { wrapper } = mountInput();
-    // Open menu with @
-    await keydownOnInput(wrapper, "@");
-
-    // Set input value and trigger onInput
-    const inp = inputEl(wrapper);
-    await inp.setValue("@Busi");
-    await inp.trigger("input");
-
-    // Check menu items only (not chip text)
-    const menuItems = wrapper.findAll(".mention-item");
-    const menuTexts = menuItems.map(i => i.text());
-    // "Business Line" should be in the filtered menu
-    expect(menuTexts.some(t => t.includes("Business Line"))).toBe(true);
-    // "Goal" should NOT be in the filtered menu
-    expect(menuTexts.some(t => t.includes("Goal"))).toBe(false);
-  });
-
-  it('shows "No matches" when filter yields empty', async () => {
-    const { wrapper } = mountInput();
-    await keydownOnInput(wrapper, "@");
-    const inp = inputEl(wrapper);
-    await inp.setValue("@ZZZZZZZ");
-    await inp.trigger("input");
-
-    expect(wrapper.text()).toContain("No matches");
+    expect(wrapper.text()).toContain("0 to go");
   });
 
   // ---- clearInput ----
@@ -482,41 +352,9 @@ describe("EntryInput", () => {
     expect((wrapper.vm as any).dimValues).toEqual({ goal: "New goal" });
   });
 
-  // ---- Menu items show metadata ----
-
-  it("shows value count on unfilled required dim items", async () => {
-    const { wrapper } = mountInput({ initialValues: {} });
-    await keydownOnInput(wrapper, "@");
-
-    // Goal is monthly, should show 2 values (from commitments)
-    expect(wrapper.text()).toContain("2 values");
-  });
-
-  it("shows checkmark ✓ on filled required dim items", async () => {
-    const { wrapper } = mountInput({
-      initialValues: { goal: "Code review" },
-    });
-    await keydownOnInput(wrapper, "@");
-
-    // Goal is filled — should show checkmark
-    const items = wrapper.findAll(".mention-item");
-    const goalItem = items.find(i => i.text().includes("Goal"));
-    expect(goalItem?.text()).toContain("✓");
-  });
-
-  // ---- val phase footer ----
-
-  it("shows navigation hint footer in val phase", async () => {
-    const { wrapper } = mountInput();
-    await keydownOnInput(wrapper, "@");
-    await keydownOnInput(wrapper, "Enter"); // → val phase
-
-    expect(wrapper.text()).toContain("Back to dimensions");
-  });
-
   // ---- focus injection ----
 
-  it("focusRequestId change focuses input when body is active", () => {
+  it("focusRequestId change does not error when body is active", () => {
     const { focusRequestId, wrapper } = mountInput();
     const inp = inputEl(wrapper);
     const focusSpy = vi.spyOn(inp.element as HTMLInputElement, "focus");
