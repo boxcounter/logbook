@@ -164,44 +164,46 @@ defineExpose({ editingCommitments });
 </script>
 
 <template>
-  <div v-if="progress.length > 0 || (commitments && commitments.length > 0) || isEditing" class="bg-white rounded-lg shadow-sm p-4">
+  <div v-if="progress.length > 0 || (commitments && commitments.length > 0) || isEditing" data-test="commitments-panel" class="bg-[var(--color-surface)] rounded-[var(--radius-card)] shadow-[var(--shadow-card)] p-4">
     <div class="flex justify-between items-center mb-3">
-      <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Commitments</h3>
+      <h3 class="text-[var(--text-xs)] font-bold text-[var(--color-text-secondary)] uppercase tracking-wide">Commitments</h3>
       <button
         v-if="!isEditing && commitments && commitments.length > 0"
-        class="text-xs text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
+        class="text-[var(--text-sm)] text-[var(--color-brand-link)] font-medium cursor-pointer"
         data-test="edit-btn"
         @click="enterEdit"
       >
-        ✏️ 编辑
+        Edit
       </button>
     </div>
 
     <!-- Display mode -->
     <template v-if="!isEditing">
       <div v-for="s in progress" :key="s.role" class="mb-4 last:mb-0">
-        <div class="flex justify-between items-center text-sm mb-1">
-          <span class="font-semibold text-gray-700">{{ s.role }}</span>
-          <span class="text-gray-500 text-xs">
+        <div class="flex justify-between items-center text-[var(--text-sm)] mb-1">
+          <span class="font-semibold text-[var(--color-text-primary)]">{{ s.role }}</span>
+          <span class="text-[var(--text-sm)] text-[var(--color-text-secondary)]">
             {{ formatDuration(s.spent_minutes) }} / {{ (s.allocation_minutes / 60).toFixed(1) }}h
           </span>
         </div>
-        <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-2">
+        <div data-test="progress-bar" class="h-[8px] bg-[var(--color-divider)] rounded-[4px] overflow-hidden mb-2">
           <div
+            data-test="progress-fill"
             :class="barColor(s.spent_minutes, s.allocation_minutes)"
-            class="h-full rounded-full transition-all"
+            class="h-full rounded-[4px] transition-all"
             :style="{ width: pct(s.spent_minutes, s.allocation_minutes) }"
           />
         </div>
-        <div class="ml-2 flex flex-col gap-0.5 text-xs">
+        <div class="ml-2 flex flex-col gap-0.5 text-[var(--text-sm)]">
           <div
             v-for="g in s.goals"
             :key="g.name"
+            data-test="goal-row"
             class="flex justify-between"
-            :class="g.spent_minutes > 0 ? 'text-gray-600' : 'text-gray-300'"
+            :class="g.spent_minutes > 0 ? 'text-[var(--color-text-secondary)]' : 'text-[var(--color-text-secondary)] opacity-40'"
           >
             <span>{{ g.name }}</span>
-            <span v-if="g.spent_minutes > 0" class="font-medium text-gray-700">{{ formatDuration(g.spent_minutes) }}</span>
+            <span v-if="g.spent_minutes > 0" class="font-medium text-[var(--color-text-primary)]">{{ formatDuration(g.spent_minutes) }}</span>
             <span v-else>0m</span>
           </div>
         </div>
@@ -210,7 +212,7 @@ defineExpose({ editingCommitments });
 
     <!-- Edit mode -->
     <template v-else>
-      <div v-if="editError" class="mb-3 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+      <div v-if="editError" class="mb-3 p-2 bg-red-50 border border-red-200 rounded-[var(--radius-form)] text-[var(--text-sm)] text-[var(--color-danger)]">
         {{ editError }}
       </div>
 
@@ -220,24 +222,24 @@ defineExpose({ editingCommitments });
             v-model="c.role"
             type="text"
             placeholder="Role"
-            class="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="flex-1 border-2 border-[var(--color-border-form)] rounded-[var(--radius-form)] text-[var(--text-base)] bg-[var(--color-surface)] text-[var(--color-text-primary)] px-[12px] py-[8px] outline-none focus:border-[var(--color-brand-solid)] focus:bg-[#fafaff] focus:shadow-[var(--shadow-focus-ring)] transition-all duration-200"
           />
-          <label class="text-xs text-gray-500 whitespace-nowrap">Alloc:</label>
+          <label class="text-[var(--text-sm)] text-[var(--color-text-secondary)] whitespace-nowrap">Alloc:</label>
           <input
             v-model.number="c.allocation"
             type="number"
             min="1"
             placeholder="hours"
-            class="w-16 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="w-16 border-2 border-[var(--color-border-form)] rounded-[var(--radius-form)] text-[var(--text-base)] bg-[var(--color-surface)] text-[var(--color-text-primary)] px-[12px] py-[8px] outline-none focus:border-[var(--color-brand-solid)] focus:bg-[#fafaff] focus:shadow-[var(--shadow-focus-ring)] transition-all duration-200"
           />
-          <span class="text-xs text-gray-400">h</span>
+          <span class="text-[var(--text-sm)] text-[var(--color-text-secondary)]">h</span>
           <button
             v-if="editingCommitments.length > 1"
-            class="text-xs text-red-400 hover:text-red-600 cursor-pointer ml-1"
+            class="text-[var(--text-sm)] text-[var(--color-text-secondary)] hover:text-[var(--color-danger)] cursor-pointer transition-colors ml-1"
             data-test="delete-role-btn"
             @click="removeRole(ri)"
           >
-            删除 Role
+            Delete Role
           </button>
         </div>
 
@@ -247,10 +249,10 @@ defineExpose({ editingCommitments });
               v-model="c.goals[gi]"
               type="text"
               placeholder="Goal name"
-              class="flex-1 px-2 py-0.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              class="flex-1 border-2 border-[var(--color-border-form)] rounded-[var(--radius-form)] text-[var(--text-base)] bg-[var(--color-surface)] text-[var(--color-text-primary)] px-[12px] py-[8px] outline-none focus:border-[var(--color-brand-solid)] focus:bg-[#fafaff] focus:shadow-[var(--shadow-focus-ring)] transition-all duration-200"
             />
             <button
-              class="text-gray-400 hover:text-red-500 text-xs cursor-pointer px-1"
+              class="text-[var(--text-sm)] text-[var(--color-text-secondary)] hover:text-[var(--color-danger)] cursor-pointer transition-colors px-1"
               data-test="delete-goal-btn"
               @click="removeGoal(ri, gi)"
             >
@@ -258,40 +260,40 @@ defineExpose({ editingCommitments });
             </button>
           </div>
           <button
-            class="text-xs text-blue-500 hover:text-blue-700 cursor-pointer self-start"
+            class="text-[var(--text-sm)] text-[var(--color-brand-link)] font-medium cursor-pointer self-start"
             data-test="add-goal-btn"
             @click="addGoal(ri)"
           >
-            + 添加 Goal
+            + Add Goal
           </button>
         </div>
 
-        <hr v-if="ri < editingCommitments.length - 1" class="my-3 border-gray-100" />
+        <hr v-if="ri < editingCommitments.length - 1" class="my-3 border-[var(--color-divider)]" />
       </div>
 
       <button
-        class="text-xs text-blue-500 hover:text-blue-700 cursor-pointer mt-2"
+        class="text-[var(--text-sm)] text-[var(--color-brand-link)] font-medium cursor-pointer mt-2"
         data-test="add-role-btn"
         @click="addRole"
       >
-        + 添加 Role
+        + Add Role
       </button>
 
-      <div class="flex justify-end gap-2 mt-4 pt-3 border-t border-gray-100">
+      <div class="flex justify-end gap-2 mt-4 pt-3 border-t border-[var(--color-divider)]">
         <button
-          class="px-3 py-1 text-xs text-gray-600 bg-gray-100 rounded hover:bg-gray-200 cursor-pointer"
+          class="bg-[var(--color-divider)] text-[var(--color-text-secondary)] rounded-full px-[16px] py-[7px] text-[var(--text-sm)] font-semibold cursor-pointer hover:opacity-80 transition-all"
           data-test="cancel-btn"
           @click="cancelEdit"
         >
-          取消
+          Cancel
         </button>
         <button
-          class="px-3 py-1 text-xs text-white bg-blue-500 rounded hover:bg-blue-600 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          class="bg-gradient-to-br from-[var(--color-brand-gradient-from)] to-[var(--color-brand-gradient-to)] text-white rounded-full px-[16px] py-[7px] text-[var(--text-sm)] font-semibold cursor-pointer hover:-translate-y-px hover:shadow-[var(--shadow-card)] transition-all disabled:opacity-50"
           :disabled="isSaving"
           data-test="save-btn"
           @click="save"
         >
-          {{ isSaving ? "保存中…" : "保存" }}
+          {{ isSaving ? "Saving..." : "Save" }}
         </button>
       </div>
     </template>

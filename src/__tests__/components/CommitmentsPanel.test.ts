@@ -46,7 +46,7 @@ function mountPanelWithEdit(
 describe("CommitmentsPanel", () => {
   it("renders nothing when progress empty", () => {
     const wrapper = mountPanel([]);
-    expect(wrapper.find(".bg-white").exists()).toBe(false);
+    expect(wrapper.find('[data-test="commitments-panel"]').exists()).toBe(false);
   });
 
   it("renders each commitment role", () => {
@@ -78,7 +78,7 @@ describe("CommitmentsPanel", () => {
     // 1200 spent out of 2400 allocated = 50%
     const progress = [makeCommitmentProgress({ spent_minutes: 1200, allocation_minutes: 2400 })];
     const wrapper = mountPanel(progress);
-    const bar = wrapper.find(".h-1\\.5 > div");
+    const bar = wrapper.find("[data-test='progress-fill']");
     expect(bar.attributes("style")).toContain("width: 50%");
   });
 
@@ -86,14 +86,14 @@ describe("CommitmentsPanel", () => {
     // 3000 spent > 2400 allocated → clamped to 100%
     const progress = [makeCommitmentProgress({ spent_minutes: 3000, allocation_minutes: 2400 })];
     const wrapper = mountPanel(progress);
-    const bar = wrapper.find(".h-1\\.5 > div");
+    const bar = wrapper.find("[data-test='progress-fill']");
     expect(bar.attributes("style")).toContain("width: 100%");
   });
 
   it("red bar when spent > allocation", () => {
     const progress = [makeCommitmentProgress({ spent_minutes: 3000, allocation_minutes: 2400 })];
     const wrapper = mountPanel(progress);
-    const bar = wrapper.find(".h-1\\.5 > div");
+    const bar = wrapper.find("[data-test='progress-fill']");
     expect(bar.classes()).toContain("bg-red-500");
   });
 
@@ -121,7 +121,7 @@ describe("CommitmentsPanel", () => {
     expect(text).toContain("0m");
 
     // Find the goal with 0 spent — should have text-gray-300 class
-    const goalRow = wrapper.find(".text-gray-300");
+    const goalRow = wrapper.find("[data-test='goal-row']");
     expect(goalRow.exists()).toBe(true);
     expect(goalRow.text()).toContain("0m");
   });
@@ -129,7 +129,7 @@ describe("CommitmentsPanel", () => {
   it("zero allocation shows 0% width and gray bar", () => {
     const progress = [makeCommitmentProgress({ allocation_minutes: 0, spent_minutes: 60 })];
     const wrapper = mountPanel(progress);
-    const bar = wrapper.find(".h-1\\.5 > div");
+    const bar = wrapper.find("[data-test='progress-fill']");
     expect(bar.attributes("style")).toContain("width: 0%");
     expect(bar.classes()).toContain("bg-gray-300");
   });
@@ -144,7 +144,7 @@ describe("CommitmentsPanel", () => {
       allocation_minutes: 2400, // 40h
     })];
     const wrapper = mountPanel(progress, 2026, 6);
-    const bar = wrapper.find(".h-1\\.5 > div");
+    const bar = wrapper.find("[data-test='progress-fill']");
     expect(bar.classes()).toContain("bg-orange-500");
 
     vi.useRealTimers();
@@ -160,7 +160,7 @@ describe("CommitmentsPanel", () => {
       allocation_minutes: 2400,
     })];
     const wrapper = mountPanel(progress, 2026, 6);
-    const bar = wrapper.find(".h-1\\.5 > div");
+    const bar = wrapper.find("[data-test='progress-fill']");
     expect(bar.classes()).toContain("bg-green-500");
 
     vi.useRealTimers();
@@ -176,7 +176,7 @@ describe("CommitmentsPanel", () => {
       allocation_minutes: 2400,
     })];
     const wrapper = mountPanel(progress, 2026, 6);
-    const bar = wrapper.find(".h-1\\.5 > div");
+    const bar = wrapper.find("[data-test='progress-fill']");
     expect(bar.classes()).toContain("bg-yellow-500");
 
     vi.useRealTimers();
@@ -190,7 +190,7 @@ describe("CommitmentsPanel", () => {
       allocation_minutes: 2400,
     })];
     const wrapper = mountPanel(progress, 2026, 5);
-    const bar = wrapper.find(".h-1\\.5 > div");
+    const bar = wrapper.find("[data-test='progress-fill']");
     expect(bar.classes()).toContain("bg-orange-500");
 
     // 95% spent → within [60%, 140%] → green
@@ -199,7 +199,7 @@ describe("CommitmentsPanel", () => {
       allocation_minutes: 2400,
     })];
     const wrapper2 = mountPanel(progress2, 2026, 5);
-    const bar2 = wrapper2.find(".h-1\\.5 > div");
+    const bar2 = wrapper2.find("[data-test='progress-fill']");
     expect(bar2.classes()).toContain("bg-green-500");
   });
 });
@@ -217,8 +217,8 @@ describe("CommitmentsPanel edit mode", () => {
     const wrapper = mountPanelWithEdit(commitments);
     const editBtn = wrapper.find('[data-test="edit-btn"]');
     await editBtn.trigger("click");
-    expect(wrapper.text()).toContain("保存");
-    expect(wrapper.text()).toContain("取消");
+    expect(wrapper.text()).toContain("Save");
+    expect(wrapper.text()).toContain("Cancel");
   });
 
   it("edit mode shows role and allocation inputs", async () => {
