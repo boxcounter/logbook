@@ -63,7 +63,7 @@ onMounted(async () => {
       v-for="(dateStr, idx) in dates"
       :key="dateStr"
       :data-day="dateStr"
-      class="flex-shrink-0 w-[38px] h-[44px] flex flex-col items-center justify-center rounded-full text-[var(--text-base)] transition-all duration-150"
+      class="flex-shrink-0 w-[38px] h-[44px] flex flex-col items-center justify-center rounded-full text-[var(--app-text-base)] transition-all duration-150"
       :class="[
         dateStr === selectedDate
           ? 'bg-gradient-to-br from-[var(--color-brand-gradient-from)] to-[var(--color-brand-gradient-to)] text-white font-bold'

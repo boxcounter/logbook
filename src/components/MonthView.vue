@@ -308,7 +308,7 @@ async function openInEditor() {
       <!-- DayNote -->
       <div
         ref="noteRef"
-        class="text-[var(--text-base)] text-[var(--color-text-primary)] outline-none rounded-[var(--radius-card)] px-[16px] py-[12px] bg-[var(--color-surface)] shadow-[var(--shadow-card)] hover:bg-[var(--color-divider)] focus:bg-[var(--color-surface)] focus:shadow-[var(--shadow-focus-ring)] cursor-text min-h-[42px]"
+        class="text-[var(--app-text-base)] text-[var(--color-text-primary)] outline-none rounded-[var(--radius-card)] px-[16px] py-[12px] bg-[var(--color-surface)] shadow-[var(--shadow-card)] hover:bg-[var(--color-divider)] focus:bg-[var(--color-surface)] focus:shadow-[var(--shadow-focus-ring)] cursor-text min-h-[42px]"
         contenteditable="true"
         data-placeholder="Add a note…"
         @blur="saveNote"
@@ -328,7 +328,7 @@ async function openInEditor() {
       <!-- File path link -->
       <div v-if="store.rootPath" class="text-right">
         <button
-          class="text-[var(--text-micro)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+          class="text-[var(--app-text-micro)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
           :title="store.rootPath + '/' + dayFilePath"
           @click="openInEditor"
         >

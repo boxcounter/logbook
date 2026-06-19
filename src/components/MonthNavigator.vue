@@ -89,7 +89,7 @@ function onMonthChange(month: number) {
         @click="handleLabelClick(); openPopover()"
       >
         {{ monthLabel(month) }} {{ year }}
-        <span v-if="availableMonths !== null" class="text-[var(--text-xs)] text-[var(--color-text-secondary)]" style="-webkit-text-fill-color: var(--color-text-secondary);">&#9662;</span>
+        <span v-if="availableMonths !== null" class="text-[var(--app-text-xs)] text-[var(--color-text-secondary)]" style="-webkit-text-fill-color: var(--color-text-secondary);">&#9662;</span>
       </span>
       <button
         class="w-[34px] h-[34px] rounded-full border border-[var(--color-border-decorative)] bg-[var(--color-surface)] text-[var(--color-text-secondary)] text-[16px] flex items-center justify-center transition-all duration-150 hover:bg-[var(--color-divider)]"
@@ -104,12 +104,12 @@ function onMonthChange(month: number) {
     >
       <select
         v-model="selectedYear"
-        class="text-[var(--text-sm)] border-2 border-[var(--color-border-form)] rounded-[var(--radius-form)] px-2 py-1 bg-[var(--color-surface)] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand-solid)] focus:shadow-[var(--shadow-focus-ring)]"
+        class="text-[var(--app-text-sm)] border-2 border-[var(--color-border-form)] rounded-[var(--radius-form)] px-2 py-1 bg-[var(--color-surface)] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand-solid)] focus:shadow-[var(--shadow-focus-ring)]"
       >
         <option v-for="y in availableYears" :key="y" :value="y">{{ y }}</option>
       </select>
       <select
-        class="text-[var(--text-sm)] border-2 border-[var(--color-border-form)] rounded-[var(--radius-form)] px-2 py-1 bg-[var(--color-surface)] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand-solid)] focus:shadow-[var(--shadow-focus-ring)]"
+        class="text-[var(--app-text-sm)] border-2 border-[var(--color-border-form)] rounded-[var(--radius-form)] px-2 py-1 bg-[var(--color-surface)] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand-solid)] focus:shadow-[var(--shadow-focus-ring)]"
         @change="onMonthChange(parseInt(($event.target as HTMLSelectElement).value, 10))"
       >
         <option v-for="m in monthsForYear" :key="m" :value="m" :selected="m === month && selectedYear === year">

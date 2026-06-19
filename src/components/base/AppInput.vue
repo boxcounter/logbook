@@ -20,7 +20,7 @@ defineExpose({ inputEl });
     type="text"
     :value="modelValue"
     :placeholder="placeholder"
-    class="w-full px-[16px] py-[10px] text-[var(--text-base)] leading-relaxed
+    class="w-full px-[16px] py-[10px] text-[var(--app-text-base)] leading-relaxed
            bg-[var(--color-surface)] text-[var(--color-text-primary)]
            border-2 border-[var(--color-border-form)] rounded-full
            outline-none

@@ -14,7 +14,7 @@ defineEmits<{
 <template>
   <span
     class="inline-flex items-center gap-[4px] px-[10px] py-[3px]
-           rounded-full text-[var(--text-xs)] font-medium cursor-pointer
+           rounded-full text-[var(--app-text-xs)] font-medium cursor-pointer
            transition-opacity duration-200 hover:opacity-80"
     :class="
       color === 'category'

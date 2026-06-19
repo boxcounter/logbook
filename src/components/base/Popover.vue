@@ -12,7 +12,7 @@ defineProps<{
       :class="triggerClass"
       class="inline-flex items-center gap-[4px] px-[10px] py-[5px]
              border-2 border-[var(--color-border-form)] rounded-[var(--radius-form)]
-             text-[var(--text-base)] leading-relaxed
+             text-[var(--app-text-base)] leading-relaxed
              bg-[var(--color-surface)] text-[var(--color-text-secondary)]
              cursor-pointer transition-all duration-200
              focus:border-[var(--color-brand-solid)]

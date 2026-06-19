@@ -20,7 +20,7 @@ defineEmits<{
     <ListboxContent
       class="min-w-[140px] bg-[var(--color-surface)] border border-[var(--color-border-decorative)]
              rounded-[var(--radius-popover)] shadow-[var(--shadow-popover)]
-             overflow-hidden text-[var(--text-base)]
+             overflow-hidden text-[var(--app-text-base)]
              animate-[popoverIn_0.2s_cubic-bezier(0.16,1,0.3,1)]"
     >
       <ListboxItem

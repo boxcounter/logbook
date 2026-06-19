@@ -62,10 +62,10 @@ function cancelEdit() {
 <template>
   <div v-if="progress.length > 0 || (commitments && commitments.length > 0) || isEditing" data-test="commitments-panel" class="bg-[var(--color-surface)] rounded-[var(--radius-card)] shadow-[var(--shadow-card)] p-4">
     <div class="flex justify-between items-center mb-3">
-      <h3 class="text-[var(--text-xs)] font-bold text-[var(--color-text-secondary)] uppercase tracking-wide">Commitments</h3>
+      <h3 class="text-[var(--app-text-xs)] font-bold text-[var(--color-text-secondary)] uppercase tracking-wide">Commitments</h3>
       <button
         v-if="!isEditing && commitments && commitments.length > 0"
-        class="text-[var(--text-sm)] text-[var(--color-brand-link)] font-medium cursor-pointer"
+        class="text-[var(--app-text-sm)] text-[var(--color-brand-link)] font-medium cursor-pointer"
         data-test="edit-btn"
         @click="enterEdit"
       >
@@ -76,9 +76,9 @@ function cancelEdit() {
     <!-- Display mode -->
     <template v-if="!isEditing">
       <div v-for="s in progress" :key="s.role" class="mb-4 last:mb-0">
-        <div class="flex justify-between items-center text-[var(--text-sm)] mb-1">
+        <div class="flex justify-between items-center text-[var(--app-text-sm)] mb-1">
           <span class="font-semibold text-[var(--color-text-primary)]">{{ s.role }}</span>
-          <span class="text-[var(--text-sm)] text-[var(--color-text-secondary)]">
+          <span class="text-[var(--app-text-sm)] text-[var(--color-text-secondary)]">
             {{ formatDuration(s.spent_minutes) }} / {{ (s.allocation_minutes / 60).toFixed(1) }}h
           </span>
         </div>
@@ -90,7 +90,7 @@ function cancelEdit() {
             :style="{ width: pct(s.spent_minutes, s.allocation_minutes) }"
           />
         </div>
-        <div class="ml-2 flex flex-col gap-0.5 text-[var(--text-sm)]">
+        <div class="ml-2 flex flex-col gap-0.5 text-[var(--app-text-sm)]">
           <div
             v-for="g in s.goals"
             :key="g.name"

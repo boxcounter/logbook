@@ -58,12 +58,12 @@ const activeChips = computed(() => {
     <!-- Selects (toggleable) -->
     <div class="flex flex-col gap-2">
       <div v-for="dim in effectiveDimensions" :key="dim.key" class="flex items-center gap-2">
-        <label class="text-[var(--text-sm)] text-[var(--color-text-secondary)] w-16 shrink-0">
+        <label class="text-[var(--app-text-sm)] text-[var(--color-text-secondary)] w-16 shrink-0">
           {{ dim.name }}<span v-if="dim.required" class="text-[var(--color-danger)]"> *</span>
         </label>
         <select
           :value="values[dim.key] || ''"
-          class="flex-1 px-[10px] py-[6px] text-[var(--text-sm)] border-2 border-[var(--color-border-form)] rounded-[var(--radius-form)] bg-[var(--color-surface)] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand-solid)] focus:shadow-[var(--shadow-focus-ring)] transition-all duration-200"
+          class="flex-1 px-[10px] py-[6px] text-[var(--app-text-sm)] border-2 border-[var(--color-border-form)] rounded-[var(--radius-form)] bg-[var(--color-surface)] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand-solid)] focus:shadow-[var(--shadow-focus-ring)] transition-all duration-200"
           @change="setValue(dim.key, ($event.target as HTMLSelectElement).value)"
         >
           <option value="">--</option>
@@ -71,19 +71,19 @@ const activeChips = computed(() => {
         </select>
       </div>
       <div v-if="monthlyDimension" class="flex items-center gap-2">
-        <label class="text-[var(--text-sm)] text-[var(--color-text-secondary)] w-16 shrink-0">
+        <label class="text-[var(--app-text-sm)] text-[var(--color-text-secondary)] w-16 shrink-0">
           {{ monthlyDimension.name }}<span v-if="monthlyDimension.required" class="text-red-500"> *</span>
         </label>
         <select
           :value="values[monthlyDimension.key] || ''"
-          class="flex-1 px-[10px] py-[6px] text-[var(--text-sm)] border-2 border-[var(--color-border-form)] rounded-[var(--radius-form)] bg-[var(--color-surface)] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand-solid)] focus:shadow-[var(--shadow-focus-ring)] transition-all duration-200"
+          class="flex-1 px-[10px] py-[6px] text-[var(--app-text-sm)] border-2 border-[var(--color-border-form)] rounded-[var(--radius-form)] bg-[var(--color-surface)] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand-solid)] focus:shadow-[var(--shadow-focus-ring)] transition-all duration-200"
           @change="setValue(monthlyDimension.key, ($event.target as HTMLSelectElement).value)"
         >
           <option value="">--</option>
           <option v-for="g in goalOptions" :key="g" :value="g">{{ g }}</option>
         </select>
       </div>
-      <div class="text-[var(--text-micro)] text-[var(--color-text-secondary)] mt-1">
+      <div class="text-[var(--app-text-micro)] text-[var(--color-text-secondary)] mt-1">
         <span class="text-[var(--color-danger)]">*</span> required
       </div>
     </div>

@@ -49,7 +49,7 @@ function goBack() { phase.value = 'dim'; activeDimKey.value = null; }
   <div
     class="bg-[var(--color-surface)] border border-[var(--color-border-decorative)]
            rounded-[var(--radius-popover)] shadow-[var(--shadow-popover)] overflow-hidden
-           w-[240px] text-[var(--text-base)]
+           w-[240px] text-[var(--app-text-base)]
            animate-[popoverIn_0.2s_cubic-bezier(0.16,1,0.3,1)]"
   >
     <!-- Dim phase header -->

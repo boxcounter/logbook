@@ -83,7 +83,7 @@ function onDimChange(dimKey: string, value: string) {
     :class="{ 'bg-[#fafaff] shadow-[inset_3px_0_0_var(--color-brand-solid)]': editingItem || editingDuration || editingDimensions }"
   >
     <!-- Row number -->
-    <span class="text-[var(--text-xs)] text-[var(--color-text-secondary)] w-[20px] text-right flex-shrink-0 tabular-nums">
+    <span class="text-[var(--app-text-xs)] text-[var(--color-text-secondary)] w-[20px] text-right flex-shrink-0 tabular-nums">
       {{ index + 1 }}
     </span>
 
@@ -94,7 +94,7 @@ function onDimChange(dimKey: string, value: string) {
         <input
           v-model="itemInput"
           class="flex-1 px-[8px] py-[3px] border-2 border-[var(--color-brand-solid)]
-                 rounded-[var(--radius-form)] text-[var(--text-base)] leading-[1.4]
+                 rounded-[var(--radius-form)] text-[var(--app-text-base)] leading-[1.4]
                  outline-none bg-[#fafaff] min-w-0
                  shadow-[var(--shadow-focus-ring)]"
           @keydown.enter.prevent="commitItem"
@@ -105,7 +105,7 @@ function onDimChange(dimKey: string, value: string) {
       </template>
       <template v-else>
         <span
-          class="text-[var(--text-base)] min-w-0 cursor-default
+          class="text-[var(--app-text-base)] min-w-0 cursor-default
                  rounded px-[2px] -mx-[2px] hover:bg-[var(--color-divider)]"
           @dblclick="startEditItem"
         >
@@ -120,7 +120,7 @@ function onDimChange(dimKey: string, value: string) {
           :key="dim.key"
           :value="entry.dimensions[dim.key] || ''"
           class="px-[10px] py-[3px] border-2 border-[var(--color-border-form)]
-                 rounded-[var(--radius-form)] text-[var(--text-base)] leading-[1.4]
+                 rounded-[var(--radius-form)] text-[var(--app-text-base)] leading-[1.4]
                  bg-[var(--color-surface)] text-[var(--color-text-secondary)]
                  focus:border-[var(--color-brand-solid)] focus:bg-[#fafaff]
                  focus:shadow-[var(--shadow-focus-ring)] outline-none
@@ -154,7 +154,7 @@ function onDimChange(dimKey: string, value: string) {
         v-model="durInput"
         class="w-[56px] text-right px-[8px] py-[3px]
                border-2 border-[#8b5cf6] rounded-[var(--radius-form)]
-               text-[var(--text-base)] leading-[1.4] tabular-nums
+               text-[var(--app-text-base)] leading-[1.4] tabular-nums
                outline-none bg-[#fafaff]
                shadow-[0_0_0_4px_rgba(139,92,246,0.12),0_0_20px_rgba(139,92,246,0.06)]"
         @keydown.enter.prevent="commitDuration"
@@ -165,7 +165,7 @@ function onDimChange(dimKey: string, value: string) {
     </template>
     <template v-else>
       <span
-        class="text-[var(--text-base)] text-[var(--color-text-secondary)] tabular-nums
+        class="text-[var(--app-text-base)] text-[var(--color-text-secondary)] tabular-nums
                flex-shrink-0 cursor-default rounded px-[4px] hover:bg-[var(--color-divider)]"
         @dblclick="startEditDuration"
       >

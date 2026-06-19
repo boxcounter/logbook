@@ -233,8 +233,8 @@ function onInputBlur() {
     </div>
 
     <div class="flex justify-between mt-1 min-h-[1.25rem]">
-      <span v-if="parsedPreview" class="text-[var(--text-sm)] text-[var(--color-text-secondary)]">Duration: {{ parsedPreview }}</span>
-      <span v-if="error" class="text-[var(--text-sm)] text-[var(--color-danger)]">{{ error }}</span>
+      <span v-if="parsedPreview" class="text-[var(--app-text-sm)] text-[var(--color-text-secondary)]">Duration: {{ parsedPreview }}</span>
+      <span v-if="error" class="text-[var(--app-text-sm)] text-[var(--color-danger)]">{{ error }}</span>
     </div>
 
     <!-- #6: Dimension chips row -->
@@ -258,7 +258,7 @@ function onInputBlur() {
       >
         + {{ m.name }}
       </span>
-      <span v-if="Object.values(dimValues).every(v => !v) && missingRequired.length === 0" class="text-[var(--text-sm)] text-[var(--color-text-secondary)] italic">
+      <span v-if="Object.values(dimValues).every(v => !v) && missingRequired.length === 0" class="text-[var(--app-text-sm)] text-[var(--color-text-secondary)] italic">
         @ to set dimensions
       </span>
     </div>
