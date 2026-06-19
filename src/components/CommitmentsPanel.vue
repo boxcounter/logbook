@@ -1,6 +1,6 @@
 <!-- src/components/CommitmentsPanel.vue -->
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, computed } from "vue";
 import type { Commitment, CommitmentProgress } from "../types";
 import { formatDuration } from "../utils/format";
 import CommitmentsModal from "./composite/CommitmentsModal.vue";
@@ -24,7 +24,7 @@ function pct(spent: number, alloc: number): string {
   return Math.min(100, Math.round((spent / alloc) * 100)) + "%";
 }
 
-const hasCommitments = () => !!props.commitments && props.commitments.length > 0;
+const hasCommitments = computed(() => !!props.commitments && props.commitments.length > 0);
 
 const modalOpen = ref(false);
 function openEditor() { modalOpen.value = true; }
@@ -37,7 +37,7 @@ function onSaved() { modalOpen.value = false; emit("saved"); }
     <div class="flex justify-between items-center mb-[10px]">
       <h3 class="text-[length:var(--app-text-micro)] font-bold text-[var(--color-text-secondary)] uppercase tracking-[0.5px]">Commitments</h3>
       <button
-        v-if="commitments && commitments.length > 0"
+        v-if="hasCommitments"
         class="text-[length:var(--app-text-xs)] text-[var(--color-brand-link)] font-medium cursor-pointer"
         data-test="edit-btn"
         @click="openEditor"
@@ -78,7 +78,7 @@ function onSaved() { modalOpen.value = false; emit("saved"); }
     </div>
 
     <button
-      v-if="!hasCommitments()"
+      v-if="!hasCommitments"
       data-test="setup-btn"
       class="mt-[4px] text-[length:var(--app-text-xs)] text-[var(--color-brand-link)] font-medium cursor-pointer hover:underline"
       @click="openEditor"

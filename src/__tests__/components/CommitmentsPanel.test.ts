@@ -1,6 +1,6 @@
 // src/__tests__/components/CommitmentsPanel.test.ts
 import { describe, it, expect, vi } from "vitest";
-import { mount } from "@vue/test-utils";
+import { mount, flushPromises } from "@vue/test-utils";
 import CommitmentsPanel from "../../components/CommitmentsPanel.vue";
 import { makeCommitmentProgress, makeCommitment } from "../mocks/fixtures";
 
@@ -53,5 +53,20 @@ describe("CommitmentsPanel", () => {
     const initial = goalRows().length;
     await w.find("[data-test='role-toggle']").trigger("click");
     expect(goalRows().length).not.toBe(initial);
+  });
+  it("re-emits 'saved' to the parent when the modal saves", async () => {
+    const w = mountPanel(); // default commitments are valid → save passes validation
+    await w.find("[data-test='edit-btn']").trigger("click");
+    await w.find("[data-test='save']").trigger("click");
+    await flushPromises();
+    expect(w.emitted("saved")).toBeTruthy();
+    expect(w.find("[role='dialog']").exists()).toBe(false); // modal closed after save
+  });
+  it("closing the modal hides the dialog", async () => {
+    const w = mountPanel();
+    await w.find("[data-test='edit-btn']").trigger("click");
+    expect(w.find("[role='dialog']").exists()).toBe(true);
+    await w.find("[data-test='cancel']").trigger("click"); // no changes → immediate close
+    expect(w.find("[role='dialog']").exists()).toBe(false);
   });
 });
