@@ -236,4 +236,28 @@ describe("CommitmentsModal — delete constraints", () => {
     await w.find("[data-test='role-delete-confirm']").trigger("click");
     expect(w.findAll("[data-test='role-name']").length).toBe(1);
   });
+
+  it("Cancel in the role-delete confirm dismisses without removing", async () => {
+    const w = mountModal({
+      commitments: [
+        makeCommitment({ role: "Developer", allocation: 40, goals: ["Ship onboarding v2"] }),
+        makeCommitment({ role: "Advisor", allocation: 5, goals: ["Office hours"] }),
+      ],
+      progress: [
+        makeCommitmentProgress({ role: "Developer", spent_minutes: 870, allocation_minutes: 2400, goals: [{ name: "Ship onboarding v2", spent_minutes: 870 }] }),
+        makeCommitmentProgress({ role: "Advisor", spent_minutes: 0, allocation_minutes: 300, goals: [{ name: "Office hours", spent_minutes: 0 }] }),
+      ],
+    });
+    await w.findAll("[data-test='role-delete']")[1].trigger("click"); // Advisor → confirm
+    await w.find("[data-test='role-delete-cancel']").trigger("click");
+    expect(w.findAll("[data-test='role-name']").length).toBe(2); // nothing removed
+    expect(w.find("[data-test='role-delete-confirm']").exists()).toBe(false); // confirm dismissed
+  });
+
+  it("clicking a logged goal's remove does not delete it", async () => {
+    const w = mountModal(); // baseProps: Developer with two logged goals
+    const before = w.findAll("[data-test='goal-name']").length;
+    await w.findAll("[data-test='goal-remove']")[0].trigger("click");
+    expect(w.findAll("[data-test='goal-name']").length).toBe(before); // guard blocks removal
+  });
 });

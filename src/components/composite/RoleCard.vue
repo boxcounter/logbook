@@ -64,7 +64,9 @@ function requestDelete() { if (roleDeletable.value) confirming.value = true; }
 function confirmDelete() { confirming.value = false; emit("delete"); }
 function cancelDelete() { confirming.value = false; }
 function removeGoal(g: GoalRowModel) {
-  if (goalLogged(g.origName) > 0) return; // UI also disables; guard defensively
+  // Authoritative guard: the button's native `disabled` is a UX affordance only
+  // (programmatic clicks still fire the handler), so block logged-goal removal here.
+  if (goalLogged(g.origName) > 0) return;
   const i = props.role.goals.findIndex(x => x.key === g.key);
   if (i >= 0) props.role.goals.splice(i, 1);
 }
@@ -111,8 +113,8 @@ function removeGoal(g: GoalRowModel) {
       </span>
       <span v-if="confirming" class="inline-flex items-center gap-[10px] text-[length:var(--app-text-xs)]">
         <span class="text-[var(--color-danger)] whitespace-nowrap">Delete role?</span>
-        <a data-test="role-delete-confirm" class="font-semibold text-[var(--color-danger)] cursor-pointer" @click="confirmDelete">Delete</a>
-        <a class="font-semibold text-[var(--color-text-muted)] cursor-pointer" @click="cancelDelete">Cancel</a>
+        <button type="button" data-test="role-delete-confirm" class="font-semibold text-[var(--color-danger)] cursor-pointer" @click="confirmDelete">Delete</button>
+        <button type="button" data-test="role-delete-cancel" class="font-semibold text-[var(--color-text-muted)] cursor-pointer" @click="cancelDelete">Cancel</button>
       </span>
       <button
         v-else
