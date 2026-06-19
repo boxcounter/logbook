@@ -77,50 +77,44 @@ function onMonthChange(month: number) {
 </script>
 
 <template>
-  <div class="relative bg-white rounded-lg border border-gray-200 p-3 text-center">
-    <div class="flex items-center justify-center gap-3">
+  <div class="relative bg-[var(--color-surface)] rounded-[var(--radius-card)] shadow-[var(--shadow-card)] p-4 text-center">
+    <div class="flex items-center justify-center gap-[16px]">
       <button
-        class="text-gray-500 hover:text-gray-700 transition-colors text-base px-1"
+        class="w-[34px] h-[34px] rounded-full border border-[var(--color-border-decorative)] bg-[var(--color-surface)] text-[var(--color-text-secondary)] text-[16px] flex items-center justify-center transition-all duration-150 hover:bg-[var(--color-divider)]"
         @click="shiftMonth(-1)"
-      >←</button>
+      >&larr;</button>
       <span
-        class="text-base font-bold text-gray-800 cursor-pointer hover:text-blue-600 transition-colors select-none"
+        class="text-[16px] font-bold cursor-pointer hover:opacity-80 transition-opacity select-none"
+        style="background: linear-gradient(135deg, var(--color-brand-gradient-from), var(--color-brand-gradient-to)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;"
         @click="handleLabelClick(); openPopover()"
       >
         {{ monthLabel(month) }} {{ year }}
-        <span v-if="availableMonths !== null" class="text-xs text-gray-400">▾</span>
+        <span v-if="availableMonths !== null" class="text-[var(--text-xs)] text-[var(--color-text-secondary)]" style="-webkit-text-fill-color: var(--color-text-secondary);">&#9662;</span>
       </span>
       <button
-        class="text-gray-500 hover:text-gray-700 transition-colors text-base px-1"
+        class="w-[34px] h-[34px] rounded-full border border-[var(--color-border-decorative)] bg-[var(--color-surface)] text-[var(--color-text-secondary)] text-[16px] flex items-center justify-center transition-all duration-150 hover:bg-[var(--color-divider)]"
         @click="shiftMonth(1)"
-      >→</button>
+      >&rarr;</button>
     </div>
 
     <!-- Quick-jump popover -->
     <div
       v-if="showPopover && availableMonths !== null"
-      class="absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg p-3 z-10 flex gap-2"
+      class="absolute top-full left-1/2 -translate-x-1/2 mt-[4px] bg-[var(--color-surface)] border border-[var(--color-border-decorative)] rounded-[var(--radius-popover)] shadow-[var(--shadow-popover)] p-3 z-10 flex gap-2"
     >
       <select
         v-model="selectedYear"
-        class="text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        class="text-[var(--text-sm)] border-2 border-[var(--color-border-form)] rounded-[var(--radius-form)] px-2 py-1 bg-[var(--color-surface)] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand-solid)] focus:shadow-[var(--shadow-focus-ring)]"
       >
-        <option
-          v-for="y in availableYears"
-          :key="y"
-          :value="y"
-        >{{ y }}</option>
+        <option v-for="y in availableYears" :key="y" :value="y">{{ y }}</option>
       </select>
       <select
-        class="text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        class="text-[var(--text-sm)] border-2 border-[var(--color-border-form)] rounded-[var(--radius-form)] px-2 py-1 bg-[var(--color-surface)] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand-solid)] focus:shadow-[var(--shadow-focus-ring)]"
         @change="onMonthChange(parseInt(($event.target as HTMLSelectElement).value, 10))"
       >
-        <option
-          v-for="m in monthsForYear"
-          :key="m"
-          :value="m"
-          :selected="m === month && selectedYear === year"
-        >{{ monthLabel(m) }}</option>
+        <option v-for="m in monthsForYear" :key="m" :value="m" :selected="m === month && selectedYear === year">
+          {{ monthLabel(m) }}
+        </option>
       </select>
     </div>
   </div>

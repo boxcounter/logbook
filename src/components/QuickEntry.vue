@@ -56,7 +56,7 @@ async function handleSubmit(item: string, durationMinutes: number, dimensions: R
 </script>
 
 <template>
-  <div class="bg-white rounded-lg shadow-sm p-4 space-y-3">
+  <div class="bg-[var(--color-surface)] rounded-[var(--radius-card)] shadow-[var(--shadow-card)] p-4 space-y-3">
     <EntryInput
       ref="entryInputRef"
       :dimensions="store.config?.dimensions || []"
@@ -64,8 +64,8 @@ async function handleSubmit(item: string, durationMinutes: number, dimensions: R
       :initialValues="dimValues"
       @submit="handleSubmit"
     />
-    <button class="text-xs text-blue-600 hover:text-blue-800" @click="showDimensions = !showDimensions">
-      {{ showDimensions ? "▾ Hide" : "▸ Show" }} Dimensions
+    <button class="text-[var(--text-sm)] text-[var(--color-brand-link)] hover:opacity-80 font-medium cursor-pointer" @click="showDimensions = !showDimensions">
+      {{ showDimensions ? "Hide" : "Show" }} Dimensions
     </button>
     <DimensionPanel
       v-if="showDimensions"

@@ -57,22 +57,22 @@ onMounted(async () => {
 <template>
   <div
     ref="stripRef"
-    class="flex overflow-x-auto border border-gray-200 rounded-lg bg-white py-1.5 px-1"
+    class="flex overflow-x-auto gap-[4px] px-[10px] py-[8px] bg-[var(--color-surface)] rounded-[var(--radius-card)] shadow-[var(--shadow-card)]"
   >
     <button
       v-for="(dateStr, idx) in dates"
       :key="dateStr"
       :data-day="dateStr"
-      class="flex-shrink-0 w-9 h-11 flex flex-col items-center justify-center rounded text-xs transition-colors"
+      class="flex-shrink-0 w-[38px] h-[44px] flex flex-col items-center justify-center rounded-full text-[var(--text-base)] transition-all duration-150"
       :class="[
         dateStr === selectedDate
-          ? 'bg-blue-600 text-white font-semibold'
+          ? 'bg-gradient-to-br from-[var(--color-brand-gradient-from)] to-[var(--color-brand-gradient-to)] text-white font-bold'
           : isFuture(dateStr)
-            ? 'text-gray-300 cursor-default'
+            ? 'text-[var(--color-text-secondary)] opacity-40 cursor-default'
             : isToday(dateStr)
-              ? 'text-gray-700 font-semibold hover:bg-gray-100 cursor-pointer'
-              : 'text-gray-600 hover:bg-gray-100 cursor-pointer',
-        (idx + 1) % 7 === 0 ? 'mr-2' : '',
+              ? 'text-[var(--color-text-primary)] font-semibold hover:bg-[var(--color-divider)] cursor-pointer'
+              : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-divider)] cursor-pointer',
+        (idx + 1) % 7 === 0 ? 'mr-[8px]' : '',
       ]"
       @click="handleClick(dateStr)"
     >
@@ -80,8 +80,8 @@ onMounted(async () => {
       <span
         v-if="hasEntries(dateStr)"
         data-dot
-        class="inline-block w-1.5 h-1.5 rounded-full mt-0.5"
-        :class="dateStr === selectedDate ? 'bg-white' : 'bg-blue-500'"
+        class="inline-block w-[5px] h-[5px] rounded-full mt-[2px]"
+        :class="dateStr === selectedDate ? 'bg-white' : 'bg-[var(--color-brand-gradient-from)]'"
       ></span>
     </button>
   </div>

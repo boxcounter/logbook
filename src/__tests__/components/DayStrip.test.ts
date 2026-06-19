@@ -33,7 +33,7 @@ describe("DayStrip", () => {
     const wrapper = mountStrip({ dates, selectedDate: "2026-06-02", monthEntries: {} });
     const cells = wrapper.findAll("[data-day]");
     const selected = cells.find(c => c.attributes("data-day") === "2026-06-02");
-    expect(selected?.classes()).toContain("bg-blue-600");
+    expect(selected?.classes()).toContain("bg-gradient-to-br");
   });
 
   it("today has distinct indicator when not selected", () => {
@@ -41,7 +41,7 @@ describe("DayStrip", () => {
     const wrapper = mountStrip({ dates, selectedDate: "2026-06-13", monthEntries: {} });
     const todayCell = wrapper.find('[data-day="2026-06-14"]');
     // Should have underline or bold class but not the selected blue bg
-    expect(todayCell.classes()).not.toContain("bg-blue-600");
+    expect(todayCell.classes()).not.toContain("bg-gradient-to-br");
     // Should have a "today" class or similar marker
     expect(todayCell.classes()).toContain("font-semibold");
   });
@@ -51,8 +51,8 @@ describe("DayStrip", () => {
     const wrapper = mountStrip({ dates, selectedDate: "2026-06-13", monthEntries: {} });
     const cell15 = wrapper.find('[data-day="2026-06-15"]');
     const cell16 = wrapper.find('[data-day="2026-06-16"]');
-    expect(cell15.classes()).toContain("text-gray-300");
-    expect(cell16.classes()).toContain("text-gray-300");
+    expect(cell15.classes()).toContain("opacity-40");
+    expect(cell16.classes()).toContain("opacity-40");
   });
 
   it("future dates emit no event on click", async () => {
@@ -88,10 +88,10 @@ describe("DayStrip", () => {
     const wrapper = mountStrip({ dates, selectedDate: "2026-06-01", monthEntries: {} });
     const cells = wrapper.findAll("[data-day]");
     // 7th cell (index 6) should have extra margin class
-    expect(cells[6].classes()).toContain("mr-2");
+    expect(cells[6].classes()).toContain("mr-[8px]");
     // 14th cell (index 13) should have extra margin class
-    expect(cells[13].classes()).toContain("mr-2");
+    expect(cells[13].classes()).toContain("mr-[8px]");
     // 8th cell (index 7) should NOT have it
-    expect(cells[7].classes()).not.toContain("mr-2");
+    expect(cells[7].classes()).not.toContain("mr-[8px]");
   });
 });
