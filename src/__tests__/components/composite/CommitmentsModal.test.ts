@@ -134,11 +134,14 @@ describe("CommitmentsModal — allocation stepper", () => {
   });
   it("Arrow Up/Down adjusts by 5", async () => {
     const w = mountModal();
-    const inp = w.find("[data-test='alloc']");
-    await inp.trigger("keydown", { key: "ArrowUp" });
-    expect((inp.element as HTMLInputElement).value).toBe("45");
-    await inp.trigger("keydown", { key: "ArrowDown" });
-    expect((inp.element as HTMLInputElement).value).toBe("40");
+    // Re-query the input after each keydown: under the `teleport: true` test stub,
+    // the committedHours-driven modal re-render remounts vuedraggable's keyed child,
+    // so a captured wrapper would point at a detached node. (Real Teleport patches
+    // the node in place — verified separately — so this is a test-harness concern.)
+    await w.find("[data-test='alloc']").trigger("keydown", { key: "ArrowUp" });
+    expect((w.find("[data-test='alloc']").element as HTMLInputElement).value).toBe("45");
+    await w.find("[data-test='alloc']").trigger("keydown", { key: "ArrowDown" });
+    expect((w.find("[data-test='alloc']").element as HTMLInputElement).value).toBe("40");
   });
   it("floors a decimal typed value and re-syncs the input", async () => {
     const w = mountModal();
@@ -154,5 +157,34 @@ describe("CommitmentsModal — allocation stepper", () => {
     const inp = w.find("[data-test='alloc']");
     await inp.setValue("");
     expect((inp.element as HTMLInputElement).value).toBe("1");
+  });
+});
+
+describe("CommitmentsModal — summary, progress & over-commit", () => {
+  it("header shows live committed total and logged total", async () => {
+    const w = mountModal(); // committed 40h, logged 870m = 14h 30m
+    expect(w.find("[data-test='committed']").text()).toContain("40h");
+    expect(w.find("[data-test='logged']").text()).toContain("14h 30m");
+    await w.find("[data-test='alloc-inc']").trigger("click"); // 40→45
+    expect(w.find("[data-test='committed']").text()).toContain("45h");
+  });
+  it("shows role logged and per-goal logged", () => {
+    const w = mountModal();
+    expect(w.find("[data-test='role-spent']").text()).toContain("14h 30m");
+    const logged = w.findAll("[data-test='goal-logged']").map(n => n.text());
+    expect(logged.some(t => t.includes("14h 25m"))).toBe(true);
+    expect(logged.some(t => t.includes("5m"))).toBe(true);
+  });
+  it("bar fills proportionally to spent/allocation", () => {
+    const w = mountModal(); // 870/2400 ≈ 36%
+    expect((w.find("[data-test='bar-fill']").element as HTMLElement).style.width).toBe("36%");
+  });
+  it("turns amber + 'over by' when allocation drops below logged", async () => {
+    const w = mountModal();
+    const dec = w.find("[data-test='alloc-dec']");
+    for (let i = 0; i < 6; i++) await dec.trigger("click"); // 40→10
+    expect((w.find("[data-test='bar-fill']").element as HTMLElement).style.width).toBe("100%");
+    expect(w.find("[data-test='role-spent']").text()).toContain("over by");
+    expect(w.find("[data-test='bar-fill']").classes().join(" ")).toContain("color-warning");
   });
 });
