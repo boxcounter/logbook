@@ -22,6 +22,15 @@ const durText = ref(String(props.entry.duration));
 const dimValues = ref<Record<string, string>>({ ...props.entry.dimensions });
 const popoverOpen = ref(false);
 const submitAttempted = ref(false);
+const rootEl = ref<HTMLElement>();
+const popoverUp = ref(false);
+
+// Open upward when there isn't room below (the card clips with overflow-hidden).
+function openPopover() {
+  const rect = rootEl.value?.getBoundingClientRect();
+  popoverUp.value = rect ? window.innerHeight - rect.bottom < 260 : false;
+  popoverOpen.value = true;
+}
 
 const missingRequired = computed(() =>
   props.dimensions.filter(d => d.required && !dimValues.value[d.key])
@@ -65,6 +74,7 @@ function save() {
 
 <template>
   <div
+    ref="rootEl"
     class="bg-[var(--color-surface)] border border-[var(--color-brand-solid)] rounded-[var(--radius-form-lg)]
            shadow-[var(--shadow-focus-ring)] px-[14px] py-[9px] flex flex-col gap-[4px] relative"
   >
@@ -98,7 +108,7 @@ function save() {
         class="text-[length:var(--app-text-micro)] font-medium px-[7px] py-[1px] rounded-[var(--radius-sm)]
                border border-dashed border-[var(--color-border-form)] text-[var(--color-text-secondary)]
                cursor-pointer hover:border-[var(--color-text-muted)]"
-        @click="popoverOpen = true"
+        @click="openPopover"
       >+ tag</span>
       <span
         v-if="submitAttempted && missingRequired.length"
@@ -118,7 +128,8 @@ function save() {
       :dimensions="dimensions"
       :commitments="commitments"
       :dim-values="dimValues"
-      class="absolute left-0 top-full mt-[4px] z-10"
+      class="absolute left-0 z-10"
+      :class="popoverUp ? 'bottom-full mb-[4px]' : 'top-full mt-[4px]'"
       @select="onSelect"
       @close="popoverOpen = false"
     />
