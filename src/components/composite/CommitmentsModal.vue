@@ -55,9 +55,18 @@ const MIN_ALLOC = 5;
 function stepAlloc(ri: number, delta: number) {
   draft.value[ri].allocation = Math.max(MIN_ALLOC, (draft.value[ri].allocation || 0) + delta);
 }
+// Allocation has two floors: the stepper buttons enforce a soft MIN_ALLOC (5h)
+// floor, while direct typing only clamps to the hard >0 floor (1) the backend
+// requires. Typed values of 1–4 are therefore legal.
 function onAllocInput(ri: number, e: Event) {
-  const v = Math.floor(Number((e.target as HTMLInputElement).value));
-  draft.value[ri].allocation = Number.isFinite(v) && v >= 1 ? v : 1;
+  const el = e.target as HTMLInputElement;
+  const v = Math.floor(Number(el.value));
+  const next = Number.isFinite(v) && v >= 1 ? v : 1;
+  draft.value[ri].allocation = next;
+  // Re-sync the DOM in case the clamped value equals the previous model value
+  // (no model change → no Vue patch → the field would otherwise stay desynced,
+  // e.g. clearing the field while already at the floor).
+  if (el.value !== String(next)) el.value = String(next);
 }
 
 const monthLabel = computed(() =>

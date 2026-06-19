@@ -140,4 +140,19 @@ describe("CommitmentsModal — allocation stepper", () => {
     await inp.trigger("keydown", { key: "ArrowDown" });
     expect((inp.element as HTMLInputElement).value).toBe("40");
   });
+  it("floors a decimal typed value and re-syncs the input", async () => {
+    const w = mountModal();
+    const inp = w.find("[data-test='alloc']");
+    await inp.setValue("3.7");
+    expect((inp.element as HTMLInputElement).value).toBe("3");
+  });
+  it("clamps a cleared field to 1 and re-syncs the input (no desync)", async () => {
+    const w = mountModal({
+      commitments: [makeCommitment({ role: "Developer", allocation: 1, goals: [] })],
+      progress: [makeCommitmentProgress({ role: "Developer", allocation_minutes: 60, spent_minutes: 0, goals: [] })],
+    });
+    const inp = w.find("[data-test='alloc']");
+    await inp.setValue("");
+    expect((inp.element as HTMLInputElement).value).toBe("1");
+  });
 });
