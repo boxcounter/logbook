@@ -1321,6 +1321,25 @@ mod tests {
         assert!(err.contains("Dev"));
     }
 
+    #[test]
+    fn test_validate_commitments_duplicate_goal_ignores_whitespace() {
+        let c = make_commitments(vec![("Dev", 40, vec!["Ship it", " Ship it "])]);
+        let result = validate_commitments(&c);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("already exists"));
+    }
+
+    #[test]
+    fn test_validate_commitments_duplicate_role_ignores_whitespace() {
+        let c = make_commitments(vec![
+            ("Dev", 40, vec!["A"]),
+            (" Dev ", 20, vec!["B"]),
+        ]);
+        let result = validate_commitments(&c);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("already exists"));
+    }
+
     // Guard: reordering goals within a role (same set, different order) must
     // NOT be misread as a rename by detect_goal_changes.
     #[test]
