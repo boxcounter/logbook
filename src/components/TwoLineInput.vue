@@ -156,7 +156,7 @@ watch(focusRequestId, () => {
       :dimensions="dimensions"
       :commitments="commitments"
       :dim-values="dimValues"
-      class="absolute left-0 top-full mt-[4px] z-10"
+      class="absolute left-0 bottom-full mb-[4px] z-10"
       @select="onSelect"
       @close="closePopover"
     />

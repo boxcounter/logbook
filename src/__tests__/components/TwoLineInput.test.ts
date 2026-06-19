@@ -63,6 +63,16 @@ describe("TwoLineInput", () => {
     expect(wrapper.findComponent({ name: "DimensionPopover" }).exists()).toBe(true);
   });
 
+  it("opens the popover upward (bottom-full) since the input is bottom-anchored", async () => {
+    // The entry list (flex-1) pushes the input to the bottom of the card, whose
+    // overflow-hidden would clip a downward popover. It must open upward.
+    const wrapper = mountInput();
+    await wrapper.find("input").trigger("keydown", { key: "@" });
+    const popover = wrapper.findComponent({ name: "DimensionPopover" });
+    expect(popover.classes()).toContain("bottom-full");
+    expect(popover.classes()).not.toContain("top-full");
+  });
+
   it("removes a dimension token when its × is clicked", async () => {
     const wrapper = mountInput({ category: "Engineering" });
     expect(wrapper.find("[data-test='dim-token']").exists()).toBe(true);
