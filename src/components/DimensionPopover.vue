@@ -16,6 +16,16 @@ const emit = defineEmits<{
 
 const phase = ref<"dim" | "val">("dim");
 const activeDimKey = ref<string | null>(null);
+const activeIndex = ref(0);
+
+// First dimension still missing a value. `justFilled` lets callers treat a
+// key as filled before props.dimValues reflects the just-emitted select.
+function firstUnfilledIndex(justFilled?: string): number {
+  const idx = props.dimensions.findIndex(
+    (d) => d.key !== justFilled && !props.dimValues[d.key]
+  );
+  return idx === -1 ? 0 : idx;
+}
 
 const goalOptions = computed(() => {
   const goals = new Set<string>();
@@ -77,7 +87,10 @@ function onWindowKeydown(e: KeyboardEvent) {
   if (phase.value === "val") goBack();
   else emit("close");
 }
-onMounted(() => window.addEventListener("keydown", onWindowKeydown, true));
+onMounted(() => {
+  activeIndex.value = firstUnfilledIndex();
+  window.addEventListener("keydown", onWindowKeydown, true);
+});
 onUnmounted(() => window.removeEventListener("keydown", onWindowKeydown, true));
 </script>
 
@@ -97,12 +110,17 @@ onUnmounted(() => window.removeEventListener("keydown", onWindowKeydown, true));
         Pick a dimension
       </div>
       <div
-        v-for="d in dimensions" :key="d.key"
+        v-for="(d, i) in dimensions" :key="d.key"
         data-test="dim-item"
+        :data-active="i === activeIndex"
         class="px-[14px] py-[9px] text-[length:var(--app-text-sm)]
                flex items-center gap-[10px] cursor-pointer border-b border-[var(--color-surface-muted)]
                last:border-b-0 hover:bg-[var(--color-divider)]"
-        :class="dimValues[d.key] ? 'bg-[var(--color-popover-item-selected-bg)] text-[var(--color-brand-solid)] font-semibold' : 'text-[var(--color-text-primary)]'"
+        :class="[
+          dimValues[d.key] ? 'bg-[var(--color-popover-item-selected-bg)] text-[var(--color-brand-solid)] font-semibold' : 'text-[var(--color-text-primary)]',
+          i === activeIndex ? 'ring-1 ring-inset ring-[var(--color-brand-solid)]' : '',
+        ]"
+        @mouseenter="activeIndex = i"
         @click="selectDim(d.key)"
       >
         <span class="w-[3px] h-[18px] rounded-[var(--radius-sm)] flex-shrink-0" :class="barClass(d.key)"></span>

@@ -79,4 +79,32 @@ describe("DimensionPopover", () => {
     expect(wrapper.findAll("[data-test='dim-item']").length).toBe(3); // back to dim
     expect(wrapper.emitted("close")).toBeFalsy();
   });
+
+  // ---- keyboard navigation ----
+
+  // Returns the index of the currently highlighted dim-item (-1 if none).
+  function activeDimIndex(wrapper: ReturnType<typeof mountPop>): number {
+    return wrapper.findAll("[data-test='dim-item']").findIndex(
+      (n) => n.attributes("data-active") === "true"
+    );
+  }
+
+  it("highlights the first unfilled dimension on open", async () => {
+    // category filled → first unfilled is Goal (index 1)
+    const wrapper = mountPop({ category: "Engineering" });
+    await wrapper.vm.$nextTick();
+    expect(activeDimIndex(wrapper)).toBe(1);
+  });
+
+  it("highlights index 0 when no dimension is filled", async () => {
+    const wrapper = mountPop();
+    await wrapper.vm.$nextTick();
+    expect(activeDimIndex(wrapper)).toBe(0);
+  });
+
+  it("syncs highlight to a dim-item on mouseenter", async () => {
+    const wrapper = mountPop();
+    await wrapper.findAll("[data-test='dim-item']")[2].trigger("mouseenter");
+    expect(activeDimIndex(wrapper)).toBe(2);
+  });
 });
