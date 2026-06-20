@@ -107,4 +107,39 @@ describe("DimensionPopover", () => {
     await wrapper.findAll("[data-test='dim-item']")[2].trigger("mouseenter");
     expect(activeDimIndex(wrapper)).toBe(2);
   });
+
+  it("ArrowDown / Ctrl+N move highlight down with wrap", async () => {
+    const wrapper = mountPop(); // active index 0, 3 dims
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown" }));
+    await wrapper.vm.$nextTick();
+    expect(activeDimIndex(wrapper)).toBe(1);
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "n", ctrlKey: true }));
+    await wrapper.vm.$nextTick();
+    expect(activeDimIndex(wrapper)).toBe(2);
+
+    // wrap 2 -> 0
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown" }));
+    await wrapper.vm.$nextTick();
+    expect(activeDimIndex(wrapper)).toBe(0);
+  });
+
+  it("ArrowUp / Ctrl+P move highlight up with wrap", async () => {
+    const wrapper = mountPop(); // active index 0
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp" }));
+    await wrapper.vm.$nextTick();
+    expect(activeDimIndex(wrapper)).toBe(2); // wrap 0 -> 2
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "p", ctrlKey: true }));
+    await wrapper.vm.$nextTick();
+    expect(activeDimIndex(wrapper)).toBe(1);
+  });
+
+  it("prevents default on navigation keys", async () => {
+    const wrapper = mountPop();
+    const ev = new KeyboardEvent("keydown", { key: "ArrowDown", cancelable: true });
+    window.dispatchEvent(ev);
+    await wrapper.vm.$nextTick();
+    expect(ev.defaultPrevented).toBe(true);
+  });
 });

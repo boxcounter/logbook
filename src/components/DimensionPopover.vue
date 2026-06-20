@@ -27,6 +27,16 @@ function firstUnfilledIndex(justFilled?: string): number {
   return idx === -1 ? 0 : idx;
 }
 
+function listLength(): number {
+  return phase.value === "dim" ? props.dimensions.length : activeValues.value.length;
+}
+
+function move(delta: number) {
+  const n = listLength();
+  if (!n) return;
+  activeIndex.value = (activeIndex.value + delta + n) % n;
+}
+
 const goalOptions = computed(() => {
   const goals = new Set<string>();
   for (const c of props.commitments) for (const g of c.goals) goals.add(g);
@@ -77,15 +87,22 @@ function goBack() {
   activeDimKey.value = null;
 }
 
-// Esc handling (spec §5.1/§5.2): val phase → back to dim; dim phase → close.
-// Handled here (capture phase, window-level) so it works regardless of which
-// element has focus — the input may have lost focus to a mouse click in the menu.
+// Window-level capture-phase handler (spec §5.1/§5.2 + keyboard nav design):
+// Esc — val→dim / dim→close. Arrows / Ctrl+N/P move the highlight. Enter selects
+// the highlighted item (added in later tasks). capture + stopPropagation makes the
+// popover own these keys regardless of focus, ahead of the parent's handlers.
 function onWindowKeydown(e: KeyboardEvent) {
-  if (e.key !== "Escape") return;
-  e.preventDefault();
-  e.stopPropagation();
-  if (phase.value === "val") goBack();
-  else emit("close");
+  if (e.key === "Escape") {
+    e.preventDefault();
+    e.stopPropagation();
+    if (phase.value === "val") goBack();
+    else emit("close");
+    return;
+  }
+  const down = e.key === "ArrowDown" || (e.ctrlKey && (e.key === "n" || e.key === "N"));
+  const up = e.key === "ArrowUp" || (e.ctrlKey && (e.key === "p" || e.key === "P"));
+  if (down) { e.preventDefault(); e.stopPropagation(); move(1); return; }
+  if (up) { e.preventDefault(); e.stopPropagation(); move(-1); return; }
 }
 onMounted(() => {
   activeIndex.value = firstUnfilledIndex();
