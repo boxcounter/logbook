@@ -151,4 +151,14 @@ describe("MonthView", () => {
     await wrapper.vm.$nextTick();
     expect(store.currentDate.slice(0, 7)).not.toBe(expectedMonth);
   });
+
+  it("⌘T jumps back to today from another date", async () => {
+    const store = makeStore();
+    const wrapper = mountView(store);
+    await wrapper.vm.$nextTick();
+    store.currentDate = "2020-01-15"; // navigate far away
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "t", metaKey: true }));
+    await wrapper.vm.$nextTick();
+    expect(store.currentDate).toBe(todayDateStr());
+  });
 });

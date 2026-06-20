@@ -126,14 +126,26 @@ function clearInput() {
   text.value = "";
 }
 
-defineExpose({ clearInput });
+function focusInput() {
+  inputEl.value?.focus();
+}
+
+defineExpose({ clearInput, focusInput });
 
 const focusRequestId = inject<Ref<number>>("focusRequestId", ref(0));
 watch(focusRequestId, () => {
-  const active = document.activeElement;
-  if (!active || active === document.body || active.tagName === "BODY") {
-    inputEl.value?.focus();
-  }
+  // On a window refocus, claim the input unless the user is actively editing
+  // another field (the day note, an entry-edit input, etc.). Checking for an
+  // editable element rather than only document.body is robust to webviews that
+  // restore focus to the <html> element on refocus.
+  const active = document.activeElement as HTMLElement | null;
+  const editing =
+    !!active &&
+    (active.tagName === "INPUT" ||
+      active.tagName === "TEXTAREA" ||
+      active.tagName === "SELECT" ||
+      active.isContentEditable);
+  if (!editing) inputEl.value?.focus();
 });
 </script>
 

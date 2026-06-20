@@ -1,6 +1,6 @@
 <!-- src/components/MonthView.vue -->
 <script setup lang="ts">
-import { inject, computed, watch, ref, onMounted, onUnmounted } from "vue";
+import { inject, computed, watch, ref, onMounted, onUnmounted, nextTick } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { useStore } from "../stores/useStore";
 import HeatmapCalendar from "./HeatmapCalendar.vue";
@@ -263,6 +263,19 @@ function shiftDay(delta: number) {
     loadMonth(year, month, parseInt(next.slice(8, 10), 10));
   }
 }
+// Jump back to today (⌘T) and focus the entry input so typing can start at once.
+async function goToToday() {
+  const t = todayStr();
+  if (store.currentDate !== t) {
+    if (t in store.monthEntries) await handleSelectDay(t);
+    else {
+      const { year, month } = yearMonthFromDate(t);
+      await loadMonth(year, month, parseInt(t.slice(8, 10), 10));
+    }
+  }
+  await nextTick(); // wait for TwoLineInput (today-only) to render before focusing
+  inputRef.value?.focusInput();
+}
 function onGlobalKeydown(e: KeyboardEvent) {
   if (!(e.metaKey || e.ctrlKey)) return;
   if (e.key === "[") {
@@ -271,6 +284,9 @@ function onGlobalKeydown(e: KeyboardEvent) {
   } else if (e.key === "]") {
     e.preventDefault();
     e.shiftKey ? shiftMonth(1) : shiftDay(1);
+  } else if (e.key === "t" || e.key === "T") {
+    e.preventDefault();
+    goToToday();
   }
 }
 
