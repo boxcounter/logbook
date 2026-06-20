@@ -42,6 +42,6 @@ src/
 - 文件写入：先写 `.tmp` 再 rename（原子写入）
 - Frontmatter 解析：手动定位 `---` 边界 + `yaml_serde::from_str`
 - Goal 维度 `source: "monthly"`，值列表来自 `_monthly.md`，不在 config.yaml 的 values 里
-- Commitments 不在 Rust 端写入——用户直接编辑 `_monthly.md`，由 `notify` watcher 重新读取
+- Commitments 经 `set_commitments` 命令写入（校验 + goal 改名批量更新 entry + 原子写 `_monthly.md`）；外部直接编辑 `_monthly.md` 仍由 `notify` watcher 重新读取
 - `root_path` 由前端持有，每次 command 调用时传入；Rust 端通过 `root_path.txt` 持久化选择
 - **Phase checkpoint**：每完成一个独立 phase 停下来确认，不要连续推进多个 phase 不征求同意（规则见根目录 CLAUDE.md）

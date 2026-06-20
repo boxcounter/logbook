@@ -8,7 +8,7 @@ import CommitmentsPanel from "./CommitmentsPanel.vue";
 import DayHeader from "./DayHeader.vue";
 import EntryList from "./EntryList.vue";
 import TwoLineInput from "./TwoLineInput.vue";
-import type { DayFile, Entry, CommitmentProgress } from "../types";
+import type { DayFile, Entry, CommitmentProgress, Commitment } from "../types";
 import { logError, logInfo } from "../utils/errorLog";
 import { datesInMonth, yearMonthFromDate, parseDate } from "../utils/dates";
 
@@ -70,6 +70,15 @@ async function loadCommitmentProgress(year: number, month: number) {
   try {
     store.commitmentProgress = (await invoke("get_commitment_progress", { rootPath: store.rootPath, year, month })) as CommitmentProgress[];
   } catch (e) { logError("MonthView.loadCommitmentProgress", e); store.commitmentProgress = []; }
+}
+
+// Optimistically reflect the just-saved commitments so the panel's Edit/Set-up
+// gating and the next modal open use fresh data immediately, rather than waiting
+// for the `commitments-changed` file-watcher round-trip. Progress is recomputed
+// from the backend since logged totals can shift with goal renames.
+async function onCommitmentsSaved(commitments: Commitment[]) {
+  store.commitments = commitments;
+  await loadCommitmentProgress(selectedYear.value, selectedMonth.value);
 }
 
 async function loadDayNote(dateStr: string) {
@@ -282,7 +291,7 @@ logInfo("MonthView", "mounted");
         :root-path="store.rootPath"
         :selected-year="selectedYear"
         :selected-month="selectedMonth"
-        @saved="loadCommitmentProgress(selectedYear, selectedMonth)"
+        @saved="onCommitmentsSaved"
       />
     </aside>
 

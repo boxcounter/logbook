@@ -1,0 +1,252 @@
+<h2>Edit Commitments · v12（+ 动效对齐：150ms 微交互 + 进度条 transition）</h2>
+<p class="subtitle">每个尺寸映射到一个现有 --app-text-* token；role/goal 靠字重+颜色区分，不靠越界字号。</p>
+
+<style>
+  .stage { background:#f8fafc; border-radius:14px; padding:28px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; color:#1e293b; }
+  .mono { font-family:'SF Mono','Cascadia Code','Menlo',monospace; }
+
+  .legend { background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:14px 16px; margin:0 auto 20px; max-width:660px; font-size:12px; color:#64748b; line-height:1.9; }
+  .legend b { color:#1e293b; } .legend .t { color:#4f46e5; font-weight:600; }
+
+  .modal2 { background:#fff; border:1px solid #e2e8f0; border-radius:14px; box-shadow:0 16px 48px rgba(0,0,0,.08),0 0 0 1px rgba(0,0,0,.03); width:660px; max-width:100%; margin:0 auto 26px; overflow:hidden; }
+  .m-head { padding:24px 28px 16px; display:flex; justify-content:space-between; align-items:flex-start; border-bottom:1px solid #f1f5f9; }
+  .m-title { font-size:20px; font-weight:700; letter-spacing:-.3px; }            /* xl/700 — = day-title */
+  .m-sub { font-size:12px; color:#94a3b8; margin-top:3px; font-weight:400; }      /* xs */
+  .summary { text-align:right; font-size:11px; color:#94a3b8; line-height:1.8; }  /* xs-alt */
+  .summary .v { color:#1e293b; font-weight:600; } .summary .v.brand { color:#4f46e5; }
+
+  .m-body { padding:16px 28px 4px; }
+  .rolecard { background:#f8fafc; border:1px solid #f1f5f9; border-radius:8px; padding:16px; margin-bottom:12px; transition:border-color .15s; }
+  .rolecard:hover { border-color:#e2e8f0; }
+  .role-top { display:flex; align-items:center; gap:8px; }
+  .grip { display:flex; flex-direction:column; gap:3px; cursor:grab; padding:3px; margin-left:-12px; opacity:0; transition:opacity .15s; }
+  .rolecard:hover .grip, .goal:hover>.grip { opacity:1; }
+  .grip i { width:3px; height:3px; border-radius:50%; background:#cbd5e1; box-shadow:5px 0 #cbd5e1; }
+
+  .inp { border:1px solid #e2e8f0; border-radius:5px; background:#fff; color:#1e293b; outline:none; transition:border-color .15s,box-shadow .15s; }
+  .inp:focus { border-color:#6366f1; }
+  .inp.err { border-color:#ef4444; }
+  .inp::placeholder { color:#94a3b8; }
+  .role-name { flex:1; padding:6px 11px; font-size:14px; font-weight:600; }       /* base/600 主色 */
+
+  .stepper { display:inline-flex; align-items:center; gap:5px; }
+  .sbtn { width:24px; height:26px; border:1px solid #e2e8f0; border-radius:5px; background:#fff; color:#64748b; font-size:14px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:border-color .15s,color .15s; }
+  .sbtn:hover { border-color:#6366f1; color:#4f46e5; } .sbtn.dis { color:#cbd5e1; cursor:not-allowed; }
+  .valnum { width:42px; padding:4px; text-align:center; font-size:14px; font-weight:600; }  /* base/600 mono */
+  .unit { color:#94a3b8; font-size:11px; }                                         /* xs-alt */
+  .role-del { font-size:11px; color:#94a3b8; cursor:pointer; padding:4px 5px; transition:color .15s; } .role-del:hover { color:#ef4444; }
+
+  .barline { display:flex; align-items:center; gap:8px; margin-top:8px; }
+  .commit-bar { flex:1; height:4px; background:#f1f5f9; border-radius:2px; overflow:hidden; }
+  .commit-bar-fill { height:100%; border-radius:2px; background:linear-gradient(90deg,#6366f1,#8b5cf6); transition:width .15s; }
+  .spent { font-size:11px; color:#94a3b8; white-space:nowrap; } .spent .v { color:#1e293b; font-weight:600; }  /* xs-alt */
+  .commit-bar-fill.over { background:#f59e0b; }                                  /* warning */
+  .spent.over, .spent.over .v { color:#f59e0b; font-weight:600; }                /* warning */
+
+  .goals { margin:12px 0 0; display:flex; flex-direction:column; gap:8px; }
+  .goal { display:flex; align-items:center; gap:8px; }
+  .goal .grip { gap:2px; padding:2px; margin-left:-12px; } .goal .grip i { box-shadow:4px 0 #cbd5e1; }
+  .goal-name { flex:1; padding:4px 11px; font-size:13px; font-weight:400; color:#64748b; }  /* sm/400 次色 */
+  .goal-logged { font-size:11px; color:#94a3b8; white-space:nowrap; min-width:46px; text-align:right; } .goal-logged.zero { color:#cbd5e1; }  /* xs-alt */
+  .goal-x { color:#cbd5e1; cursor:pointer; font-size:14px; padding:1px 4px; opacity:0; transition:opacity .15s,color .15s; }
+  .goal:hover .goal-x { opacity:1; } .goal-x:hover { color:#ef4444; }
+  .addgoal { margin-top:8px; color:#4f46e5; font-size:12px; font-weight:500; cursor:pointer; align-self:flex-start; }  /* xs/500 link */
+  .addgoal:hover { text-decoration:underline; }
+  .addrole { display:inline-block; margin:4px 0 8px; padding:6px 0; color:#4f46e5; font-size:13px; font-weight:600; cursor:pointer; }  /* sm/600 link */
+  .addrole:hover { text-decoration:underline; }
+
+  .m-foot { padding:16px 28px; border-top:1px solid #f1f5f9; display:flex; justify-content:flex-end; gap:8px; }
+  .eb { font-size:13px; font-weight:600; border:none; cursor:pointer; border-radius:5px; padding:6px 14px; transition:all .15s; }  /* sm/600 */
+  .eb.cancel { background:transparent; color:#94a3b8; } .eb.cancel:hover { color:#64748b; }
+  .eb.save { background:#6366f1; color:#fff; } .eb.save:hover { background:#4f46e5; }
+
+  .fieldmsg { font-size:11px; color:#ef4444; margin-top:6px; }                     /* xs-alt danger */
+  .confirm { display:inline-flex; align-items:center; gap:10px; font-size:12px; }
+  .confirm .lbl { color:#ef4444; white-space:nowrap; } .confirm a { cursor:pointer; font-weight:600; }
+  .confirm .yes { color:#ef4444; } .confirm .no { color:#94a3b8; }
+
+  .div { text-align:center; font-size:11px; font-weight:700; letter-spacing:.5px; color:#94a3b8; text-transform:uppercase; margin:8px 0 16px; }
+  .sec { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:18px 20px; margin-bottom:16px; }
+  .sl { font-size:12px; font-weight:700; color:#6366f1; margin-bottom:4px; display:flex; align-items:center; gap:8px; }
+  .sl .num { width:20px; height:20px; border-radius:50%; background:#eef2ff; color:#4f46e5; display:flex; align-items:center; justify-content:center; font-size:10px; }
+  .sd { font-size:12px; color:#64748b; margin-bottom:12px; line-height:1.6; } .sd b { color:#1e293b; } .warn { color:#c2410c; font-weight:600; }
+  .kbd { padding:1px 5px; border:1px solid #e2e8f0; border-radius:3px; background:#fff; } .mono.kbd { font-size:10px; }
+  .drop-line { height:2px; background:#6366f1; border-radius:2px; margin:8px 0; }
+  .lifted { box-shadow:0 8px 32px rgba(0,0,0,.15); border-color:#c7d2fe !important; opacity:.97; }
+  .kbtable { width:100%; font-size:12px; border-collapse:collapse; }
+  .kbtable td { padding:6px 8px; border-bottom:1px solid #f1f5f9; color:#64748b; vertical-align:top; } .kbtable td:first-child { white-space:nowrap; width:170px; }
+</style>
+
+<div class="stage">
+
+  <div class="legend">
+    <b>字号 → token 映射</b>（全部命中现有梯度）：<br>
+    标题 <span class="t">xl 20</span>/700 · role 名 <span class="t">base 14</span>/600 主色 · alloc 数字 <span class="t">base 14</span>/600 mono · goal 名 <span class="t">sm 13</span>/400 次色 ·
+    单位/汇总/logged/错误 <span class="t">xs-alt 11</span> · subtitle/Add Goal <span class="t">xs 12</span> · Add Role/按钮 <span class="t">sm 13</span><br>
+    <span style="color:#94a3b8;">role↔goal 区分 = 字重(600/400) + 颜色(主/次)，不靠字号（梯度无 15/16）。</span>
+  </div>
+
+  <!-- FULL EDITOR -->
+  <div class="modal2">
+    <div class="m-head">
+      <div><div class="m-title">Edit Commitments</div><div class="m-sub">June 2026</div></div>
+      <div class="summary">Committed <span class="v brand mono">60h</span><br>Logged <span class="v mono">23.4h</span></div>
+    </div>
+    <div class="m-body">
+      <div class="rolecard">
+        <div class="role-top">
+          <span class="grip"><i></i><i></i><i></i></span>
+          <input class="inp role-name" value="Developer" />
+          <span class="stepper"><button class="sbtn">&minus;</button><input class="inp valnum mono" value="40" /><button class="sbtn">+</button><span class="unit">h</span></span>
+          <span class="role-del">Delete</span>
+        </div>
+        <div class="barline"><div class="commit-bar"><div class="commit-bar-fill" style="width:36%"></div></div><span class="spent"><span class="v mono">14h 30m</span> logged</span></div>
+        <div class="goals">
+          <div class="goal"><span class="grip"><i></i><i></i><i></i></span><input class="inp goal-name" value="Ship onboarding v2" /><span class="goal-logged mono">14h 25m</span><span class="goal-x">&times;</span></div>
+          <div class="goal"><span class="grip"><i></i><i></i><i></i></span><input class="inp goal-name" value="Review auth PR" /><span class="goal-logged mono">5m</span><span class="goal-x">&times;</span></div>
+          <span class="addgoal">+ Add Goal</span>
+        </div>
+      </div>
+      <div class="rolecard">
+        <div class="role-top">
+          <span class="grip"><i></i><i></i><i></i></span>
+          <input class="inp role-name" value="Director" />
+          <span class="stepper"><button class="sbtn">&minus;</button><input class="inp valnum mono" value="20" /><button class="sbtn">+</button><span class="unit">h</span></span>
+          <span class="role-del">Delete</span>
+        </div>
+        <div class="barline"><div class="commit-bar"><div class="commit-bar-fill" style="width:8%"></div></div><span class="spent"><span class="v mono">1h 40m</span> logged</span></div>
+        <div class="goals">
+          <div class="goal"><span class="grip"><i></i><i></i><i></i></span><input class="inp goal-name" value="Performance reviews" /><span class="goal-logged mono">1h 40m</span><span class="goal-x">&times;</span></div>
+          <div class="goal"><span class="grip"><i></i><i></i><i></i></span><input class="inp goal-name" value="1:1 sessions" /><span class="goal-logged mono zero">0</span><span class="goal-x">&times;</span></div>
+          <span class="addgoal">+ Add Goal</span>
+        </div>
+      </div>
+      <span class="addrole">+ Add Role</span>
+    </div>
+    <div class="m-foot"><button class="eb cancel">Cancel</button><button class="eb save">Save</button></div>
+  </div>
+
+  <div class="div">— 交互状态 —</div>
+
+  <div class="sec">
+    <div class="sl"><span class="num">1</span> 键盘与交互映射</div>
+    <table class="kbtable">
+      <tr><td><span class="kbd mono">Enter</span> 在 goal 框</td><td>下方新增空 goal 并聚焦；尾部空 goal 上按则不新增。</td></tr>
+      <tr><td><span class="kbd mono">Enter</span> 在 role name</td><td>聚焦该 role 的 allocation。</td></tr>
+      <tr><td><span class="kbd mono">↑</span>/<span class="kbd mono">↓</span> 在 allocation</td><td>±5h。</td></tr>
+      <tr><td><span class="kbd mono">Tab</span>/<span class="kbd mono">Shift+Tab</span></td><td>按视觉顺序遍历字段。</td></tr>
+      <tr><td><span class="kbd mono">⌘/Ctrl+Enter</span></td><td>保存。</td></tr>
+      <tr><td><span class="kbd mono">Esc</span> / 点遮罩</td><td>取消（有改动则弹放弃确认）。</td></tr>
+    </table>
+  </div>
+
+  <div class="sec">
+    <div class="sl"><span class="num">2</span> 拖拽排序</div>
+    <div class="sd">手柄 hover 浮现。拖起的 role 卡片抬起，插入位显示<b style="color:#6366f1">紫色 drop-line</b>。goal 仅在所属 role 内重排。</div>
+    <div class="drop-line"></div>
+    <div class="rolecard lifted">
+      <div class="role-top">
+        <span class="grip" style="opacity:1;cursor:grabbing"><i></i><i></i><i></i></span>
+        <input class="inp role-name" value="Director" />
+        <span class="stepper"><button class="sbtn">&minus;</button><input class="inp valnum mono" value="20" /><button class="sbtn">+</button><span class="unit">h</span></span>
+        <span class="role-del">Delete</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sl"><span class="num">3</span> Allocation 步进与边界</div>
+    <div class="sd">步进 <b>5h</b>，<b>最小 5h</b>（到 5h 时 <span class="mono">−</span> 置灰）。无上限。数字框可<b>直接输入</b>任意正整数。</div>
+    <div class="rolecard">
+      <div class="role-top">
+        <input class="inp role-name" value="Developer" style="max-width:170px" />
+        <span class="stepper"><button class="sbtn dis">&minus;</button><input class="inp valnum mono" value="5" /><button class="sbtn">+</button><span class="unit">h</span></span>
+        <span style="font-size:11px;color:#94a3b8;">← 最小值</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sl"><span class="num">4</span> 校验（保存时拦截）</div>
+    <div class="sd">role 名为空 / role 名重复 / goal 名重复（跨 role 也算）→ 标红 + 提示。<span class="warn">⚠</span> 空 goal 行不报错，静默丢弃。至少保留 1 个 role。</div>
+    <div class="rolecard">
+      <div class="role-top">
+        <input class="inp role-name err" value="Developer" style="max-width:170px" />
+        <span class="stepper"><button class="sbtn">&minus;</button><input class="inp valnum mono" value="40" /><button class="sbtn">+</button><span class="unit">h</span></span>
+      </div>
+      <div class="fieldmsg">Duplicate role name — each role must be unique</div>
+      <div class="goals">
+        <div class="goal"><input class="inp goal-name err" value="Code review" /><span class="goal-x" style="opacity:1">&times;</span></div>
+        <div class="goal"><input class="inp goal-name err" value="Code review" /><span class="goal-x" style="opacity:1">&times;</span></div>
+      </div>
+      <div class="fieldmsg">Duplicate goal name — each goal must be unique</div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sl"><span class="num">5</span> 删除 / 移除约束</div>
+    <div class="sd">后端对「删有 entry 的 goal」<b>硬拒绝</b>，故<b>有 logged 时长的项主动禁用移除</b>（只能改名/重排/调额）；logged==0 才可删，role 删除走行内确认。</div>
+    <div class="rolecard">
+      <div class="role-top">
+        <input class="inp role-name" value="Director" style="max-width:170px" />
+        <span class="stepper"><button class="sbtn">&minus;</button><input class="inp valnum mono" value="20" /><button class="sbtn">+</button><span class="unit">h</span></span>
+        <span class="role-del" style="color:#cbd5e1;cursor:not-allowed;" title="Has logged time — can't delete this month">Delete</span>
+        <span style="font-size:11px;color:#94a3b8;">← 有 logged，禁用</span>
+      </div>
+      <div class="goals">
+        <div class="goal"><input class="inp goal-name" value="Performance reviews" /><span class="goal-logged mono">1h 40m</span><span class="goal-x" style="opacity:1;color:#e2e8f0;cursor:not-allowed;" title="2 entries logged — rename instead">&times;</span></div>
+        <div class="goal"><input class="inp goal-name" value="1:1 sessions" /><span class="goal-logged mono zero">0</span><span class="goal-x" style="opacity:1">&times;</span></div>
+      </div>
+    </div>
+    <div class="rolecard" style="margin-top:12px;">
+      <div class="role-top">
+        <input class="inp role-name" value="Advisor" style="max-width:170px" />
+        <span class="stepper"><button class="sbtn dis">&minus;</button><input class="inp valnum mono" value="5" /><button class="sbtn">+</button><span class="unit">h</span></span>
+        <span class="confirm"><span class="lbl">Delete role?</span><a class="yes">Delete</a><a class="no">Cancel</a></span>
+      </div>
+      <div class="goals">
+        <div class="goal"><input class="inp goal-name" value="Office hours" /><span class="goal-logged mono zero">0</span><span class="goal-x" style="opacity:1">&times;</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sl"><span class="num">6</span> 空状态 — 本月无 commitments</div>
+    <div class="sd">侧栏给「Set up commitments」入口，打开弹窗显示引导空态。</div>
+    <div style="text-align:center; padding:24px 0; color:#94a3b8;">
+      <div style="font-size:14px; font-weight:600; color:#64748b; margin-bottom:4px;">No commitments yet for June 2026</div>
+      <div style="font-size:12px; margin-bottom:16px;">Add a role to start tracking your monthly plan.</div>
+      <span class="eb save" style="display:inline-block;">+ Add Role</span>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sl"><span class="num">7</span> 取消 / 放弃改动</div>
+    <div class="sd">无改动 → 直接关闭。有改动 → 弹放弃确认。</div>
+    <div style="background:#fff; border:1px solid #e2e8f0; border-radius:12px; box-shadow:0 8px 32px rgba(0,0,0,.15); padding:16px; max-width:300px;">
+      <div style="font-size:14px; font-weight:600; margin-bottom:4px;">Discard changes?</div>
+      <div style="font-size:12px; color:#64748b; margin-bottom:14px;">Your edits to this month's commitments won't be saved.</div>
+      <div style="display:flex; justify-content:flex-end; gap:8px;">
+        <button class="eb cancel">Keep editing</button>
+        <button class="eb" style="background:#fef2f2;color:#ef4444;">Discard</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sl"><span class="num">8</span> 超额软警告 — allocation 低于已 logged</div>
+    <div class="sd">把 allocation 调到低于该 role 已记录的时长时，进度条转 <b style="color:#f59e0b">amber</b> 满格，并显示 <b style="color:#f59e0b">over by Xh Ym</b>。这是<b>软提示，不拦截保存</b>（计划与现实冲突由你判断）。amber = <span style="color:#4f46e5;font-weight:600;">--color-warning #f59e0b</span>。</div>
+    <div class="rolecard">
+      <div class="role-top">
+        <input class="inp role-name" value="Developer" style="max-width:170px" />
+        <span class="stepper"><button class="sbtn">&minus;</button><input class="inp valnum mono" value="10" /><button class="sbtn">+</button><span class="unit">h</span></span>
+      </div>
+      <div class="barline"><div class="commit-bar"><div class="commit-bar-fill over" style="width:100%"></div></div><span class="spent over"><span class="v mono">14h 30m</span> logged · over by 4h 30m</span></div>
+      <div class="goals">
+        <div class="goal"><input class="inp goal-name" value="Ship onboarding v2" /><span class="goal-logged mono">14h 25m</span><span class="goal-x" style="opacity:1">&times;</span></div>
+        <div class="goal"><input class="inp goal-name" value="Review auth PR" /><span class="goal-logged mono">5m</span><span class="goal-x" style="opacity:1">&times;</span></div>
+      </div>
+    </div>
+  </div>
+
+</div>
