@@ -322,15 +322,7 @@ logInfo("MonthView", "mounted");
         @next-day="shiftDay(1)"
       />
 
-      <EntryList
-        :entries="dayEntries"
-        :just-added-id="justAddedId"
-        @update="handleUpdateEntry"
-        @delete="handleDeleteEntry"
-        @update-dimensions="handleUpdateDimensions"
-      />
-
-      <div class="mt-[16px] py-[8px]">
+      <div class="mt-[4px] mb-[8px] py-[4px]">
         <div
           ref="noteRef"
           class="text-[length:var(--app-text-xs)] italic text-[var(--color-text-secondary)] leading-[1.5] cursor-text px-[10px] py-[6px] rounded-[var(--radius-form-lg)] outline-none hover:bg-[var(--color-page-bg)]"
@@ -343,6 +335,14 @@ logInfo("MonthView", "mounted");
           @keydown.esc="onNoteEsc"
         ></div>
       </div>
+
+      <EntryList
+        :entries="dayEntries"
+        :just-added-id="justAddedId"
+        @update="handleUpdateEntry"
+        @delete="handleDeleteEntry"
+        @update-dimensions="handleUpdateDimensions"
+      />
 
       <div v-if="isSelectedToday" class="mt-[12px]">
         <TwoLineInput

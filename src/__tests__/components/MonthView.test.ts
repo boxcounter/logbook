@@ -82,6 +82,17 @@ describe("MonthView", () => {
     expect(wrapper.findComponent({ name: "TwoLineInput" }).exists()).toBe(false);
   });
 
+  it("renders the day note above the entry list", () => {
+    const wrapper = mountView();
+    const html = wrapper.html();
+    const noteIdx = html.indexOf('contenteditable');
+    const listIdx = html.indexOf('No entries'); // empty-state marker, or fall back below
+    const listAnchor = listIdx !== -1 ? listIdx : html.indexOf('overflow-y-auto');
+    expect(noteIdx).toBeGreaterThan(-1);
+    expect(listAnchor).toBeGreaterThan(-1);
+    expect(noteIdx).toBeLessThan(listAnchor);
+  });
+
   it("Esc on the day note reverts its content to the pre-edit snapshot", async () => {
     const wrapper = mountView();
     const note = wrapper.find("[contenteditable]");
