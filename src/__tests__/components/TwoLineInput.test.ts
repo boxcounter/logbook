@@ -113,6 +113,23 @@ describe("TwoLineInput", () => {
     expect(wrapper.emitted("submit")).toBeFalsy();
   });
 
+  it("Esc clears a selected dimension token even with no text", async () => {
+    // Covers the JSON.stringify(dimValues) !== initialValues half of hasContent:
+    // dims are dirty but the text is empty, so esc must reset dims (not submit).
+    const wrapper = mountInput({}); // initial dims empty
+    // Drive a dimension selection through the popover so dimValues differs from {}.
+    await wrapper.find("input").trigger("keydown", { key: "@" }); // open popover
+    await wrapper.findComponent({ name: "DimensionPopover" }).vm.$emit("select", "category", "Engineering");
+    await wrapper.vm.$nextTick();
+    expect(wrapper.find("[data-test='dim-token']").exists()).toBe(true); // token present
+    // Close the popover so esc is owned by the input, then esc with no text.
+    await wrapper.findComponent({ name: "DimensionPopover" }).vm.$emit("close");
+    await wrapper.vm.$nextTick();
+    await wrapper.find("input").trigger("keydown", { key: "Escape" });
+    expect(wrapper.emitted("submit")).toBeFalsy();
+    expect(wrapper.find("[data-test='dim-token']").exists()).toBe(false); // dims reset to {}
+  });
+
   it("Esc on an empty input does nothing", async () => {
     const wrapper = mount(TwoLineInput, {
       props: { dimensions: [], commitments: [], initialValues: {} },

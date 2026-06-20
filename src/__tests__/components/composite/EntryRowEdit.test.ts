@@ -129,4 +129,22 @@ describe("EntryRowEdit", () => {
     expect(wrapper.emitted("cancel")).toBeFalsy();
     expect(wrapper.find("[data-test='discard-prompt']").exists()).toBe(false);
   });
+
+  it("esc handoff: popover consumes esc while open, parent handles esc after it closes", async () => {
+    const wrapper = mountEdit();
+    await wrapper.findAll("input")[0].setValue("Changed item"); // make it dirty
+    await wrapper.find("[data-test='add-tag']").trigger("click"); // open popover
+    expect(wrapper.findComponent({ name: "DimensionPopover" }).exists()).toBe(true);
+
+    // While the popover is open, esc must NOT trigger the parent confirm flow.
+    await wrapper.trigger("keydown", { key: "Escape" });
+    expect(wrapper.find("[data-test='discard-prompt']").exists()).toBe(false);
+
+    // Close the popover (simulate its close emit), then esc reaches the parent.
+    await wrapper.findComponent({ name: "DimensionPopover" }).vm.$emit("close");
+    await wrapper.vm.$nextTick();
+    await wrapper.trigger("keydown", { key: "Escape" });
+    expect(wrapper.find("[data-test='discard-prompt']").exists()).toBe(true);
+    expect(wrapper.emitted("cancel")).toBeFalsy();
+  });
 });

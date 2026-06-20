@@ -73,12 +73,14 @@ function filled() {
 }
 
 function removeDim(key: string) {
+  confirming.value = false;
   const next = { ...dimValues.value };
   delete next[key];
   dimValues.value = next;
 }
 
 function onSelect(dimKey: string, value: string) {
+  confirming.value = false;
   dimValues.value = { ...dimValues.value, [dimKey]: value };
 }
 
