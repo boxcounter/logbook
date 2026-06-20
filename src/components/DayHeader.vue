@@ -44,6 +44,7 @@ function onNext() {
           ? 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-muted)] cursor-pointer'
           : 'text-[var(--color-text-disabled)] opacity-40 cursor-default'"
         title="Next day (⌘])"
+        :aria-disabled="!canGoNext"
         @click="onNext"
       >›</button>
       <span
