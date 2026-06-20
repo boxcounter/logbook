@@ -142,4 +142,32 @@ describe("DimensionPopover", () => {
     await wrapper.vm.$nextTick();
     expect(ev.defaultPrevented).toBe(true);
   });
+
+  function activeValIndex(wrapper: ReturnType<typeof mountPop>): number {
+    return wrapper.findAll("[data-test='val-item']").findIndex(
+      (n) => n.attributes("data-active") === "true"
+    );
+  }
+
+  it("Enter in dim phase enters the highlighted dimension's value menu", async () => {
+    const wrapper = mountPop(); // highlight on Category (index 0)
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+    await wrapper.vm.$nextTick();
+    expect(wrapper.find("[data-test='back-btn']").exists()).toBe(true); // val phase
+    expect(wrapper.text()).toContain("Engineering");
+  });
+
+  it("val phase highlights the already-selected value", async () => {
+    const wrapper = mountPop({ category: "PM" }); // values: Engineering, PM
+    await wrapper.findAll("[data-test='dim-item']")[0].trigger("click"); // → category val phase
+    await wrapper.vm.$nextTick();
+    expect(activeValIndex(wrapper)).toBe(1); // "PM"
+  });
+
+  it("val phase highlights index 0 when no value selected yet", async () => {
+    const wrapper = mountPop();
+    await wrapper.findAll("[data-test='dim-item']")[0].trigger("click");
+    await wrapper.vm.$nextTick();
+    expect(activeValIndex(wrapper)).toBe(0);
+  });
 });

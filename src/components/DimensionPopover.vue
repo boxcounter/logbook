@@ -62,9 +62,16 @@ function barClass(key: string): string {
   return map[key] || "bg-[var(--dim-bar-cat)]";
 }
 
+function defaultValIndex(): number {
+  const cur = activeDimKey.value ? props.dimValues[activeDimKey.value] : undefined;
+  const i = cur ? activeValues.value.indexOf(cur) : -1;
+  return i >= 0 ? i : 0;
+}
+
 function selectDim(key: string) {
   activeDimKey.value = key;
   phase.value = "val";
+  activeIndex.value = defaultValIndex();
 }
 
 function selectVal(value: string) {
@@ -103,6 +110,18 @@ function onWindowKeydown(e: KeyboardEvent) {
   const up = e.key === "ArrowUp" || (e.ctrlKey && (e.key === "p" || e.key === "P"));
   if (down) { e.preventDefault(); e.stopPropagation(); move(1); return; }
   if (up) { e.preventDefault(); e.stopPropagation(); move(-1); return; }
+  if (e.key === "Enter") {
+    e.preventDefault();
+    e.stopPropagation();
+    if (phase.value === "dim") {
+      const d = props.dimensions[activeIndex.value];
+      if (d) selectDim(d.key);
+    } else {
+      const v = activeValues.value[activeIndex.value];
+      if (v !== undefined) selectVal(v);
+    }
+    return;
+  }
 }
 onMounted(() => {
   activeIndex.value = firstUnfilledIndex();
@@ -167,12 +186,17 @@ onUnmounted(() => window.removeEventListener("keydown", onWindowKeydown, true));
         {{ activeDim?.name }}
       </div>
       <div
-        v-for="v in activeValues" :key="v"
+        v-for="(v, i) in activeValues" :key="v"
         data-test="val-item"
+        :data-active="i === activeIndex"
         class="px-[14px] py-[9px] text-[length:var(--app-text-sm)]
                cursor-pointer border-b border-[var(--color-surface-muted)] last:border-b-0
                hover:bg-[var(--color-divider)]"
-        :class="activeDimKey && dimValues[activeDimKey] === v ? 'bg-[var(--color-popover-item-selected-bg)] text-[var(--color-brand-solid)] font-semibold' : 'text-[var(--color-text-primary)]'"
+        :class="[
+          activeDimKey && dimValues[activeDimKey] === v ? 'bg-[var(--color-popover-item-selected-bg)] text-[var(--color-brand-solid)] font-semibold' : 'text-[var(--color-text-primary)]',
+          i === activeIndex ? 'ring-1 ring-inset ring-[var(--color-brand-solid)]' : '',
+        ]"
+        @mouseenter="activeIndex = i"
         @click="selectVal(v)"
       >{{ v }}</div>
       <div
