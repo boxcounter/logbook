@@ -5,6 +5,7 @@ import { reactive } from "vue";
 import MonthView from "../../components/MonthView.vue";
 import { STORE_KEY } from "../../stores/useStore";
 import { makeConfig, makeCommitment, makeEntry } from "../mocks/fixtures";
+import { addDays } from "../../utils/dates";
 
 const invokeMock = vi.fn();
 vi.mock("@tauri-apps/api/core", () => ({ invoke: (...args: unknown[]) => invokeMock(...args) }));
@@ -89,5 +90,44 @@ describe("MonthView", () => {
     note.element.textContent = "edited away";
     await note.trigger("keydown", { key: "Escape" });
     expect(note.element.textContent).toBe("original");
+  });
+
+  it("prev-day from DayHeader moves currentDate back one day", async () => {
+    const store = makeStore();
+    const wrapper = mountView(store);
+    wrapper.findComponent({ name: "DayHeader" }).vm.$emit("prev-day");
+    await wrapper.vm.$nextTick();
+    expect(store.currentDate).toBe(addDays(todayDateStr(), -1));
+  });
+
+  it("next-day is a no-op when the selected day is today", async () => {
+    const store = makeStore(); // currentDate === today
+    const wrapper = mountView(store);
+    wrapper.findComponent({ name: "DayHeader" }).vm.$emit("next-day");
+    await wrapper.vm.$nextTick();
+    expect(store.currentDate).toBe(todayDateStr());
+  });
+
+  it("passes can-go-next=false to DayHeader when today is selected", () => {
+    const store = makeStore();
+    const wrapper = mountView(store);
+    expect(wrapper.findComponent({ name: "DayHeader" }).props("canGoNext")).toBe(false);
+  });
+
+  it("⌘[ moves back one day", async () => {
+    const store = makeStore();
+    const wrapper = mountView(store);
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "[", metaKey: true }));
+    await wrapper.vm.$nextTick();
+    expect(store.currentDate).toBe(addDays(todayDateStr(), -1));
+  });
+
+  it("⌘⇧[ moves back one month", async () => {
+    const store = makeStore();
+    const wrapper = mountView(store);
+    const expectedMonth = todayDateStr().slice(0, 7); // current YYYY-MM
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "[", metaKey: true, shiftKey: true }));
+    await wrapper.vm.$nextTick();
+    expect(store.currentDate.slice(0, 7)).not.toBe(expectedMonth);
   });
 });

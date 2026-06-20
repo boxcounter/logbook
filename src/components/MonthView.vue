@@ -10,7 +10,7 @@ import EntryList from "./EntryList.vue";
 import TwoLineInput from "./TwoLineInput.vue";
 import type { DayFile, Entry, CommitmentProgress, Commitment } from "../types";
 import { logError, logInfo } from "../utils/errorLog";
-import { datesInMonth, yearMonthFromDate, parseDate } from "../utils/dates";
+import { datesInMonth, yearMonthFromDate, parseDate, addDays } from "../utils/dates";
 
 const store = useStore();
 const inputRef = ref<InstanceType<typeof TwoLineInput> | null>(null);
@@ -248,10 +248,25 @@ function shiftMonth(delta: number) {
   if (m < 1) { m = 12; y--; } else if (m > 12) { m = 1; y++; }
   loadMonth(y, m);
 }
+function shiftDay(delta: number) {
+  if (delta > 0 && isSelectedToday.value) return; // never navigate into the future
+  const next = addDays(store.currentDate, delta);
+  if (next in store.monthEntries) {
+    handleSelectDay(next);
+  } else {
+    const { year, month } = yearMonthFromDate(next);
+    loadMonth(year, month, parseInt(next.slice(8, 10), 10));
+  }
+}
 function onGlobalKeydown(e: KeyboardEvent) {
   if (!(e.metaKey || e.ctrlKey)) return;
-  if (e.key === "[") { e.preventDefault(); shiftMonth(-1); }
-  else if (e.key === "]") { e.preventDefault(); shiftMonth(1); }
+  if (e.key === "[") {
+    e.preventDefault();
+    e.shiftKey ? shiftMonth(-1) : shiftDay(-1);
+  } else if (e.key === "]") {
+    e.preventDefault();
+    e.shiftKey ? shiftMonth(1) : shiftDay(1);
+  }
 }
 
 onMounted(async () => {
@@ -302,6 +317,9 @@ logInfo("MonthView", "mounted");
         :is-today="isSelectedToday"
         :entry-count="dayEntries.length"
         :total-minutes="dayTotalMinutes"
+        :can-go-next="!isSelectedToday"
+        @prev-day="shiftDay(-1)"
+        @next-day="shiftDay(1)"
       />
 
       <EntryList
