@@ -6,7 +6,7 @@ import DayHeader from "../../components/DayHeader.vue";
 describe("DayHeader", () => {
   it("renders title and formatted summary", () => {
     const wrapper = mount(DayHeader, {
-      props: { title: "Thursday, June 19", isToday: true, entryCount: 10, totalMinutes: 345 },
+      props: { title: "Thursday, June 19", isToday: true, entryCount: 10, totalMinutes: 345, canGoNext: false },
     });
     expect(wrapper.text()).toContain("Thursday, June 19");
     expect(wrapper.text()).toContain("10");
@@ -14,14 +14,14 @@ describe("DayHeader", () => {
   });
 
   it("shows Today badge only when isToday is true", () => {
-    const today = mount(DayHeader, { props: { title: "X", isToday: true, entryCount: 0, totalMinutes: 0 } });
+    const today = mount(DayHeader, { props: { title: "X", isToday: true, entryCount: 0, totalMinutes: 0, canGoNext: false } });
     expect(today.find("[data-test='today-badge']").exists()).toBe(true);
-    const past = mount(DayHeader, { props: { title: "X", isToday: false, entryCount: 0, totalMinutes: 0 } });
+    const past = mount(DayHeader, { props: { title: "X", isToday: false, entryCount: 0, totalMinutes: 0, canGoNext: true } });
     expect(past.find("[data-test='today-badge']").exists()).toBe(false);
   });
 
   it("uses singular 'entry' for a count of 1", () => {
-    const wrapper = mount(DayHeader, { props: { title: "X", isToday: false, entryCount: 1, totalMinutes: 60 } });
+    const wrapper = mount(DayHeader, { props: { title: "X", isToday: false, entryCount: 1, totalMinutes: 60, canGoNext: true } });
     expect(wrapper.text()).toContain("1 entry");
     expect(wrapper.text()).not.toContain("1 entries");
   });
