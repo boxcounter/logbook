@@ -104,12 +104,12 @@ function onJump(payload: { year: number; month: number }) {
   <div>
     <!-- Nav row -->
     <div class="flex items-center justify-between mb-[8px]">
-      <span data-test="prev-month" class="text-[length:var(--app-text-xs)] text-[var(--color-text-secondary)] cursor-pointer px-[4px] py-[2px] hover:text-[var(--color-text-primary)]" title="Previous month (⌘[)" @click="shift(-1)">←</span>
+      <span data-test="prev-month" class="text-[length:var(--app-text-xs)] text-[var(--color-text-secondary)] cursor-pointer px-[4px] py-[2px] hover:text-[var(--color-text-primary)]" title="Previous month (⌘⇧[)" @click="shift(-1)">←</span>
       <span data-test="month-label" class="text-[length:var(--app-text-base)] font-bold text-[var(--color-text-primary)] cursor-pointer" @click="onLabelClick">
         {{ MONTH_NAMES[month - 1] }}
         <span class="font-normal text-[length:var(--app-text-xs-alt)] text-[var(--color-text-secondary)]">{{ year }} ▾</span>
       </span>
-      <span data-test="next-month" class="text-[length:var(--app-text-xs)] text-[var(--color-text-secondary)] cursor-pointer px-[4px] py-[2px] hover:text-[var(--color-text-primary)]" title="Next month (⌘])" @click="shift(1)">→</span>
+      <span data-test="next-month" class="text-[length:var(--app-text-xs)] text-[var(--color-text-secondary)] cursor-pointer px-[4px] py-[2px] hover:text-[var(--color-text-primary)]" title="Next month (⌘⇧])" @click="shift(1)">→</span>
     </div>
 
     <QuickJumpPopover

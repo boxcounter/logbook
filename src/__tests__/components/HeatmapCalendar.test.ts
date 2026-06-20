@@ -30,6 +30,12 @@ describe("HeatmapCalendar", () => {
     expect(wrapper.emitted("navigate")?.[1]).toEqual([{ year: 2026, month: 7 }]);
   });
 
+  it("month arrows advertise the ⌘⇧[ / ⌘⇧] shortcuts", () => {
+    const wrapper = mountCal();
+    expect(wrapper.find("[data-test='prev-month']").attributes("title")).toContain("⌘⇧[");
+    expect(wrapper.find("[data-test='next-month']").attributes("title")).toContain("⌘⇧]");
+  });
+
   it("emits selectDay when a non-future day is clicked", async () => {
     const wrapper = mountCal();
     // Day 1 of June 2026 is in the past relative to selectedDate's month — click it
