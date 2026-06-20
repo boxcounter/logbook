@@ -101,4 +101,25 @@ describe("TwoLineInput", () => {
     await wrapper.vm.$nextTick();
     expect((wrapper.find("input").element as HTMLInputElement).value).toBe("");
   });
+
+  it("Esc clears typed text without emitting submit", async () => {
+    const wrapper = mount(TwoLineInput, {
+      props: { dimensions: [], commitments: [], initialValues: {} },
+    });
+    const input = wrapper.find("input");
+    await input.setValue("draft work 1h");
+    await input.trigger("keydown", { key: "Escape" });
+    expect((input.element as HTMLInputElement).value).toBe("");
+    expect(wrapper.emitted("submit")).toBeFalsy();
+  });
+
+  it("Esc on an empty input does nothing", async () => {
+    const wrapper = mount(TwoLineInput, {
+      props: { dimensions: [], commitments: [], initialValues: {} },
+    });
+    const input = wrapper.find("input");
+    await input.trigger("keydown", { key: "Escape" });
+    expect((input.element as HTMLInputElement).value).toBe("");
+    expect(wrapper.emitted("submit")).toBeFalsy();
+  });
 });
