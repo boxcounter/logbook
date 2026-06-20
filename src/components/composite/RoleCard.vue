@@ -168,7 +168,7 @@ function removeGoal(g: GoalRowModel) {
     </div>
 
     <div class="mt-[12px]">
-      <VueDraggable v-model="role.goals" handle=".drag-grip-goal" :animation="150" class="flex flex-col gap-[8px]">
+      <VueDraggable v-model="role.goals" handle=".drag-grip-goal" :animation="150" :force-fallback="true" :fallback-on-body="true" class="flex flex-col gap-[8px]">
         <GoalRow
           v-for="g in role.goals" :key="g.key"
           :goal="g" :logged="goalLogged(g.origName)" :invalid="showErrors && goalNameInvalid(g)"

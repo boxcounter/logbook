@@ -151,7 +151,7 @@ function onModalKeydown(e: KeyboardEvent) {
 
         <!-- Body -->
         <div class="px-[28px] pt-[16px] pb-[4px] overflow-y-auto">
-          <VueDraggable v-model="draft" handle=".drag-grip-role" :animation="150">
+          <VueDraggable v-model="draft" handle=".drag-grip-role" :animation="150" :force-fallback="true" :fallback-on-body="true">
             <RoleCard
               v-for="r in draft" :key="r.key"
               :role="r" :progress="progress" :next-key="nextKey"
