@@ -27,26 +27,26 @@ function onNext() {
 <template>
   <div class="flex justify-between items-baseline mb-[20px] pb-[14px] border-b border-[var(--color-divider)]">
     <div class="flex items-center gap-[8px]">
-      <button
-        data-test="prev-day"
-        class="inline-flex items-center justify-center w-[22px] h-[22px] rounded-[var(--radius-form-lg)]
-               border border-[var(--color-border-form)] text-[var(--color-text-secondary)]
-               hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-muted)] cursor-pointer transition-colors"
-        title="Previous day (⌘[)"
-        @click="emit('prev-day')"
-      >‹</button>
+      <div class="flex items-center gap-[2px]">
+        <button
+          data-test="prev-day"
+          class="leading-none text-[length:var(--app-text-base)] text-[var(--color-text-secondary)]
+                 hover:text-[var(--color-text-primary)] cursor-pointer px-[4px] py-[2px] transition-colors"
+          title="Previous day (⌘[)"
+          @click="emit('prev-day')"
+        >←</button>
+        <button
+          data-test="next-day"
+          class="leading-none text-[length:var(--app-text-base)] px-[4px] py-[2px] transition-colors"
+          :class="canGoNext
+            ? 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] cursor-pointer'
+            : 'text-[var(--color-text-disabled)] opacity-40 cursor-default'"
+          title="Next day (⌘])"
+          :aria-disabled="!canGoNext"
+          @click="onNext"
+        >→</button>
+      </div>
       <span class="text-[length:var(--app-text-xl)] font-bold text-[var(--color-text-primary)] tracking-[-0.3px]">{{ title }}</span>
-      <button
-        data-test="next-day"
-        class="inline-flex items-center justify-center w-[22px] h-[22px] rounded-[var(--radius-form-lg)]
-               border border-[var(--color-border-form)] transition-colors"
-        :class="canGoNext
-          ? 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-muted)] cursor-pointer'
-          : 'text-[var(--color-text-disabled)] opacity-40 cursor-default'"
-        title="Next day (⌘])"
-        :aria-disabled="!canGoNext"
-        @click="onNext"
-      >›</button>
       <span
         v-if="isToday"
         data-test="today-badge"

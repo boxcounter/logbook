@@ -26,6 +26,18 @@ describe("DayHeader", () => {
     expect(wrapper.text()).not.toContain("1 entries");
   });
 
+  it("renders both nav arrows before the title so their position is stable across days", () => {
+    const wrapper = mount(DayHeader, {
+      props: { title: "Friday, June 13", isToday: false, entryCount: 0, totalMinutes: 0, canGoNext: true },
+    });
+    const html = wrapper.html();
+    const prevIdx = html.indexOf('data-test="prev-day"');
+    const nextIdx = html.indexOf('data-test="next-day"');
+    const titleIdx = html.indexOf("Friday, June 13");
+    expect(prevIdx).toBeGreaterThan(-1);
+    expect(nextIdx).toBeLessThan(titleIdx); // next arrow precedes the variable-width title
+  });
+
   it("emits prev-day when the left arrow is clicked", async () => {
     const wrapper = mount(DayHeader, {
       props: { title: "X", isToday: false, entryCount: 0, totalMinutes: 0, canGoNext: true },
