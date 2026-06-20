@@ -80,8 +80,10 @@ function onKeydown(e: KeyboardEvent) {
   }
   // Esc is owned by the popover (capture-phase window listener).
   if (e.key === "@") { e.preventDefault(); popoverOpen.value = true; return; }
-  // Enter must never be blocked (spec §5.2): submit even with the popover open
-  // or required dimensions unfilled. Close the popover first if it is open.
+  // Enter submits the entry. While the popover is open, its capture-phase window
+  // listener owns Enter (selects the highlighted item) and stops propagation, so
+  // this handler only runs with the popover closed. The closePopover() guard is a
+  // defensive fallback in case that listener ever isn't attached.
   if (e.key === "Enter") {
     e.preventDefault();
     if (popoverOpen.value) closePopover();
