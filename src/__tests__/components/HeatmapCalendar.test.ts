@@ -64,6 +64,15 @@ describe("HeatmapCalendar", () => {
     expect(wrapper.findComponent({ name: "QuickJumpPopover" }).exists()).toBe(true);
   });
 
+  it("closes the jump popover when clicking outside it", async () => {
+    const wrapper = mountCal({}, [{ year: 2026, month: 6 }, { year: 2026, month: 5 }]);
+    await wrapper.find("[data-test='month-label']").trigger("click"); // open jump
+    expect(wrapper.findComponent({ name: "QuickJumpPopover" }).exists()).toBe(true);
+    document.dispatchEvent(new MouseEvent("mousedown", { bubbles: true })); // click elsewhere
+    await wrapper.vm.$nextTick();
+    expect(wrapper.findComponent({ name: "QuickJumpPopover" }).exists()).toBe(false);
+  });
+
   it("closing the jump popover (its close event) hides it", async () => {
     const wrapper = mountCal({}, [{ year: 2026, month: 6 }]);
     await wrapper.find("[data-test='month-label']").trigger("click"); // open jump

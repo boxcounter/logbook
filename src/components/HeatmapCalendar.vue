@@ -1,6 +1,6 @@
 <!-- src/components/HeatmapCalendar.vue -->
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, watch, onUnmounted } from "vue";
 import type { Entry } from "../types";
 import type { AvailableMonth } from "../stores/useStore";
 import { datesInMonth, parseDate } from "../utils/dates";
@@ -98,27 +98,43 @@ function onJump(payload: { year: number; month: number }) {
   showJump.value = false;
   emit("navigate", payload);
 }
+
+// Close the jump popover on a click anywhere outside the label trigger + popover
+// (jumpAnchor wraps both). The listener only lives while the popover is open.
+const jumpAnchor = ref<HTMLElement>();
+function onDocMousedown(e: MouseEvent) {
+  if (jumpAnchor.value && !jumpAnchor.value.contains(e.target as Node)) {
+    showJump.value = false;
+  }
+}
+watch(showJump, (open) => {
+  if (open) document.addEventListener("mousedown", onDocMousedown, true);
+  else document.removeEventListener("mousedown", onDocMousedown, true);
+});
+onUnmounted(() => document.removeEventListener("mousedown", onDocMousedown, true));
 </script>
 
 <template>
   <div>
-    <!-- Nav row -->
-    <div class="flex items-center justify-between mb-[8px]">
-      <span data-test="prev-month" class="text-[length:var(--app-text-xs)] text-[var(--color-text-secondary)] cursor-pointer px-[4px] py-[2px] hover:text-[var(--color-text-primary)]" title="Previous month (⌘⇧[)" @click="shift(-1)">←</span>
-      <span data-test="month-label" class="text-[length:var(--app-text-base)] font-bold text-[var(--color-text-primary)] cursor-pointer" @click="onLabelClick">
-        {{ MONTH_NAMES[month - 1] }}
-        <span class="font-normal text-[length:var(--app-text-xs-alt)] text-[var(--color-text-secondary)]">{{ year }} ▾</span>
-      </span>
-      <span data-test="next-month" class="text-[length:var(--app-text-xs)] text-[var(--color-text-secondary)] cursor-pointer px-[4px] py-[2px] hover:text-[var(--color-text-primary)]" title="Next month (⌘⇧])" @click="shift(1)">→</span>
-    </div>
+    <div ref="jumpAnchor">
+      <!-- Nav row -->
+      <div class="flex items-center justify-between mb-[8px]">
+        <span data-test="prev-month" class="text-[length:var(--app-text-xs)] text-[var(--color-text-secondary)] cursor-pointer px-[4px] py-[2px] hover:text-[var(--color-text-primary)]" title="Previous month (⌘⇧[)" @click="shift(-1)">←</span>
+        <span data-test="month-label" class="text-[length:var(--app-text-base)] font-bold text-[var(--color-text-primary)] cursor-pointer" @click="onLabelClick">
+          {{ MONTH_NAMES[month - 1] }}
+          <span class="font-normal text-[length:var(--app-text-xs-alt)] text-[var(--color-text-secondary)]">{{ year }} ▾</span>
+        </span>
+        <span data-test="next-month" class="text-[length:var(--app-text-xs)] text-[var(--color-text-secondary)] cursor-pointer px-[4px] py-[2px] hover:text-[var(--color-text-primary)]" title="Next month (⌘⇧])" @click="shift(1)">→</span>
+      </div>
 
-    <QuickJumpPopover
-      v-if="showJump && availableMonths !== null"
-      :year="year" :month="month" :available-months="availableMonths"
-      class="mb-[8px]"
-      @jump="onJump"
-      @close="showJump = false"
-    />
+      <QuickJumpPopover
+        v-if="showJump && availableMonths !== null"
+        :year="year" :month="month" :available-months="availableMonths"
+        class="mb-[8px]"
+        @jump="onJump"
+        @close="showJump = false"
+      />
+    </div>
 
     <!-- Weekday headers -->
     <div class="grid grid-cols-7 gap-[3px] text-center text-[length:var(--app-text-2xs)] text-[var(--color-text-secondary)] mb-[4px]">
