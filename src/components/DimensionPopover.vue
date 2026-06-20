@@ -154,10 +154,12 @@ onUnmounted(() => window.removeEventListener("keydown", onWindowKeydown, true));
         :data-active="i === activeIndex"
         class="px-[14px] py-[9px] text-[length:var(--app-text-sm)]
                flex items-center gap-[10px] cursor-pointer border-b border-[var(--color-surface-muted)]
-               last:border-b-0 hover:bg-[var(--color-divider)]"
+               last:border-b-0"
         :class="[
-          dimValues[d.key] ? 'bg-[var(--color-popover-item-selected-bg)] text-[var(--color-brand-solid)] font-semibold' : 'text-[var(--color-text-primary)]',
-          i === activeIndex ? 'ring-1 ring-inset ring-[var(--color-brand-solid)]' : '',
+          i === activeIndex
+            ? 'bg-[var(--color-popover-item-active-bg)]'
+            : (dimValues[d.key] ? 'bg-[var(--color-popover-item-selected-bg)]' : ''),
+          dimValues[d.key] ? 'text-[var(--color-brand-solid)] font-semibold' : 'text-[var(--color-text-primary)]',
         ]"
         @mouseenter="activeIndex = i"
         @click="selectDim(d.key)"
@@ -194,11 +196,12 @@ onUnmounted(() => window.removeEventListener("keydown", onWindowKeydown, true));
         data-test="val-item"
         :data-active="i === activeIndex"
         class="px-[14px] py-[9px] text-[length:var(--app-text-sm)]
-               cursor-pointer border-b border-[var(--color-surface-muted)] last:border-b-0
-               hover:bg-[var(--color-divider)]"
+               cursor-pointer border-b border-[var(--color-surface-muted)] last:border-b-0"
         :class="[
-          activeDimKey && dimValues[activeDimKey] === v ? 'bg-[var(--color-popover-item-selected-bg)] text-[var(--color-brand-solid)] font-semibold' : 'text-[var(--color-text-primary)]',
-          i === activeIndex ? 'ring-1 ring-inset ring-[var(--color-brand-solid)]' : '',
+          i === activeIndex
+            ? 'bg-[var(--color-popover-item-active-bg)]'
+            : (activeDimKey && dimValues[activeDimKey] === v ? 'bg-[var(--color-popover-item-selected-bg)]' : ''),
+          activeDimKey && dimValues[activeDimKey] === v ? 'text-[var(--color-brand-solid)] font-semibold' : 'text-[var(--color-text-primary)]',
         ]"
         @mouseenter="activeIndex = i"
         @click="selectVal(v)"
