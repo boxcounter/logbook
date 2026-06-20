@@ -38,6 +38,14 @@ describe("TwoLineInput", () => {
     expect(wrapper.text()).toContain("Goal");
   });
 
+  it("shows only @ and # hints, not month-navigation hints", () => {
+    const wrapper = mountInput();
+    expect(wrapper.text()).toContain("dim");
+    expect(wrapper.text()).toContain("time");
+    expect(wrapper.text()).not.toContain("prev month");
+    expect(wrapper.text()).not.toContain("next month");
+  });
+
   it("emits submit with item, minutes, and dimensions on Enter (all required filled)", async () => {
     const wrapper = mountInput({ category: "Engineering", goal: "Bug fixes" });
     await wrapper.find("input").setValue("Code review 1h");

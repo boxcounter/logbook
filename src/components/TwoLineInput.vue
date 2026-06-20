@@ -196,8 +196,6 @@ watch(focusRequestId, () => {
     <div class="flex gap-[14px] mt-[4px] text-[length:var(--app-text-micro)] text-[var(--color-text-disabled)] group-focus-within:text-[var(--color-text-muted)] hover:text-[var(--color-text-muted)] transition-colors">
       <span><kbd class="mono px-[5px] border border-[var(--color-border-form)] rounded-[var(--radius-sm)] bg-[var(--color-surface)] text-[length:var(--app-text-2xs)]">@</kbd> dim</span>
       <span><kbd class="mono px-[5px] border border-[var(--color-border-form)] rounded-[var(--radius-sm)] bg-[var(--color-surface)] text-[length:var(--app-text-2xs)]">#</kbd> time</span>
-      <span><kbd class="mono px-[5px] border border-[var(--color-border-form)] rounded-[var(--radius-sm)] bg-[var(--color-surface)] text-[length:var(--app-text-2xs)]">⌘[</kbd> prev month</span>
-      <span><kbd class="mono px-[5px] border border-[var(--color-border-form)] rounded-[var(--radius-sm)] bg-[var(--color-surface)] text-[length:var(--app-text-2xs)]">⌘]</kbd> next month</span>
     </div>
   </div>
 </template>
