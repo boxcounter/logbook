@@ -80,4 +80,14 @@ describe("MonthView", () => {
     const wrapper = mountView(store);
     expect(wrapper.findComponent({ name: "TwoLineInput" }).exists()).toBe(false);
   });
+
+  it("Esc on the day note reverts its content to the pre-edit snapshot", async () => {
+    const wrapper = mountView();
+    const note = wrapper.find("[contenteditable]");
+    note.element.textContent = "original";
+    await note.trigger("focus");          // snapshot taken here
+    note.element.textContent = "edited away";
+    await note.trigger("keydown", { key: "Escape" });
+    expect(note.element.textContent).toBe("original");
+  });
 });
