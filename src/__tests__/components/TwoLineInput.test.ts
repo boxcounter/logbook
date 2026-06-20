@@ -76,6 +76,15 @@ describe("TwoLineInput", () => {
     expect(wrapper.findComponent({ name: "DimensionPopover" }).exists()).toBe(true);
   });
 
+  it("closes the dimension popover when clicking outside the composer", async () => {
+    const wrapper = mountInput();
+    await wrapper.find("input").trigger("keydown", { key: "@" });
+    expect(wrapper.findComponent({ name: "DimensionPopover" }).exists()).toBe(true);
+    document.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    await wrapper.vm.$nextTick();
+    expect(wrapper.findComponent({ name: "DimensionPopover" }).exists()).toBe(false);
+  });
+
   it("Enter submits even while the popover is open (does not swallow Enter)", async () => {
     const wrapper = mountInput({ category: "Engineering", goal: "Bug fixes" });
     await wrapper.find("input").setValue("Code review 1h");
