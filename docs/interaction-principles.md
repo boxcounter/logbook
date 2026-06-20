@@ -23,6 +23,7 @@
 
 - **点击别处**：document 级 `mousedown`（capture 阶段）监听，仅在打开时挂、关闭/卸载时移除；用一个包住「触发器 + 弹层」的 `ref` 判定，组件内部点击（含触发器，避免开→关→重开抖动）不自关。
 - **esc**：最内层弹层用 window capture + `stopPropagation` 自己吃 esc（phase-aware：值→退回、维度→关闭）。编辑器用元素 `@keydown.esc.stop` 处理"焦点在内"的情况，外加一个 document `keydown` 兜底，仅当 `activeElement` 在编辑器之外时触发——否则焦点在别处时 esc 会丢失。
+  - **铁律（已踩坑三次）**：元素级 `@keydown` 只在焦点落在组件内部时才收得到 esc。任何弹层/对话框/编辑器，要么**开启时把焦点移进自己**（如 modal / QuickJumpPopover：`onMounted`/`watch(open)` 里 `el.focus()`，根元素需 `tabindex="-1"`），要么挂 **window/document 级监听**（如 DimensionPopover）。绝不能只靠元素 `@keydown` 还假设焦点恰好在里面——否则从触发按钮或别处按 esc 会无效。
 - **失去焦点**：document `focusin`，目标落在编辑器之外即消解（覆盖切窗回来焦点被主输入框抢走等场景）。
 
 新组件应复用以上模式，而非发明新机制。
