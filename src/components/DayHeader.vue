@@ -8,15 +8,44 @@ const props = defineProps<{
   isToday: boolean;
   entryCount: number;
   totalMinutes: number;
+  canGoNext: boolean;
+}>();
+
+const emit = defineEmits<{
+  "prev-day": [];
+  "next-day": [];
 }>();
 
 const countLabel = computed(() => (props.entryCount === 1 ? "entry" : "entries"));
 const total = computed(() => formatDuration(props.totalMinutes));
+
+function onNext() {
+  if (props.canGoNext) emit("next-day");
+}
 </script>
 
 <template>
   <div class="flex justify-between items-baseline mb-[20px] pb-[14px] border-b border-[var(--color-divider)]">
-    <div>
+    <div class="flex items-center gap-[8px]">
+      <div class="flex items-center gap-[2px]">
+        <button
+          data-test="prev-day"
+          class="leading-none text-[length:var(--app-text-base)] text-[var(--color-text-secondary)]
+                 hover:text-[var(--color-text-primary)] cursor-pointer px-[4px] py-[2px] transition-colors"
+          title="Previous day (⌘[)"
+          @click="emit('prev-day')"
+        >←</button>
+        <button
+          data-test="next-day"
+          class="leading-none text-[length:var(--app-text-base)] px-[4px] py-[2px] transition-colors"
+          :class="canGoNext
+            ? 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] cursor-pointer'
+            : 'text-[var(--color-text-disabled)] opacity-40 cursor-default'"
+          title="Next day (⌘])"
+          :aria-disabled="!canGoNext"
+          @click="onNext"
+        >→</button>
+      </div>
       <span class="text-[length:var(--app-text-xl)] font-bold text-[var(--color-text-primary)] tracking-[-0.3px]">{{ title }}</span>
       <span
         v-if="isToday"

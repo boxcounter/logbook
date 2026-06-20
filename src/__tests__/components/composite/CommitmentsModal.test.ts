@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { nextTick } from "vue";
 import { mount } from "@vue/test-utils";
 import { invoke } from "@tauri-apps/api/core";
 import CommitmentsModal from "../../../components/composite/CommitmentsModal.vue";
@@ -382,6 +383,18 @@ describe("CommitmentsModal — keyboard", () => {
 });
 
 describe("CommitmentsModal — close & discard", () => {
+  it("moves focus into the dialog on open so esc reaches it regardless of trigger focus", async () => {
+    const w = mount(CommitmentsModal, {
+      props: { ...baseProps(), open: true },
+      attachTo: document.body,
+      global: { stubs: { teleport: true } },
+    });
+    await nextTick();
+    await nextTick();
+    const overlay = w.find("[data-test='overlay']").element;
+    expect(document.activeElement).toBe(overlay);
+    w.unmount();
+  });
   it("Esc closes immediately when there are no changes", async () => {
     const w = mountModal();
     await w.find("[data-test='overlay']").trigger("keydown", { key: "Escape" });

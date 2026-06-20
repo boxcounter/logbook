@@ -30,6 +30,12 @@ describe("HeatmapCalendar", () => {
     expect(wrapper.emitted("navigate")?.[1]).toEqual([{ year: 2026, month: 7 }]);
   });
 
+  it("month arrows advertise the ⌘⇧[ / ⌘⇧] shortcuts", () => {
+    const wrapper = mountCal();
+    expect(wrapper.find("[data-test='prev-month']").attributes("title")).toContain("⌘⇧[");
+    expect(wrapper.find("[data-test='next-month']").attributes("title")).toContain("⌘⇧]");
+  });
+
   it("emits selectDay when a non-future day is clicked", async () => {
     const wrapper = mountCal();
     // Day 1 of June 2026 is in the past relative to selectedDate's month — click it
@@ -56,6 +62,15 @@ describe("HeatmapCalendar", () => {
     const wrapper = mountCal({}, [{ year: 2026, month: 6 }]);
     await wrapper.find("[data-test='month-label']").trigger("click");
     expect(wrapper.findComponent({ name: "QuickJumpPopover" }).exists()).toBe(true);
+  });
+
+  it("closes the jump popover when clicking outside it", async () => {
+    const wrapper = mountCal({}, [{ year: 2026, month: 6 }, { year: 2026, month: 5 }]);
+    await wrapper.find("[data-test='month-label']").trigger("click"); // open jump
+    expect(wrapper.findComponent({ name: "QuickJumpPopover" }).exists()).toBe(true);
+    document.dispatchEvent(new MouseEvent("mousedown", { bubbles: true })); // click elsewhere
+    await wrapper.vm.$nextTick();
+    expect(wrapper.findComponent({ name: "QuickJumpPopover" }).exists()).toBe(false);
   });
 
   it("closing the jump popover (its close event) hides it", async () => {

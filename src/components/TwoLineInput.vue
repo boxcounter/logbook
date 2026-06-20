@@ -1,6 +1,6 @@
 <!-- src/components/TwoLineInput.vue -->
 <script setup lang="ts">
-import { ref, computed, inject, watch, type Ref } from "vue";
+import { ref, computed, inject, watch, onUnmounted, type Ref } from "vue";
 import type { Dimension, Commitment } from "../types";
 import { parseDurationFromText, stripDurations, formatDuration } from "../utils/format";
 import DimensionPopover from "./DimensionPopover.vue";
@@ -62,6 +62,22 @@ function closePopover() {
   inputEl.value?.focus();
 }
 
+// Close the popover on a click anywhere outside the composer (rootEl wraps the
+// input, the chips that open it, and the popover itself, so in-composer clicks
+// never self-close). Esc is owned by DimensionPopover (phase-aware). Listener
+// only lives while the popover is open.
+const rootEl = ref<HTMLElement | null>(null);
+function onDocMousedown(e: MouseEvent) {
+  if (rootEl.value && !rootEl.value.contains(e.target as Node)) {
+    popoverOpen.value = false;
+  }
+}
+watch(popoverOpen, (open) => {
+  if (open) document.addEventListener("mousedown", onDocMousedown, true);
+  else document.removeEventListener("mousedown", onDocMousedown, true);
+});
+onUnmounted(() => document.removeEventListener("mousedown", onDocMousedown, true));
+
 function onKeydown(e: KeyboardEvent) {
   // Esc when the popover is closed: clear the in-progress entry. While the
   // popover is open its capture-phase listener owns Esc (back/close), and its
@@ -112,19 +128,31 @@ function clearInput() {
   text.value = "";
 }
 
-defineExpose({ clearInput });
+function focusInput() {
+  inputEl.value?.focus();
+}
+
+defineExpose({ clearInput, focusInput });
 
 const focusRequestId = inject<Ref<number>>("focusRequestId", ref(0));
 watch(focusRequestId, () => {
-  const active = document.activeElement;
-  if (!active || active === document.body || active.tagName === "BODY") {
-    inputEl.value?.focus();
-  }
+  // On a window refocus, claim the input unless the user is actively editing
+  // another field (the day note, an entry-edit input, etc.). Checking for an
+  // editable element rather than only document.body is robust to webviews that
+  // restore focus to the <html> element on refocus.
+  const active = document.activeElement as HTMLElement | null;
+  const editing =
+    !!active &&
+    (active.tagName === "INPUT" ||
+      active.tagName === "TEXTAREA" ||
+      active.tagName === "SELECT" ||
+      active.isContentEditable);
+  if (!editing) inputEl.value?.focus();
 });
 </script>
 
 <template>
-  <div class="relative group">
+  <div ref="rootEl" class="relative group">
     <div
       class="group bg-[var(--color-surface)] border-2 border-[var(--color-border-form)] rounded-[var(--radius-card)] px-[16px] py-[10px]
              focus-within:border-[var(--color-brand-solid)] focus-within:shadow-[var(--shadow-focus-ring)] transition-all"
@@ -198,8 +226,6 @@ watch(focusRequestId, () => {
     <div class="flex gap-[14px] mt-[4px] text-[length:var(--app-text-micro)] text-[var(--color-text-disabled)] group-focus-within:text-[var(--color-text-muted)] hover:text-[var(--color-text-muted)] transition-colors">
       <span><kbd class="mono px-[5px] border border-[var(--color-border-form)] rounded-[var(--radius-sm)] bg-[var(--color-surface)] text-[length:var(--app-text-2xs)]">@</kbd> dim</span>
       <span><kbd class="mono px-[5px] border border-[var(--color-border-form)] rounded-[var(--radius-sm)] bg-[var(--color-surface)] text-[length:var(--app-text-2xs)]">#</kbd> time</span>
-      <span><kbd class="mono px-[5px] border border-[var(--color-border-form)] rounded-[var(--radius-sm)] bg-[var(--color-surface)] text-[length:var(--app-text-2xs)]">⌘[</kbd> prev month</span>
-      <span><kbd class="mono px-[5px] border border-[var(--color-border-form)] rounded-[var(--radius-sm)] bg-[var(--color-surface)] text-[length:var(--app-text-2xs)]">⌘]</kbd> next month</span>
     </div>
   </div>
 </template>

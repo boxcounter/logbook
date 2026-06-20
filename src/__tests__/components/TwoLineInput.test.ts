@@ -1,5 +1,6 @@
 // src/__tests__/components/TwoLineInput.test.ts
 import { describe, it, expect, afterEach } from "vitest";
+import { ref } from "vue";
 import { mount, enableAutoUnmount } from "@vue/test-utils";
 import TwoLineInput from "../../components/TwoLineInput.vue";
 import { makeDimension, makeCommitment } from "../mocks/fixtures";
@@ -38,6 +39,14 @@ describe("TwoLineInput", () => {
     expect(wrapper.text()).toContain("Goal");
   });
 
+  it("shows only @ and # hints, not month-navigation hints", () => {
+    const wrapper = mountInput();
+    expect(wrapper.text()).toContain("dim");
+    expect(wrapper.text()).toContain("time");
+    expect(wrapper.text()).not.toContain("prev month");
+    expect(wrapper.text()).not.toContain("next month");
+  });
+
   it("emits submit with item, minutes, and dimensions on Enter (all required filled)", async () => {
     const wrapper = mountInput({ category: "Engineering", goal: "Bug fixes" });
     await wrapper.find("input").setValue("Code review 1h");
@@ -66,6 +75,15 @@ describe("TwoLineInput", () => {
     const wrapper = mountInput();
     await wrapper.find("input").trigger("keydown", { key: "@" });
     expect(wrapper.findComponent({ name: "DimensionPopover" }).exists()).toBe(true);
+  });
+
+  it("closes the dimension popover when clicking outside the composer", async () => {
+    const wrapper = mountInput();
+    await wrapper.find("input").trigger("keydown", { key: "@" });
+    expect(wrapper.findComponent({ name: "DimensionPopover" }).exists()).toBe(true);
+    document.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    await wrapper.vm.$nextTick();
+    expect(wrapper.findComponent({ name: "DimensionPopover" }).exists()).toBe(false);
   });
 
   it("Enter while the popover is open selects the highlight instead of submitting", async () => {
@@ -110,6 +128,52 @@ describe("TwoLineInput", () => {
     (wrapper.vm as unknown as { clearInput: () => void }).clearInput();
     await wrapper.vm.$nextTick();
     expect((wrapper.find("input").element as HTMLInputElement).value).toBe("");
+  });
+
+  it("focuses the input on a focus request even when a non-editable element holds focus", async () => {
+    const fid = ref(0);
+    const btn = document.createElement("button");
+    document.body.appendChild(btn);
+    const wrapper = mount(TwoLineInput, {
+      props: { dimensions, commitments, initialValues: {} },
+      attachTo: document.body,
+      global: { provide: { focusRequestId: fid } },
+    });
+    btn.focus();
+    expect(document.activeElement).toBe(btn);
+    fid.value++;
+    await wrapper.vm.$nextTick();
+    expect(document.activeElement).toBe(wrapper.find("input").element);
+    wrapper.unmount();
+    btn.remove();
+  });
+
+  it("does not steal focus from an active editable element on a focus request", async () => {
+    const fid = ref(0);
+    const other = document.createElement("input");
+    document.body.appendChild(other);
+    const wrapper = mount(TwoLineInput, {
+      props: { dimensions, commitments, initialValues: {} },
+      attachTo: document.body,
+      global: { provide: { focusRequestId: fid } },
+    });
+    other.focus();
+    expect(document.activeElement).toBe(other);
+    fid.value++;
+    await wrapper.vm.$nextTick();
+    expect(document.activeElement).toBe(other); // not stolen
+    wrapper.unmount();
+    other.remove();
+  });
+
+  it("exposes focusInput() to focus the entry input", async () => {
+    const wrapper = mount(TwoLineInput, {
+      props: { dimensions, commitments, initialValues: {} },
+      attachTo: document.body,
+    });
+    (wrapper.vm as unknown as { focusInput: () => void }).focusInput();
+    expect(document.activeElement).toBe(wrapper.find("input").element);
+    wrapper.unmount();
   });
 
   it("Esc clears typed text without emitting submit", async () => {

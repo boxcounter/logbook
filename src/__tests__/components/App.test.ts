@@ -234,6 +234,73 @@ describe("App", () => {
     expect(mockInvoke).toHaveBeenCalledWith("init");
   });
 
+  // ---- Focus / midnight crossing ----
+
+  function ymd(d: Date): string {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
+
+  it("refocus on the same day does NOT reset the selected date", async () => {
+    vi.setSystemTime(new Date(2026, 5, 20, 10, 0, 0));
+    mockInvoke.mockResolvedValue({
+      status: "Ready",
+      data: { root_path: "/test", config: makeConfig(), today: makeDayFile(), commitments: [], scan_warnings: [] },
+    });
+    const { store } = mountApp();
+    await vi.runAllTimersAsync();
+    await nextTick();
+
+    store.currentDate = "2026-06-12"; // user navigated to a past day
+    vi.clearAllMocks();
+
+    focusChangedCallback?.({ payload: true });
+    await vi.runAllTimersAsync();
+
+    expect(store.currentDate).toBe("2026-06-12");
+    expect(mockInvoke).not.toHaveBeenCalledWith("init");
+  });
+
+  it("midnight crossing while viewing today FOLLOWS to the new today", async () => {
+    vi.setSystemTime(new Date(2026, 5, 20, 23, 59, 0));
+    mockInvoke.mockResolvedValue({
+      status: "Ready",
+      data: { root_path: "/test", config: makeConfig(), today: makeDayFile(), commitments: [], scan_warnings: [] },
+    });
+    const { store } = mountApp();
+    await vi.runAllTimersAsync();
+    await nextTick();
+
+    expect(store.currentDate).toBe(ymd(new Date(2026, 5, 20)));
+    store.screen = "ready";
+    vi.setSystemTime(new Date(2026, 5, 21, 0, 1, 0)); // crossed midnight
+    focusChangedCallback?.({ payload: true });
+    await vi.runAllTimersAsync();
+
+    expect(store.currentDate).toBe(ymd(new Date(2026, 5, 21)));
+    expect(mockInvoke).toHaveBeenCalledWith("init");
+  });
+
+  it("midnight crossing while viewing another day STAYS put", async () => {
+    vi.setSystemTime(new Date(2026, 5, 20, 23, 59, 0));
+    mockInvoke.mockResolvedValue({
+      status: "Ready",
+      data: { root_path: "/test", config: makeConfig(), today: makeDayFile(), commitments: [], scan_warnings: [] },
+    });
+    const { store } = mountApp();
+    await vi.runAllTimersAsync();
+    await nextTick();
+
+    store.currentDate = "2026-06-12"; // viewing a different day
+    store.screen = "ready";
+    vi.clearAllMocks();
+    vi.setSystemTime(new Date(2026, 5, 21, 0, 1, 0));
+    focusChangedCallback?.({ payload: true });
+    await vi.runAllTimersAsync();
+
+    expect(store.currentDate).toBe("2026-06-12");
+    expect(mockInvoke).not.toHaveBeenCalledWith("init");
+  });
+
   // ---- Undo toast ----
 
   it("triggerUndoToast: shows undo toast with Undo and Dismiss buttons", async () => {
