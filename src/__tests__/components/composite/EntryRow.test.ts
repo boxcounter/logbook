@@ -69,6 +69,16 @@ describe("EntryRow", () => {
     expect(wrapper.emitted("update")).toBeFalsy();
   });
 
+  it("draws a top hairline divider for non-first rows", () => {
+    const wrapper = mountRow({}, { index: 1 });
+    expect(wrapper.find("[data-test='entry-row']").classes()).toContain("border-t");
+  });
+
+  it("does not draw a top divider on the first row", () => {
+    const wrapper = mountRow({}, { index: 0 });
+    expect(wrapper.find("[data-test='entry-row']").classes()).not.toContain("border-t");
+  });
+
   it("emits delete from the editor", async () => {
     const wrapper = mountRow();
     await wrapper.find("[data-test='entry-row']").trigger("dblclick");

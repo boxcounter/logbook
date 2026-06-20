@@ -53,9 +53,9 @@ function onSave(item: string, durationMinutes: number, dims: Record<string, stri
   <div
     v-else
     data-test="entry-row"
-    class="group flex justify-between items-start gap-[8px] px-[14px] py-[9px] rounded-[var(--radius-form-lg)]
-           border border-transparent hover:bg-[var(--color-surface-muted)] hover:border-[var(--color-divider)] transition-all"
-    :class="{ 'just-added': justAdded }"
+    class="group flex justify-between items-start gap-[8px] px-[14px] py-[9px]
+           hover:bg-[var(--color-surface-muted)] transition-colors"
+    :class="[{ 'just-added': justAdded }, index > 0 ? 'border-t border-[var(--color-divider)]' : '']"
     @dblclick="editing = true"
   >
     <div class="flex-1 min-w-0">
@@ -85,10 +85,10 @@ function onSave(item: string, durationMinutes: number, dims: Record<string, stri
 </template>
 
 <style scoped>
-/* Newly-added entry: blue highlight that fades over 1.5s (spec §5.2 step 7). */
+/* Newly-added entry: blue background that fades over 1.5s (spec §5.2 step 7). */
 @keyframes fadeHighlight {
-  0% { background-color: var(--anim-highlight-bg); border-color: var(--anim-highlight-border); }
-  100% { background-color: transparent; border-color: transparent; }
+  0% { background-color: var(--anim-highlight-bg); }
+  100% { background-color: transparent; }
 }
 .just-added { animation: fadeHighlight var(--anim-highlight-duration) ease-out forwards; }
 </style>
