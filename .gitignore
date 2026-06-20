@@ -27,3 +27,4 @@ demos
 *.njsproj
 *.sln
 *.sw?
+.superpowers/
