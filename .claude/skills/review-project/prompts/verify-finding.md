@@ -5,6 +5,7 @@
 ## 输入
 
 你会收到一个审查发现，包含：
+- `finding_id`：主 Agent 分配的稳定编号 —— 输出时**原样回填**
 - `file` + `line`：代码位置
 - `summary`：Reviewer 声称的问题
 - `severity`：Reviewer 判定的严重度
@@ -37,7 +38,7 @@
 
 ```json
 {
-  "finding_id": "<index>",
+  "finding_id": "<原样回填输入提供的 finding_id>",
   "real": true,
   "explanation": "得出结论的理由。引用相关代码路径。如果 real: false，说明为什么 Reviewer 误判了。",
   "adjusted_severity": "HIGH"
@@ -47,10 +48,6 @@
 - `real` 为布尔值，`explanation` 为字符串
 - `adjusted_severity` 为可选字段，取值 `"CRITICAL" | "HIGH" | "MEDIUM" | "LOW"`。仅在你认为 reviewer 的严重度判定有明显错误时提供：reviewer 标了 CRITICAL 但实际是罕见边界情况应降为 MEDIUM；reviewer 标了 LOW 但会导致静默数据丢失应升为 CRITICAL。严重度判断合理则省略此字段
 
-## 交付协议
+## 返回结果
 
-完成审查后，严格按以下顺序执行：
-
-1. **先交付**: 使用 `SendMessage` 把完整的 JSON 结果发送给 team lead（主 Agent）
-2. **后完成**: 使用 `TaskUpdate` 将你的任务标记为 `completed`
-3. ⚠️ **严禁颠倒顺序**: 先发数据，后标记完成。不发送数据就标记完成会导致主 Agent 拿不到你的审查结果，审查工作将白费。
+你的**最终消息必须只包含上面「输出格式」描述的 JSON**（可放在 ```json 代码块里），不要任何前言、解释或其他文字。该最终消息会作为返回值直接交给编排主 Agent —— 不需要、也不要调用 `SendMessage` 或任何任务工具。
