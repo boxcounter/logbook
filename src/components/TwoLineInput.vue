@@ -63,6 +63,21 @@ function closePopover() {
 }
 
 function onKeydown(e: KeyboardEvent) {
+  // Esc when the popover is closed: clear the in-progress entry. While the
+  // popover is open its capture-phase listener owns Esc (back/close), and its
+  // stopPropagation means this handler won't even see the event.
+  if (e.key === "Escape") {
+    if (popoverOpen.value) return;
+    const hasContent =
+      text.value.trim() !== "" ||
+      JSON.stringify(dimValues.value) !== JSON.stringify(props.initialValues);
+    if (!hasContent) return;
+    e.preventDefault();
+    text.value = "";
+    dimValues.value = { ...props.initialValues };
+    submitAttempted.value = false;
+    return;
+  }
   // Esc is owned by the popover (capture-phase window listener).
   if (e.key === "@") { e.preventDefault(); popoverOpen.value = true; return; }
   // Enter must never be blocked (spec §5.2): submit even with the popover open

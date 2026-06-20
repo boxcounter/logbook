@@ -209,6 +209,16 @@ async function saveNote() {
   catch (e) { logError("MonthView.saveNote", e); }
 }
 
+let noteSnapshot = "";
+function onNoteFocus() {
+  noteSnapshot = noteRef.value?.textContent || "";
+}
+function onNoteEsc(e: KeyboardEvent) {
+  e.preventDefault();
+  if (noteRef.value) noteRef.value.textContent = noteSnapshot;
+  noteRef.value?.blur(); // triggers saveNote with unchanged content (no-op write)
+}
+
 // ---- File path ----
 const dayFilePath = computed(() => {
   if (!store.rootPath) return "";
@@ -302,6 +312,8 @@ logInfo("MonthView", "mounted");
           @blur="saveNote"
           @paste="onNotePaste"
           @input="onNoteInput"
+          @focus="onNoteFocus"
+          @keydown.esc="onNoteEsc"
         ></div>
       </div>
 
