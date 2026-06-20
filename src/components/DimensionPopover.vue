@@ -86,12 +86,14 @@ function selectVal(value: string) {
   } else {
     phase.value = "dim";
     activeDimKey.value = null;
+    activeIndex.value = firstUnfilledIndex(justFilledKey);
   }
 }
 
 function goBack() {
   phase.value = "dim";
   activeDimKey.value = null;
+  activeIndex.value = firstUnfilledIndex();
 }
 
 // Window-level capture-phase handler (spec §5.1/§5.2 + keyboard nav design):
@@ -171,6 +173,7 @@ onUnmounted(() => window.removeEventListener("keydown", onWindowKeydown, true));
                border-t border-[var(--color-divider)] flex gap-[12px]"
       >
         <span><kbd class="mono px-[4px] border border-[var(--color-border-form)] rounded-[var(--radius-sm)] bg-[var(--color-surface)]">↵</kbd> select</span>
+        <span><kbd class="mono px-[4px] border border-[var(--color-border-form)] rounded-[var(--radius-sm)] bg-[var(--color-surface)]">⌃N/⌃P</kbd> move</span>
         <span><kbd class="mono px-[4px] border border-[var(--color-border-form)] rounded-[var(--radius-sm)] bg-[var(--color-surface)]">esc</kbd> close</span>
       </div>
     </template>
@@ -204,6 +207,7 @@ onUnmounted(() => window.removeEventListener("keydown", onWindowKeydown, true));
                border-t border-[var(--color-divider)] flex gap-[12px]"
       >
         <span><kbd class="mono px-[4px] border border-[var(--color-border-form)] rounded-[var(--radius-sm)] bg-[var(--color-surface)]">↵</kbd> select</span>
+        <span><kbd class="mono px-[4px] border border-[var(--color-border-form)] rounded-[var(--radius-sm)] bg-[var(--color-surface)]">⌃N/⌃P</kbd> move</span>
         <span><kbd class="mono px-[4px] border border-[var(--color-border-form)] rounded-[var(--radius-sm)] bg-[var(--color-surface)]">esc</kbd> back to dims</span>
       </div>
     </template>

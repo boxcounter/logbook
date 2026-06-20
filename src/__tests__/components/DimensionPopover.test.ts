@@ -170,4 +170,37 @@ describe("DimensionPopover", () => {
     await wrapper.vm.$nextTick();
     expect(activeValIndex(wrapper)).toBe(0);
   });
+
+  it("Enter in val phase emits select for the highlighted value and prevents default", async () => {
+    const wrapper = mountPop({ category: "PM" }); // not all required filled (goal missing)
+    await wrapper.findAll("[data-test='dim-item']")[0].trigger("click"); // category val, active = PM(1)
+    const ev = new KeyboardEvent("keydown", { key: "Enter", cancelable: true });
+    window.dispatchEvent(ev);
+    await wrapper.vm.$nextTick();
+    expect(wrapper.emitted("select")?.[0]).toEqual(["category", "PM"]);
+    expect(ev.defaultPrevented).toBe(true);
+  });
+
+  it("returning to dim phase after a select highlights the next unfilled dimension", async () => {
+    // category preset; pick a category value → returns to dim (goal still missing)
+    const wrapper = mountPop({ category: "PM" });
+    await wrapper.findAll("[data-test='dim-item']")[0].trigger("click"); // category val
+    await wrapper.findAll("[data-test='val-item']")[0].trigger("click"); // pick Engineering → back to dim
+    await wrapper.vm.$nextTick();
+    // category now filled (just selected) → next unfilled is Goal (index 1)
+    expect(activeDimIndex(wrapper)).toBe(1);
+  });
+
+  it("Esc back from val to dim re-highlights the first unfilled dimension", async () => {
+    const wrapper = mountPop({ category: "Engineering" });
+    await wrapper.findAll("[data-test='dim-item']")[1].trigger("click"); // Goal val phase
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    await wrapper.vm.$nextTick();
+    expect(activeDimIndex(wrapper)).toBe(1); // Goal still unfilled
+  });
+
+  it("shows the ⌃N/⌃P move hint in the footer", () => {
+    const wrapper = mountPop();
+    expect(wrapper.text()).toContain("move");
+  });
 });
