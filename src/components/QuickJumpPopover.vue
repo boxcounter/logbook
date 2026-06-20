@@ -14,7 +14,7 @@ const props = defineProps<{
   availableMonths: AvailableMonth[];
 }>();
 
-const emit = defineEmits<{ jump: [{ year: number; month: number }] }>();
+const emit = defineEmits<{ jump: [{ year: number; month: number }]; close: [] }>();
 
 const selectedYear = ref(props.year);
 
@@ -40,6 +40,7 @@ function onMonthChange(month: number) {
   <div
     class="flex gap-[8px] items-center bg-[var(--color-surface)] border border-[var(--color-border-form)]
            rounded-[var(--radius-form-lg)] shadow-[var(--shadow-quickjump)] px-[12px] py-[10px]"
+    @keydown.esc="emit('close')"
   >
     <select
       v-model.number="selectedYear"

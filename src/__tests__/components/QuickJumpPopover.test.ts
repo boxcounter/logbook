@@ -40,4 +40,10 @@ describe("QuickJumpPopover", () => {
     await wrapper.findAll("select")[1].setValue(8);
     expect(wrapper.emitted("jump")?.[0]).toEqual([{ year: 2025, month: 8 }]);
   });
+
+  it("Esc emits close", async () => {
+    const wrapper = mountPop();
+    await wrapper.trigger("keydown", { key: "Escape" });
+    expect(wrapper.emitted("close")).toBeTruthy();
+  });
 });

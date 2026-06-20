@@ -117,6 +117,7 @@ function onJump(payload: { year: number; month: number }) {
       :year="year" :month="month" :available-months="availableMonths"
       class="mb-[8px]"
       @jump="onJump"
+      @close="showJump = false"
     />
 
     <!-- Weekday headers -->
