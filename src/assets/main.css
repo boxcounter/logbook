@@ -16,6 +16,14 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Sortable.js (vue-draggable-plus) drag placeholder. During a drag the original
+   element keeps its place in the list with the `sortable-ghost` class while the
+   browser shows the floating drag image; without this rule the original stays
+   fully opaque and looks like a duplicate. Dimming it reads as a drop slot. */
+.sortable-ghost {
+  opacity: 0.4;
+}
+
 @media (prefers-color-scheme: dark) {
   body { background-image: none; }
 }
