@@ -153,6 +153,22 @@ describe("EntryRowEdit", () => {
     expect(wrapper.emitted("cancel")).toBeFalsy();
   });
 
+  it("esc exits edit mode when focus is outside the editor (no changes)", async () => {
+    const wrapper = mountEdit();
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    await wrapper.vm.$nextTick();
+    expect(wrapper.emitted("cancel")).toBeTruthy();
+  });
+
+  it("esc shows the discard confirm bar when focus is outside the editor and dirty", async () => {
+    const wrapper = mountEdit();
+    await wrapper.findAll("input")[0].setValue("Changed item");
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    await wrapper.vm.$nextTick();
+    expect(wrapper.find("[data-test='discard-prompt']").exists()).toBe(true);
+    expect(wrapper.emitted("cancel")).toBeFalsy();
+  });
+
   it("exits edit mode when focus moves to an element outside the editor", async () => {
     const wrapper = mountEdit();
     document.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));

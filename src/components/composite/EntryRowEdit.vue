@@ -62,13 +62,24 @@ function onDocMousedown(e: MouseEvent) {
 function onDocFocusin(e: FocusEvent) {
   if (rootEl.value && !rootEl.value.contains(e.target as Node)) dismissFromOutside();
 }
+// Esc only reaches the root's @keydown.esc when focus is inside the row. When
+// focus is elsewhere (the entry input, body), handle esc at the document level
+// so it still dismisses. The root handler uses .stop, so the two never overlap.
+function onDocKeydown(e: KeyboardEvent) {
+  if (e.key !== "Escape") return;
+  if (popoverOpen.value) return; // popover owns esc
+  if (rootEl.value?.contains(document.activeElement)) return; // focus inside → root handler owns it
+  dismissFromOutside();
+}
 onMounted(() => {
   document.addEventListener("mousedown", onDocMousedown, true);
   document.addEventListener("focusin", onDocFocusin, true);
+  document.addEventListener("keydown", onDocKeydown);
 });
 onUnmounted(() => {
   document.removeEventListener("mousedown", onDocMousedown, true);
   document.removeEventListener("focusin", onDocFocusin, true);
+  document.removeEventListener("keydown", onDocKeydown);
 });
 
 // Open upward when there isn't room below (the card clips with overflow-hidden).
@@ -125,7 +136,7 @@ function save() {
     ref="rootEl"
     class="bg-[var(--color-surface)] border border-[var(--color-brand-solid)] rounded-[var(--radius-form-lg)]
            shadow-[var(--shadow-focus-ring)] px-[14px] py-[9px] flex flex-col gap-[4px] relative"
-    @keydown.esc="onEsc"
+    @keydown.esc.stop="onEsc"
   >
     <div class="flex gap-[8px] items-center">
       <input
