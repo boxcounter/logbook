@@ -200,6 +200,7 @@ App.vue
 
 - Goal 维度：值列表不从 config 取，从 Rust 端 `get_commitments` 返回的 goals 并集构建
 - CommitmentsPanel：Today 页和 Stats 页复用同一组件。Today 页始终可见（录入框上方）
+- DimensionPopover 键盘导航：`CTRL+N`/`CTRL+P` 或 `↑`/`↓` 移动高亮（循环），默认高亮第一个还没填 value 的维度（从 val 阶段返回时高亮下一个未填项）。popover 开启时 `Enter` 改为「选中当前高亮项」（dim 阶段进入值菜单 / val 阶段填值），不再提交 entry / 保存编辑；按 `Esc` 关闭 popover 后 `Enter` 恢复提交。`TwoLineInput` 与 `EntryRowEdit` 复用同一 popover，行为一致。
 
 ## 数据流
 
