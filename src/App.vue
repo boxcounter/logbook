@@ -22,6 +22,12 @@ const scanWarnings = ref<ScanWarning[]>([]);
 // #1: window focus → auto-focus input
 const focusRequestId = ref(0);
 
+function todayStr(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+let lastKnownToday = todayStr();
+
 // Store listener handles for cleanup (prevents HMR duplication)
 let unlistenConfig: (() => void) | null = null;
 let unlistenCommitments: (() => void) | null = null;
@@ -43,16 +49,16 @@ onMounted(async () => {
     });
 
     unlistenFocus = await getCurrentWindow().onFocusChanged(({ payload: focused }) => {
-      if (focused) {
-        focusRequestId.value++;
-        // Refresh date if midnight was crossed while app was backgrounded
-        const now = new Date();
-        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-        if (store.currentDate !== todayStr && store.screen === "ready") {
-          store.currentDate = todayStr;
-          initApp();
-        }
+      if (!focused) return;
+      focusRequestId.value++;
+      const newToday = todayStr();
+      if (newToday === lastKnownToday) return; // same calendar day: leave the view alone
+      // Midnight crossed since we were last focused.
+      if (store.currentDate === lastKnownToday && store.screen === "ready") {
+        store.currentDate = newToday; // we were following "today" → follow to the new today
+        initApp();
       }
+      lastKnownToday = newToday;
     });
   } catch (e) {
     logError("App.onMounted", e);
