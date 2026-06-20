@@ -35,6 +35,10 @@ pub fn run() {
             .title("Logbook")
             .inner_size(width as f64, height as f64)
             .position(x as f64, y as f64)
+            // Tauri's OS drag-drop handler (enabled by default) intercepts the
+            // native HTML5 dragover/drop events Sortable.js needs for in-app
+            // drag-reorder. We don't use OS file-drop, so disable it.
+            .disable_drag_drop_handler()
             .build()
             .expect("failed to create main window");
 
