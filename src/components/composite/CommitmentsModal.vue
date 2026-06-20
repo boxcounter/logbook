@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, nextTick } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { VueDraggable } from "vue-draggable-plus";
 import RoleCard from "./RoleCard.vue";
@@ -27,6 +27,7 @@ const error = ref("");
 const saving = ref(false);
 const showErrors = ref(false);
 const showDiscard = ref(false);
+const overlayRef = ref<HTMLElement>();
 
 function buildDraft() {
   draft.value = props.commitments.map((c): RoleRowModel => ({
@@ -37,7 +38,13 @@ function buildDraft() {
   showErrors.value = false;
   showDiscard.value = false;
 }
-watch(() => props.open, (o) => { if (o) buildDraft(); }, { immediate: true });
+watch(() => props.open, (o) => {
+  if (!o) return;
+  buildDraft();
+  // Move focus into the dialog so keyboard (esc / ⌘Enter) reaches it — otherwise
+  // focus stays on the trigger button outside the teleported modal and esc is lost.
+  nextTick(() => overlayRef.value?.focus());
+}, { immediate: true });
 
 function toCommitments(rows: RoleRowModel[]): Commitment[] {
   return rows.map(r => ({
@@ -127,6 +134,7 @@ function onModalKeydown(e: KeyboardEvent) {
   <Teleport to="body">
     <div
       v-if="open"
+      ref="overlayRef"
       data-test="overlay" tabindex="-1"
       @keydown="onModalKeydown"
       @click.self="requestClose"
