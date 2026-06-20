@@ -46,4 +46,13 @@ describe("QuickJumpPopover", () => {
     await wrapper.trigger("keydown", { key: "Escape" });
     expect(wrapper.emitted("close")).toBeTruthy();
   });
+
+  it("focuses its root on mount so Esc works without clicking a select first", () => {
+    const wrapper = mount(QuickJumpPopover, {
+      props: { year: 2026, month: 6, availableMonths: months },
+      attachTo: document.body,
+    });
+    expect(document.activeElement).toBe(wrapper.element);
+    wrapper.unmount();
+  });
 });

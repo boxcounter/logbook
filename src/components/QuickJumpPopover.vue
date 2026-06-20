@@ -1,6 +1,6 @@
 <!-- src/components/QuickJumpPopover.vue -->
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, onMounted } from "vue";
 import type { AvailableMonth } from "../stores/useStore";
 
 const MONTH_NAMES = [
@@ -15,6 +15,10 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{ jump: [{ year: number; month: number }]; close: [] }>();
+
+const rootEl = ref<HTMLDivElement>();
+
+onMounted(() => rootEl.value?.focus());
 
 const selectedYear = ref(props.year);
 
@@ -38,8 +42,10 @@ function onMonthChange(month: number) {
 
 <template>
   <div
+    ref="rootEl"
+    tabindex="-1"
     class="flex gap-[8px] items-center bg-[var(--color-surface)] border border-[var(--color-border-form)]
-           rounded-[var(--radius-form-lg)] shadow-[var(--shadow-quickjump)] px-[12px] py-[10px]"
+           rounded-[var(--radius-form-lg)] shadow-[var(--shadow-quickjump)] px-[12px] py-[10px] outline-none"
     @keydown.esc="emit('close')"
   >
     <select
