@@ -68,13 +68,23 @@ describe("TwoLineInput", () => {
     expect(wrapper.findComponent({ name: "DimensionPopover" }).exists()).toBe(true);
   });
 
-  it("Enter submits even while the popover is open (does not swallow Enter)", async () => {
-    const wrapper = mountInput({ category: "Engineering", goal: "Bug fixes" });
-    await wrapper.find("input").setValue("Code review 1h");
-    await wrapper.find("input").trigger("keydown", { key: "@" }); // open popover
+  it("Enter while the popover is open selects the highlight instead of submitting", async () => {
+    const wrapper = mount(TwoLineInput, {
+      props: { dimensions, commitments, initialValues: { category: "Engineering", goal: "Bug fixes" } },
+      attachTo: document.body,
+    });
+    const input = wrapper.find("input");
+    await input.setValue("Code review 1h");
+    await input.trigger("keydown", { key: "@" }); // open popover (handled by the input's own onKeydown)
     expect(wrapper.findComponent({ name: "DimensionPopover" }).exists()).toBe(true);
-    await wrapper.find("input").trigger("keydown", { key: "Enter" });
-    expect(wrapper.emitted("submit")?.[0]).toEqual(["Code review", 60, { category: "Engineering", goal: "Bug fixes" }]);
+
+    // Real bubbling Enter so the popover's window capture-phase listener intercepts it.
+    input.element.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+    await wrapper.vm.$nextTick();
+
+    // Popover owns Enter: it entered the highlighted dimension's value menu; the entry is NOT submitted.
+    expect(wrapper.emitted("submit")).toBeFalsy();
+    expect(wrapper.find("[data-test='back-btn']").exists()).toBe(true); // popover advanced to val phase
   });
 
   it("opens the popover upward (bottom-full) since the input is bottom-anchored", async () => {

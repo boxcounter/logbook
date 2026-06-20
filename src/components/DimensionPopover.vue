@@ -101,6 +101,7 @@ function goBack() {
 // the highlighted item (added in later tasks). capture + stopPropagation makes the
 // popover own these keys regardless of focus, ahead of the parent's handlers.
 function onWindowKeydown(e: KeyboardEvent) {
+  if (e.isComposing) return;
   if (e.key === "Escape") {
     e.preventDefault();
     e.stopPropagation();

@@ -130,6 +130,25 @@ describe("EntryRowEdit", () => {
     expect(wrapper.find("[data-test='discard-prompt']").exists()).toBe(false);
   });
 
+  it("Enter while the popover is open does not save (popover owns Enter)", async () => {
+    const entry = makeEntry({ item: "Old item", duration: 45, dimensions: { ...fullDims } });
+    const wrapper = mount(EntryRowEdit, {
+      props: { entry, dimensions, commitments },
+      attachTo: document.body,
+    });
+    await wrapper.find("[data-test='add-tag']").trigger("click"); // open popover
+    expect(wrapper.findComponent({ name: "DimensionPopover" }).exists()).toBe(true);
+
+    // Real bubbling Enter so the popover's window capture-phase listener intercepts it.
+    const input = wrapper.find("input");
+    input.element.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+    await wrapper.vm.$nextTick();
+
+    // Popover owns Enter: it advanced to the val phase; save must NOT be emitted.
+    expect(wrapper.emitted("save")).toBeFalsy();
+    expect(wrapper.find("[data-test='back-btn']").exists()).toBe(true); // popover advanced to val phase
+  });
+
   it("esc handoff: popover consumes esc while open, parent handles esc after it closes", async () => {
     const wrapper = mountEdit();
     await wrapper.findAll("input")[0].setValue("Changed item"); // make it dirty
