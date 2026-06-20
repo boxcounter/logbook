@@ -130,6 +130,36 @@ describe("EntryRowEdit", () => {
     expect(wrapper.find("[data-test='discard-prompt']").exists()).toBe(false);
   });
 
+  it("exits edit mode on an outside click when there are no unsaved changes", async () => {
+    const wrapper = mountEdit();
+    document.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    await wrapper.vm.$nextTick();
+    expect(wrapper.emitted("cancel")).toBeTruthy();
+  });
+
+  it("does NOT exit on a mousedown inside the editor", async () => {
+    const wrapper = mountEdit();
+    wrapper.find("input").element.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    await wrapper.vm.$nextTick();
+    expect(wrapper.emitted("cancel")).toBeFalsy();
+  });
+
+  it("shows the discard confirm bar (does NOT cancel) on an outside click when dirty", async () => {
+    const wrapper = mountEdit();
+    await wrapper.findAll("input")[0].setValue("Changed item");
+    document.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    await wrapper.vm.$nextTick();
+    expect(wrapper.find("[data-test='discard-prompt']").exists()).toBe(true);
+    expect(wrapper.emitted("cancel")).toBeFalsy();
+  });
+
+  it("exits edit mode when focus moves to an element outside the editor", async () => {
+    const wrapper = mountEdit();
+    document.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+    await wrapper.vm.$nextTick();
+    expect(wrapper.emitted("cancel")).toBeTruthy();
+  });
+
   it("esc handoff: popover consumes esc while open, parent handles esc after it closes", async () => {
     const wrapper = mountEdit();
     await wrapper.findAll("input")[0].setValue("Changed item"); // make it dirty

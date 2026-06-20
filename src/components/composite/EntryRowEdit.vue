@@ -1,6 +1,6 @@
 <!-- src/components/composite/EntryRowEdit.vue -->
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, onMounted, onUnmounted } from "vue";
 import type { Entry, Dimension, Commitment } from "../../types";
 import { resolveDelta } from "../../utils/format";
 import DimensionPopover from "../DimensionPopover.vue";
@@ -46,6 +46,30 @@ function onEnter() {
   if (confirming.value) { confirming.value = false; return; }
   save();
 }
+
+// Auto-dismiss when the editor is no longer the active focus: a click outside,
+// or focus moving to another element (e.g. the entry input claiming focus on a
+// window refocus). Same policy as esc — clean exit, but a dirty edit shows the
+// discard confirm bar instead of silently dropping changes.
+function dismissFromOutside() {
+  if (popoverOpen.value) { popoverOpen.value = false; return; }
+  if (confirming.value || !isDirty.value) { emit("cancel"); return; }
+  confirming.value = true;
+}
+function onDocMousedown(e: MouseEvent) {
+  if (rootEl.value && !rootEl.value.contains(e.target as Node)) dismissFromOutside();
+}
+function onDocFocusin(e: FocusEvent) {
+  if (rootEl.value && !rootEl.value.contains(e.target as Node)) dismissFromOutside();
+}
+onMounted(() => {
+  document.addEventListener("mousedown", onDocMousedown, true);
+  document.addEventListener("focusin", onDocFocusin, true);
+});
+onUnmounted(() => {
+  document.removeEventListener("mousedown", onDocMousedown, true);
+  document.removeEventListener("focusin", onDocFocusin, true);
+});
 
 // Open upward when there isn't room below (the card clips with overflow-hidden).
 function openPopover() {
