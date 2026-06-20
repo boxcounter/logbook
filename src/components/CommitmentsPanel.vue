@@ -13,7 +13,7 @@ const props = defineProps<{
   selectedMonth: number;
 }>();
 
-const emit = defineEmits<{ saved: [] }>();
+const emit = defineEmits<{ saved: [Commitment[]] }>();
 
 // Roles start expanded; clicking the role header toggles its goal list.
 const collapsed = ref<Record<string, boolean>>({});
@@ -29,7 +29,7 @@ const hasCommitments = computed(() => !!props.commitments && props.commitments.l
 const modalOpen = ref(false);
 function openEditor() { modalOpen.value = true; }
 function closeEditor() { modalOpen.value = false; }
-function onSaved() { modalOpen.value = false; emit("saved"); }
+function onSaved(c: Commitment[]) { modalOpen.value = false; emit("saved", c); }
 </script>
 
 <template>

@@ -16,7 +16,7 @@ const props = defineProps<{
   selectedMonth: number;
 }>();
 
-const emit = defineEmits<{ saved: []; close: [] }>();
+const emit = defineEmits<{ saved: [Commitment[]]; close: [] }>();
 
 const NEW_ROLE_ALLOC = 5;
 let _key = 0;
@@ -101,14 +101,15 @@ async function save() {
   if (msg) { showErrors.value = true; error.value = msg; return; }
   saving.value = true;
   error.value = "";
+  const saved = toCommitments(draft.value);
   try {
     await invoke("set_commitments", {
       rootPath: props.rootPath,
       year: props.selectedYear,
       month: props.selectedMonth,
-      commitments: toCommitments(draft.value),
+      commitments: saved,
     });
-    emit("saved");
+    emit("saved", saved);
     emit("close");
   } catch (e) {
     error.value = typeof e === "string" ? e : String(e);
@@ -188,7 +189,7 @@ function onModalKeydown(e: KeyboardEvent) {
             <div class="text-[length:var(--app-text-xs)] text-[var(--color-text-secondary)] mb-[14px]">Your edits to this month's commitments won't be saved.</div>
             <div class="flex justify-end gap-[8px]">
               <button class="text-[length:var(--app-text-xs)] font-semibold text-[var(--color-text-muted)] px-[12px] py-[6px] cursor-pointer" @click="keepEditing">Keep editing</button>
-              <button data-test="discard-yes" class="text-[length:var(--app-text-xs)] font-semibold text-[var(--color-danger)] bg-red-50 rounded-[var(--radius-form)] px-[12px] py-[6px] cursor-pointer" @click="confirmDiscard">Discard</button>
+              <button data-test="discard-yes" class="text-[length:var(--app-text-xs)] font-semibold text-[var(--color-danger)] rounded-[var(--radius-form)] px-[12px] py-[6px] cursor-pointer" @click="confirmDiscard">Discard</button>
             </div>
           </div>
         </div>

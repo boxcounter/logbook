@@ -745,7 +745,7 @@ fn validate_commitments(commitments: &[Commitment]) -> Result<(), String> {
         if c.allocation == 0 {
             return Err(format!(
                 "Allocation for '{}' must be greater than 0",
-                c.role
+                role
             ));
         }
         for g in &c.goals {
