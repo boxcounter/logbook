@@ -103,6 +103,16 @@ describe("MonthView", () => {
     expect(note.element.textContent).toBe("original");
   });
 
+  it("Enter on the day note commits and blurs instead of inserting a newline", async () => {
+    const wrapper = mountView();
+    const note = wrapper.find("[contenteditable]");
+    note.element.textContent = "my note";
+    await note.trigger("focus");
+    const blurSpy = vi.spyOn(note.element as HTMLElement, "blur");
+    await note.trigger("keydown", { key: "Enter" });
+    expect(blurSpy).toHaveBeenCalled();
+  });
+
   it("prev-day from DayHeader moves currentDate back one day", async () => {
     const store = makeStore();
     const wrapper = mountView(store);

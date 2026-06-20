@@ -227,6 +227,11 @@ function onNoteEsc(e: KeyboardEvent) {
   if (noteRef.value) noteRef.value.textContent = noteSnapshot;
   noteRef.value?.blur(); // triggers saveNote with unchanged content (no-op write)
 }
+function onNoteEnter(e: KeyboardEvent) {
+  if (e.isComposing) return; // let an IME Enter confirm its candidate, don't commit the note
+  e.preventDefault(); // the note is single-line; don't insert a newline
+  noteRef.value?.blur(); // commit via the existing blur → saveNote, clearing the caret
+}
 
 // ---- File path ----
 const dayFilePath = computed(() => {
@@ -333,6 +338,7 @@ logInfo("MonthView", "mounted");
           @input="onNoteInput"
           @focus="onNoteFocus"
           @keydown.esc="onNoteEsc"
+          @keydown.enter="onNoteEnter"
         ></div>
       </div>
 
