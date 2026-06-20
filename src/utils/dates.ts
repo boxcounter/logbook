@@ -24,3 +24,10 @@ export function yearMonthFromDate(dateStr: string): { year: number; month: numbe
   const parts = dateStr.split("-");
   return { year: parseInt(parts[0], 10), month: parseInt(parts[1], 10) };
 }
+
+/** Return the date n days from dateStr (n may be negative), as YYYY-MM-DD. */
+export function addDays(dateStr: string, n: number): string {
+  const d = parseDate(dateStr);
+  d.setDate(d.getDate() + n);
+  return formatDate(d);
+}

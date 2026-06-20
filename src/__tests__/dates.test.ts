@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatDate, datesInMonth, parseDate } from "../utils/dates";
+import { formatDate, datesInMonth, parseDate, addDays } from "../utils/dates";
 
 describe("formatDate", () => {
   it("formats correctly", () => {
@@ -29,5 +29,23 @@ describe("datesInMonth", () => {
 describe("parseDate", () => {
   it("parses ISO date", () => {
     expect(parseDate("2026-06-12").getDate()).toBe(12);
+  });
+});
+
+describe("addDays", () => {
+  it("adds a positive offset within a month", () => {
+    expect(addDays("2026-06-12", 3)).toBe("2026-06-15");
+  });
+  it("subtracts across a month boundary", () => {
+    expect(addDays("2026-06-01", -1)).toBe("2026-05-31");
+  });
+  it("adds across a month boundary", () => {
+    expect(addDays("2026-06-30", 1)).toBe("2026-07-01");
+  });
+  it("handles year boundaries", () => {
+    expect(addDays("2026-12-31", 1)).toBe("2027-01-01");
+  });
+  it("handles leap-year February", () => {
+    expect(addDays("2028-02-28", 1)).toBe("2028-02-29");
   });
 });
