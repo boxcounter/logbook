@@ -98,8 +98,8 @@ function goBack() {
 
 // Window-level capture-phase handler (spec §5.1/§5.2 + keyboard nav design):
 // Esc — val→dim / dim→close. Arrows / Ctrl+N/P move the highlight. Enter selects
-// the highlighted item (added in later tasks). capture + stopPropagation makes the
-// popover own these keys regardless of focus, ahead of the parent's handlers.
+// the highlighted item. capture + stopPropagation makes the popover own these keys
+// regardless of focus, ahead of the parent's handlers.
 function onWindowKeydown(e: KeyboardEvent) {
   if (e.isComposing) return;
   if (e.key === "Escape") {
