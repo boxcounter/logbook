@@ -31,7 +31,7 @@ export interface GoalProgress {
 // Working-copy row models for the commitments editor
 // (CommitmentsModal / RoleCard / GoalRow). `orig*` capture the name at load time
 // so logged progress stays matched while the user retypes a name; `key` is a
-// stable id for vuedraggable reordering. `origName`/`origRole` are null for
+// stable id for vue-draggable-plus reordering. `origName`/`origRole` are null for
 // rows added during the current edit session.
 export interface GoalRowModel {
   name: string;

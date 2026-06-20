@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
 import { invoke } from "@tauri-apps/api/core";
-import draggable from "vuedraggable";
+import { VueDraggable } from "vue-draggable-plus";
 import RoleCard from "./RoleCard.vue";
 import type { Commitment, CommitmentProgress, RoleRowModel, GoalRowModel } from "../../types";
 import { formatDuration } from "../../utils/format";
@@ -151,13 +151,14 @@ function onModalKeydown(e: KeyboardEvent) {
 
         <!-- Body -->
         <div class="px-[28px] pt-[16px] pb-[4px] overflow-y-auto">
-          <draggable v-model="draft" item-key="key" handle=".drag-grip-role" tag="div" :animation="150">
-            <template #item="{ element: r }">
-              <RoleCard :role="r" :progress="progress" :next-key="nextKey"
-                :show-errors="showErrors" :dup-roles="dupRoles" :dup-goals="dupGoals"
-                @delete="removeRole(r)" />
-            </template>
-          </draggable>
+          <VueDraggable v-model="draft" handle=".drag-grip-role" :animation="150">
+            <RoleCard
+              v-for="r in draft" :key="r.key"
+              :role="r" :progress="progress" :next-key="nextKey"
+              :show-errors="showErrors" :dup-roles="dupRoles" :dup-goals="dupGoals"
+              @delete="removeRole(r)"
+            />
+          </VueDraggable>
 
           <button
             data-test="add-role"

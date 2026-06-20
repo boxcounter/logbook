@@ -4,7 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import CommitmentsModal from "../../../components/composite/CommitmentsModal.vue";
 import { makeCommitment, makeCommitmentProgress } from "../../mocks/fixtures";
 
-// vuedraggable is intentionally NOT mocked here: this guards that the alloc input
+// vue-draggable-plus is intentionally NOT mocked here: this guards that the alloc input
 // DOM node survives a re-render (the focus-loss regression that drove the
 // RoleCard/GoalRow extraction). With the real component, stepping allocation must
 // patch the input in place, not remount it.
@@ -13,7 +13,7 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 beforeEach(() => { (invoke as any).mockReset?.(); (invoke as any).mockResolvedValue?.([]); });
 
 // NOTE: the <Teleport> is intentionally NOT stubbed here. The teleport: true stub
-// wraps the teleported subtree in an unstable boundary that breaks vuedraggable's
+// wraps the teleported subtree in an unstable boundary that breaks vue-draggable-plus's
 // keyed child reuse, remounting RoleCard on every modal re-render — a test-only
 // artifact that does not happen with the real Teleport in the running app. To
 // faithfully guard the production focus-stability behavior, this test renders the
@@ -30,7 +30,7 @@ function mountModal() {
   });
 }
 
-describe("CommitmentsModal — DnD focus stability (real vuedraggable)", () => {
+describe("CommitmentsModal — DnD focus stability (real vue-draggable-plus)", () => {
   it("keeps the same allocation input DOM node across a stepper change", async () => {
     const w = mountModal();
     const before = document.querySelector("[data-test='alloc']") as HTMLInputElement;

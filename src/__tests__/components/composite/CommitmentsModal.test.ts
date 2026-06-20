@@ -6,19 +6,13 @@ import { makeCommitment, makeCommitmentProgress } from "../../mocks/fixtures";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 
-// vuedraggable stub: render the #item slot for each model element (no real DnD in jsdom)
-vi.mock("vuedraggable", () => ({
-  default: {
-    name: "draggable",
-    props: ["modelValue", "itemKey", "handle", "group", "tag", "animation"],
+// vue-draggable-plus stub: render the default slot (the v-for output) — no real DnD in jsdom
+vi.mock("vue-draggable-plus", () => ({
+  VueDraggable: {
+    name: "VueDraggable",
+    props: ["modelValue", "handle", "animation", "group", "tag"],
     emits: ["update:modelValue"],
-    render() {
-      const items = (this as any).modelValue || [];
-      const slots = (this as any).$slots;
-      return items.map((element: any, index: number) =>
-        slots.item ? slots.item({ element, index }) : null
-      );
-    },
+    render() { return (this as any).$slots.default?.(); },
   },
 }));
 
@@ -135,7 +129,7 @@ describe("CommitmentsModal — allocation stepper", () => {
   it("Arrow Up/Down adjusts by 5", async () => {
     const w = mountModal();
     // Re-query the input after each keydown: under the `teleport: true` test stub,
-    // the committedHours-driven modal re-render remounts vuedraggable's keyed child,
+    // the committedHours-driven modal re-render remounts the draggable's keyed child,
     // so a captured wrapper would point at a detached node. (Real Teleport patches
     // the node in place — verified separately — so this is a test-harness concern.)
     await w.find("[data-test='alloc']").trigger("keydown", { key: "ArrowUp" });

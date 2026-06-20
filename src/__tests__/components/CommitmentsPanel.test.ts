@@ -5,9 +5,13 @@ import CommitmentsPanel from "../../components/CommitmentsPanel.vue";
 import { makeCommitmentProgress, makeCommitment } from "../mocks/fixtures";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
-vi.mock("vuedraggable", () => ({
-  default: { name: "draggable", props: ["modelValue","itemKey","handle","group","tag","animation"], emits: ["update:modelValue"],
-    render() { const items=(this as any).modelValue||[]; const s=(this as any).$slots; return items.map((element:any,index:number)=> s.item? s.item({element,index}):null); } },
+vi.mock("vue-draggable-plus", () => ({
+  VueDraggable: {
+    name: "VueDraggable",
+    props: ["modelValue", "handle", "animation", "group", "tag"],
+    emits: ["update:modelValue"],
+    render() { return (this as any).$slots.default?.(); },
+  },
 }));
 
 function mountPanel(overrides = {}) {

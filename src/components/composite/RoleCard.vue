@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import draggable from "vuedraggable";
+import { VueDraggable } from "vue-draggable-plus";
 import GoalRow from "./GoalRow.vue";
 import { formatDuration } from "../../utils/format";
 import { goalLoggedMinutes } from "../../utils/commitments";
@@ -168,11 +168,13 @@ function removeGoal(g: GoalRowModel) {
     </div>
 
     <div class="mt-[12px]">
-      <draggable v-model="role.goals" item-key="key" handle=".drag-grip-goal" tag="div" class="flex flex-col gap-[8px]" :animation="150">
-        <template #item="{ element: g }">
-          <GoalRow :goal="g" :logged="goalLogged(g.origName)" :invalid="showErrors && goalNameInvalid(g)" @remove="removeGoal(g)" @enter="onGoalEnter(g)" />
-        </template>
-      </draggable>
+      <VueDraggable v-model="role.goals" handle=".drag-grip-goal" :animation="150" class="flex flex-col gap-[8px]">
+        <GoalRow
+          v-for="g in role.goals" :key="g.key"
+          :goal="g" :logged="goalLogged(g.origName)" :invalid="showErrors && goalNameInvalid(g)"
+          @remove="removeGoal(g)" @enter="onGoalEnter(g)"
+        />
+      </VueDraggable>
       <button
         data-test="add-goal"
         class="self-start mt-[8px] text-[length:var(--app-text-xs)] font-medium text-[var(--color-brand-link)] cursor-pointer hover:underline"
