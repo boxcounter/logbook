@@ -141,19 +141,19 @@ onUnmounted(() => window.removeEventListener("keydown", onWindowKeydown, true));
     <!-- Dim phase -->
     <template v-if="phase === 'dim'">
       <div
-        class="px-[14px] py-[8px] text-[length:var(--app-text-micro)] font-bold uppercase tracking-wider
+        class="px-md py-sm text-micro font-bold uppercase tracking-wider
                text-[var(--color-popover-dim-header-text)] bg-[var(--color-popover-dim-header-bg)]
-               border-b border-[var(--color-divider)] flex items-center gap-[8px]"
+               border-b border-[var(--color-divider)] flex items-center gap-sm"
       >
-        <span class="bg-[var(--color-brand-solid)] text-white px-[6px] py-[1px] rounded-[var(--radius-sm)] text-[length:var(--app-text-2xs)]">DIM</span>
+        <span class="bg-[var(--color-brand-solid)] text-white px-sm py-2xs rounded-[var(--radius-sm)] text-micro">DIM</span>
         Pick a dimension
       </div>
       <div
         v-for="(d, i) in dimensions" :key="d.key"
         data-test="dim-item"
         :data-active="i === activeIndex"
-        class="px-[14px] py-[9px] text-[length:var(--app-text-sm)]
-               flex items-center gap-[10px] cursor-pointer border-b border-[var(--color-surface-muted)]
+        class="px-md py-sm text-secondary
+               flex items-center gap-sm cursor-pointer border-b border-[var(--color-surface-muted)]
                last:border-b-0"
         :class="[
           i === activeIndex
@@ -167,26 +167,26 @@ onUnmounted(() => window.removeEventListener("keydown", onWindowKeydown, true));
         <span class="w-[3px] h-[18px] rounded-[var(--radius-sm)] flex-shrink-0" :class="barClass(d.key)"></span>
         {{ d.name }}
         <span
-          class="ml-auto text-[length:var(--app-text-micro)]"
+          class="ml-auto text-micro"
           :class="d.required ? 'text-[var(--color-warning)] font-medium' : 'text-[var(--color-text-disabled)]'"
         >{{ d.required ? "required" : "optional" }}</span>
       </div>
       <div
-        class="px-[14px] py-[6px] text-[length:var(--app-text-2xs)] text-[var(--color-text-disabled)]
-               border-t border-[var(--color-divider)] flex gap-[12px]"
+        class="px-md py-sm text-micro text-[var(--color-text-disabled)]
+               border-t border-[var(--color-divider)] flex gap-md"
       >
-        <span><kbd class="mono px-[4px] border border-[var(--color-border-form)] rounded-[var(--radius-sm)] bg-[var(--color-surface)]">↵</kbd> select</span>
-        <span><kbd class="mono px-[4px] border border-[var(--color-border-form)] rounded-[var(--radius-sm)] bg-[var(--color-surface)]">⌃N/⌃P</kbd> move</span>
-        <span><kbd class="mono px-[4px] border border-[var(--color-border-form)] rounded-[var(--radius-sm)] bg-[var(--color-surface)]">esc</kbd> close</span>
+        <span><kbd class="mono px-xs border border-[var(--color-border-form)] rounded-[var(--radius-sm)] bg-[var(--color-surface)]">↵</kbd> select</span>
+        <span><kbd class="mono px-xs border border-[var(--color-border-form)] rounded-[var(--radius-sm)] bg-[var(--color-surface)]">⌃N/⌃P</kbd> move</span>
+        <span><kbd class="mono px-xs border border-[var(--color-border-form)] rounded-[var(--radius-sm)] bg-[var(--color-surface)]">esc</kbd> close</span>
       </div>
     </template>
 
     <!-- Val phase -->
     <template v-else>
       <div
-        class="px-[14px] py-[8px] text-[length:var(--app-text-micro)] font-bold uppercase tracking-wider
+        class="px-md py-sm text-micro font-bold uppercase tracking-wider
                text-[var(--color-popover-val-header-text)] bg-[var(--color-popover-val-header-bg)]
-               border-b border-[var(--color-divider)] flex items-center gap-[8px]"
+               border-b border-[var(--color-divider)] flex items-center gap-sm"
       >
         <button data-test="back-btn" class="font-bold cursor-pointer leading-none" @click="goBack">←</button>
         {{ activeDim?.name }}
@@ -195,7 +195,7 @@ onUnmounted(() => window.removeEventListener("keydown", onWindowKeydown, true));
         v-for="(v, i) in activeValues" :key="v"
         data-test="val-item"
         :data-active="i === activeIndex"
-        class="px-[14px] py-[9px] text-[length:var(--app-text-sm)]
+        class="px-md py-sm text-secondary
                cursor-pointer border-b border-[var(--color-surface-muted)] last:border-b-0"
         :class="[
           i === activeIndex
@@ -207,12 +207,12 @@ onUnmounted(() => window.removeEventListener("keydown", onWindowKeydown, true));
         @click="selectVal(v)"
       >{{ v }}</div>
       <div
-        class="px-[14px] py-[6px] text-[length:var(--app-text-2xs)] text-[var(--color-text-disabled)]
-               border-t border-[var(--color-divider)] flex gap-[12px]"
+        class="px-md py-sm text-micro text-[var(--color-text-disabled)]
+               border-t border-[var(--color-divider)] flex gap-md"
       >
-        <span><kbd class="mono px-[4px] border border-[var(--color-border-form)] rounded-[var(--radius-sm)] bg-[var(--color-surface)]">↵</kbd> select</span>
-        <span><kbd class="mono px-[4px] border border-[var(--color-border-form)] rounded-[var(--radius-sm)] bg-[var(--color-surface)]">⌃N/⌃P</kbd> move</span>
-        <span><kbd class="mono px-[4px] border border-[var(--color-border-form)] rounded-[var(--radius-sm)] bg-[var(--color-surface)]">esc</kbd> back to dims</span>
+        <span><kbd class="mono px-xs border border-[var(--color-border-form)] rounded-[var(--radius-sm)] bg-[var(--color-surface)]">↵</kbd> select</span>
+        <span><kbd class="mono px-xs border border-[var(--color-border-form)] rounded-[var(--radius-sm)] bg-[var(--color-surface)]">⌃N/⌃P</kbd> move</span>
+        <span><kbd class="mono px-xs border border-[var(--color-border-form)] rounded-[var(--radius-sm)] bg-[var(--color-surface)]">esc</kbd> back to dims</span>
       </div>
     </template>
   </div>

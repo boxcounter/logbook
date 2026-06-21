@@ -44,20 +44,20 @@ function onMonthChange(month: number) {
   <div
     ref="rootEl"
     tabindex="-1"
-    class="flex gap-[8px] items-center bg-[var(--color-surface)] border border-[var(--color-border-form)]
-           rounded-[var(--radius-form-lg)] shadow-[var(--shadow-quickjump)] px-[12px] py-[10px] outline-none"
+    class="flex gap-sm items-center bg-[var(--color-surface)] border border-[var(--color-border-form)]
+           rounded-[var(--radius-form-lg)] shadow-[var(--shadow-quickjump)] px-md py-sm outline-none"
     @keydown.esc="emit('close')"
   >
     <select
       v-model.number="selectedYear"
-      class="text-[length:var(--app-text-xs)] text-[var(--color-text-primary)] bg-[var(--color-surface)]
-             border border-[var(--color-border-form)] rounded-[var(--radius-form-lg)] px-[8px] py-[4px] outline-none"
+      class="text-secondary text-[var(--color-text-primary)] bg-[var(--color-surface)]
+             border border-[var(--color-border-form)] rounded-[var(--radius-form-lg)] px-sm py-xs outline-none"
     >
       <option v-for="y in years" :key="y" :value="y">{{ y }}</option>
     </select>
     <select
-      class="text-[length:var(--app-text-xs)] text-[var(--color-text-primary)] bg-[var(--color-surface)]
-             border border-[var(--color-border-form)] rounded-[var(--radius-form-lg)] px-[8px] py-[4px] outline-none"
+      class="text-secondary text-[var(--color-text-primary)] bg-[var(--color-surface)]
+             border border-[var(--color-border-form)] rounded-[var(--radius-form-lg)] px-sm py-xs outline-none"
       @change="onMonthChange(parseInt(($event.target as HTMLSelectElement).value, 10))"
     >
       <option
@@ -65,6 +65,6 @@ function onMonthChange(month: number) {
         :selected="m === month && selectedYear === year"
       >{{ MONTH_NAMES[m - 1] }}</option>
     </select>
-    <span class="text-[length:var(--app-text-2xs)] text-[var(--color-text-secondary)] whitespace-nowrap">Go</span>
+    <span class="text-micro text-[var(--color-text-secondary)] whitespace-nowrap">Go</span>
   </div>
 </template>
