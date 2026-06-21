@@ -3,7 +3,7 @@ import { mount } from "@vue/test-utils";
 import { nextTick } from "vue";
 import { STORE_KEY } from "../../stores/useStore";
 import { createTestStore } from "../mocks/store";
-import { makeConfig, makeDayFile } from "../mocks/fixtures";
+import { makeConfig, makeDayFile, makeCommitment } from "../mocks/fixtures";
 import App from "../../App.vue";
 
 // Hoisted mocks for Tauri APIs
@@ -218,20 +218,75 @@ describe("App", () => {
     expect(store.configErrors).toEqual([{ kind: "MissingName", message: "Bad config" }]);
   });
 
-  it("commitments-changed event calls initApp", async () => {
-    mountApp();
+  it("commitments-changed reloads the SELECTED month's commitments and does NOT call init", async () => {
+    vi.setSystemTime(new Date(2026, 5, 20, 10, 0, 0)); // 当前月 = 2026-06
+    mockInvoke.mockResolvedValue({
+      status: "Ready",
+      data: { root_path: "/test", config: makeConfig(), today: makeDayFile(), commitments: [], scan_warnings: [] },
+    });
+    const { store } = mountApp();
     await vi.runAllTimersAsync();
     await nextTick();
 
+    store.currentDate = "2026-07-15"; // 用户切到 7 月（无 commitments）
+    store.status = "ready";
+    store.commitments = [makeCommitment()]; // 模拟此刻残留的「当前月」数据
     vi.clearAllMocks();
+
+    // 按月路由：7 月空，其它月有数据
+    mockInvoke.mockImplementation(async (cmd: string, args: { month: number }) => {
+      if (cmd === "get_commitments") return args.month === 7 ? [] : [makeCommitment()];
+      if (cmd === "get_commitment_progress") return [];
+      return undefined;
+    });
+
+    commitmentsChangedCallback?.();
+    await vi.runAllTimersAsync();
+
+    expect(mockInvoke).not.toHaveBeenCalledWith("init");
+    expect(mockInvoke).toHaveBeenCalledWith("get_commitments", expect.objectContaining({ year: 2026, month: 7 }));
+    expect(store.commitments).toEqual([]); // 跟随 7 月，未被冲回当前月数据
+  });
+
+  it("commitments-changed is a no-op when status is not ready", async () => {
     mockInvoke.mockResolvedValue({ status: "NeedsSetup" });
+    const { store } = mountApp();
+    await vi.runAllTimersAsync();
+    await nextTick();
 
-    if (commitmentsChangedCallback) {
-      commitmentsChangedCallback();
-      await vi.runAllTimersAsync();
-    }
+    store.status = "setup";
+    vi.clearAllMocks();
 
-    expect(mockInvoke).toHaveBeenCalledWith("init");
+    commitmentsChangedCallback?.();
+    await vi.runAllTimersAsync();
+
+    expect(mockInvoke).not.toHaveBeenCalledWith("get_commitments");
+    expect(mockInvoke).not.toHaveBeenCalledWith("get_commitment_progress");
+  });
+
+  it("initApp (via config-changed) does NOT overwrite the selected month's commitments", async () => {
+    vi.setSystemTime(new Date(2026, 5, 20, 10, 0, 0));
+    mockInvoke.mockResolvedValue({
+      status: "Ready",
+      data: { root_path: "/test", config: makeConfig(), today: makeDayFile(), commitments: [makeCommitment()], scan_warnings: [] },
+    });
+    const { store } = mountApp();
+    await vi.runAllTimersAsync();
+    await nextTick();
+
+    store.currentDate = "2026-07-15";
+    const sentinel = [makeCommitment({ role: "JulyOnly" })];
+    store.commitments = sentinel; // 选中月（7 月）当前持有的数据
+    vi.clearAllMocks();
+    mockInvoke.mockResolvedValue({
+      status: "Ready",
+      data: { root_path: "/test", config: makeConfig(), today: makeDayFile(), commitments: [makeCommitment()], scan_warnings: [] },
+    });
+
+    configChangedCallback?.({ payload: [] }); // 触发 initApp
+    await vi.runAllTimersAsync();
+
+    expect(store.commitments).toStrictEqual(sentinel); // initApp 不再写 commitments，内容未变
   });
 
   // ---- Focus / midnight crossing ----

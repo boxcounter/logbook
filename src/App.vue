@@ -4,11 +4,12 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useStore } from "./stores/useStore";
+import { yearMonthFromDate } from "./utils/dates";
 import SetupScreen from "./components/SetupScreen.vue";
 import ConfigErrorBanner from "./components/ConfigErrorBanner.vue";
 import MonthView from "./components/MonthView.vue";
 import Toast from "./components/base/Toast.vue";
-import type { InitResult, ConfigErrorDetail, ScanWarning } from "./types";
+import type { InitResult, ConfigErrorDetail, ScanWarning, Commitment, CommitmentProgress } from "./types";
 import { logError, logInfo } from "./utils/errorLog";
 
 const store = useStore();
@@ -44,8 +45,17 @@ onMounted(async () => {
       }
     });
 
-    unlistenCommitments = await listen<ConfigErrorDetail[]>("commitments-changed", () => {
-      initApp();
+    // Re-read the SELECTED month (not the launch month): initApp would reload the
+    // real current month and clobber whatever month the user is viewing.
+    unlistenCommitments = await listen<ConfigErrorDetail[]>("commitments-changed", async () => {
+      if (store.status !== "ready") return;
+      const { year, month } = yearMonthFromDate(store.currentDate);
+      try {
+        store.commitments = (await invoke("get_commitments", { rootPath: store.rootPath, year, month })) as Commitment[];
+        store.commitmentProgress = (await invoke("get_commitment_progress", { rootPath: store.rootPath, year, month })) as CommitmentProgress[];
+      } catch (e) {
+        logError("App.commitmentsChanged", e);
+      }
     });
 
     unlistenFocus = await getCurrentWindow().onFocusChanged(({ payload: focused }) => {
@@ -94,7 +104,6 @@ async function initApp() {
         store.rootPath = result.data.root_path;
         store.config = result.data.config;
         store.today = result.data.today;
-        store.commitments = result.data.commitments;
         store.status = "ready";
         if (result.data.scan_warnings.length > 0) {
           scanWarnings.value = result.data.scan_warnings;
