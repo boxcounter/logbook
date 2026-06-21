@@ -82,6 +82,16 @@ describe("MonthView", () => {
     expect(wrapper.findComponent({ name: "EntryComposer" }).exists()).toBe(false);
   });
 
+  it("shows the default-template indicator only when fromTemplate is true", () => {
+    const off = mountView();
+    expect(off.text()).not.toContain("本月沿用默认模板");
+
+    const store = makeStore();
+    store.fromTemplate = true;
+    const on = mountView(store);
+    expect(on.text()).toContain("本月沿用默认模板");
+  });
+
   it("renders the day note above the entry list", () => {
     const wrapper = mountView();
     const html = wrapper.html();

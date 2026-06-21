@@ -140,6 +140,27 @@ fn set_commitments_preserves_dimensions_block() {
     let _ = fs::remove_dir_all(&root);
 }
 
+// 7. get_month_dimensions reports from_template: true before instantiation, false after.
+#[test]
+fn get_month_dimensions_reports_from_template_flag() {
+    let root = fresh_root("logbook_md_fromtemplate");
+    write_template(&root, TPL_BIZ_GOAL);
+    let root_str = root.to_string_lossy().into_owned();
+
+    // Fresh month: serves the template, flagged as not-yet-customized.
+    let md = tauri_app_lib::commands::get_month_dimensions(root_str.clone(), 2026, 11).unwrap();
+    assert!(md.from_template, "fresh month must report from_template = true");
+    assert_eq!(md.dimensions.len(), 2);
+
+    // After instantiation: own snapshot, flag flips.
+    files::ensure_month_instantiated(&root, 2026, 11).unwrap();
+    let md2 = tauri_app_lib::commands::get_month_dimensions(root_str, 2026, 11).unwrap();
+    assert!(!md2.from_template, "instantiated month must report from_template = false");
+    assert_eq!(md2.dimensions.len(), 2);
+
+    let _ = fs::remove_dir_all(&root);
+}
+
 // 5. Missing template → resolve is lenient (empty), ensure is a no-op.
 #[test]
 fn missing_template_is_lenient() {
