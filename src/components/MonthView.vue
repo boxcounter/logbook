@@ -345,7 +345,7 @@ logInfo("MonthView", "mounted");
       <div class="mt-xs mb-sm py-xs">
         <div
           ref="noteRef"
-          class="text-secondary italic text-[var(--color-text-secondary)] leading-[1.5] cursor-text px-sm py-sm rounded-[var(--radius-form-lg)] outline-none hover:bg-[var(--color-page-bg)]"
+          class="text-secondary italic text-[var(--color-text-secondary)] cursor-text px-sm py-sm rounded-[var(--radius-form-lg)] outline-none hover:bg-[var(--color-page-bg)]"
           contenteditable="true"
           data-placeholder="Add a note…"
           @blur="saveNote"
