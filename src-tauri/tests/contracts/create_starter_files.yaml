@@ -1,7 +1,7 @@
 command: create_starter_files
-description: Create initial config.yaml in an empty directory.
+description: Create initial template.yaml in an empty directory.
 cases:
-  - name: creates config.yaml in empty directory
+  - name: creates template.yaml in empty directory
     input:
       path: "{ROOT}"
     expect:
@@ -11,7 +11,7 @@ cases:
   - name: idempotent if config already exists
     before:
       - action: write_file
-        path: "config.yaml"
+        path: "template.yaml"
         content: |
           dimensions:
             - name: Custom

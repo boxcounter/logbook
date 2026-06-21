@@ -244,7 +244,7 @@ mod tests {
     fn init_result_config_error_with_scan_warnings() {
         let errors = vec![ConfigErrorDetail {
             kind: "MissingFile".to_string(),
-            message: "config.yaml not found".to_string(),
+            message: "template.yaml not found".to_string(),
         }];
         let warnings = vec![ScanWarning {
             kind: "CorruptedFile".to_string(),

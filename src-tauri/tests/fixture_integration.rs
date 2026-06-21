@@ -14,7 +14,7 @@ fn fixture_root() -> std::path::PathBuf {
 #[test]
 fn test_read_and_validate_config() {
     let root = fixture_root();
-    let config = tauri_app_lib::files::read_config(&root).expect("read_config should succeed");
+    let config = tauri_app_lib::files::read_template(&root).expect("read_template should succeed");
     let errors = tauri_app_lib::config::validate_config(&config);
     assert!(
         errors.is_empty(),
@@ -47,7 +47,7 @@ fn test_read_and_validate_monthly() {
 #[test]
 fn test_config_dimensions_count() {
     let root = fixture_root();
-    let config = tauri_app_lib::files::read_config(&root).unwrap();
+    let config = tauri_app_lib::files::read_template(&root).unwrap();
     assert_eq!(config.dimensions.len(), 4);
     let keys: Vec<&str> = config.dimensions.iter().map(|d| d.key.as_str()).collect();
     assert!(keys.contains(&"importance-urgency"));

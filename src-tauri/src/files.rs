@@ -39,9 +39,9 @@ pub fn monthly_path(root: &Path, year: i32, month: u32) -> PathBuf {
         .join("_monthly.md")
 }
 
-/// Config path: {root}/config.yaml
-pub fn config_path(root: &Path) -> PathBuf {
-    root.join("config.yaml")
+/// Template path: {root}/template.yaml
+pub fn template_path(root: &Path) -> PathBuf {
+    root.join("template.yaml")
 }
 
 /// Read a day file. Returns empty DayFile if file doesn't exist.
@@ -93,7 +93,7 @@ pub fn append_new_entry(
     new_entry: &crate::models::CreateEntryInput,
 ) -> Result<Entry, String> {
     let duration = crate::commands::parse_duration(&new_entry.duration)?;
-    let config = read_config(root)?;
+    let config = read_template(root)?;
     crate::commands::validate_required_dimensions(&config, &new_entry.dimensions)?;
     let entry = Entry {
         id: uuid::Uuid::new_v4().to_string(),
@@ -128,7 +128,7 @@ pub fn update_entry_in_file(
                 .map_err(|e| format!("Invalid duration: {}", e))?;
         }
         if let Some(ref dims) = update.dimensions {
-            let config = read_config(root)?;
+            let config = read_template(root)?;
             crate::commands::validate_required_dimensions(&config, dims)?;
             entry.dimensions = dims.clone();
         }
@@ -202,9 +202,9 @@ pub fn write_monthly_file(
     Ok(())
 }
 
-/// Read config.yaml. Returns error if file missing.
-pub fn read_config(root: &Path) -> Result<Config, String> {
-    let path = config_path(root);
+/// Read template.yaml. Returns error if file missing.
+pub fn read_template(root: &Path) -> Result<Config, String> {
+    let path = template_path(root);
     let content = fs::read_to_string(&path)
         .map_err(|e| format!("Failed to read {}: {}", path.display(), e))?;
     yaml_serde::from_str::<Config>(&content)
@@ -315,10 +315,10 @@ mod tests {
     }
 
     #[test]
-    fn test_config_path() {
+    fn test_template_path() {
         let root = Path::new("/data");
-        let p = config_path(root);
-        assert_eq!(p, PathBuf::from("/data/config.yaml"));
+        let p = template_path(root);
+        assert_eq!(p, PathBuf::from("/data/template.yaml"));
     }
 
     #[test]

@@ -18,11 +18,11 @@ fn cli_binary() -> std::path::PathBuf {
         })
 }
 
-/// Create a minimal fixture with config.yaml.
+/// Create a minimal fixture with template.yaml.
 fn setup_fixture(tmp: &Path) {
     fs::create_dir_all(tmp).unwrap();
     let config = "dimensions:\n  - name: Goal\n    key: goal\n    source: monthly\n";
-    fs::write(tmp.join("config.yaml"), config).unwrap();
+    fs::write(tmp.join("template.yaml"), config).unwrap();
 }
 
 /// Create a _monthly.md with given commitments YAML body.

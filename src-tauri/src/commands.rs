@@ -158,10 +158,10 @@ pub fn init(app: AppHandle) -> InitResult {
         error_log::log_info("init", &format!("{} scan warnings", scan_warnings.len()));
     }
 
-    let config = match files::read_config(root) {
+    let config = match files::read_template(root) {
         Ok(c) => c,
         Err(e) => {
-            error_log::log_error("init: read_config", &e);
+            error_log::log_error("init: read_template", &e);
             error_log::log_command_exit("init", false, "ConfigReadError");
             return InitResult::ConfigError {
                 errors: vec![ConfigErrorDetail {
@@ -258,8 +258,8 @@ pub fn set_root_path(app: AppHandle, path: String) -> Result<InitResult, String>
         error_log::log_info("set_root_path", &format!("{} scan warnings", scan_warnings.len()));
     }
 
-    let config = files::read_config(root_path).map_err(|e| {
-        error_log::log_error("set_root_path: read_config", &e);
+    let config = files::read_template(root_path).map_err(|e| {
+        error_log::log_error("set_root_path: read_template", &e);
         format!("Failed to read config: {}", e)
     })?;
     let mut all_errors = validate_config(&config);
@@ -342,7 +342,7 @@ pub fn append_entry(root_path: String, date: String, entry: CreateEntryInput) ->
     let root = std::path::Path::new(&root_path);
     validate_date_format(&date)?;
     let duration = parse_duration(&entry.duration)?;
-    let config = files::read_config(root)?;
+    let config = files::read_template(root)?;
     validate_required_dimensions(&config, &entry.dimensions)?;
 
     let entry_id = uuid::Uuid::new_v4().to_string();
@@ -388,7 +388,7 @@ pub fn update_entry(
         parse_duration(dur_str)?;
     }
     if let Some(ref dims) = update.dimensions {
-        let config = files::read_config(root)?;
+        let config = files::read_template(root)?;
         validate_required_dimensions(&config, dims)?;
     }
 
@@ -935,13 +935,13 @@ pub fn create_starter_files(path: String) -> Result<(), String> {
     if !root.exists() {
         std::fs::create_dir_all(root).map_err(|e| format!("Failed to create directory: {}", e))?;
     }
-    let config_path = root.join("config.yaml");
-    if !config_path.exists() {
+    let template_path = root.join("template.yaml");
+    if !template_path.exists() {
         std::fs::write(
-            &config_path,
+            &template_path,
             "dimensions:\n  - name: Goal\n    key: goal\n    source: monthly\n",
         )
-        .map_err(|e| format!("Failed to write config.yaml: {}", e))?;
+        .map_err(|e| format!("Failed to write template.yaml: {}", e))?;
     }
     Ok(())
 }

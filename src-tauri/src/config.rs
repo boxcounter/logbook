@@ -141,7 +141,7 @@ pub fn watch_files(app_handle: AppHandle, root_path: PathBuf) {
             .configure(NotifyConfig::default())
             .expect("Failed to configure watcher");
 
-        // Watch root directory recursively to catch config.yaml
+        // Watch root directory recursively to catch template.yaml
         // and all _monthly.md files, including across month boundaries.
         if let Err(e) = watcher.watch(&root_path, RecursiveMode::Recursive) {
             crate::error_log::log_error("file_watcher", &format!("Failed to watch: {}", e));
@@ -167,8 +167,8 @@ pub fn watch_files(app_handle: AppHandle, root_path: PathBuf) {
                 last_event.insert(path.clone(), now);
 
                 let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-                if file_name == "config.yaml" {
-                    match files::read_config(&root_path) {
+                if file_name == "template.yaml" {
+                    match files::read_template(&root_path) {
                         Ok(config) => {
                             let errors = validate_config(&config);
                             if let Err(e) = app_handle.emit("config-changed", &errors) {
