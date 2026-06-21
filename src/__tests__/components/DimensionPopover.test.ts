@@ -19,7 +19,7 @@ function mountPop(dimValues: Record<string, string> = {}) {
 }
 
 describe("DimensionPopover", () => {
-  it("lists all dimensions with required/optional meta in dim phase", () => {
+  it("lists all dimensions with required/optional meta in dim stage", () => {
     const wrapper = mountPop();
     expect(wrapper.text()).toContain("Category");
     expect(wrapper.text()).toContain("Goal");
@@ -56,23 +56,23 @@ describe("DimensionPopover", () => {
     expect(wrapper.emitted("close")).toBeTruthy();
   });
 
-  it("back button returns from val phase to dim phase", async () => {
+  it("back button returns from val stage to dim stage", async () => {
     const wrapper = mountPop();
     await wrapper.findAll("[data-test='dim-item']")[0].trigger("click");
     await wrapper.find("[data-test='back-btn']").trigger("click");
     expect(wrapper.findAll("[data-test='dim-item']").length).toBe(3);
   });
 
-  it("Esc in dim phase emits close", async () => {
+  it("Esc in dim stage emits close", async () => {
     const wrapper = mountPop();
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
     await wrapper.vm.$nextTick();
     expect(wrapper.emitted("close")).toBeTruthy();
   });
 
-  it("Esc in val phase returns to dim phase without closing", async () => {
+  it("Esc in val stage returns to dim stage without closing", async () => {
     const wrapper = mountPop();
-    await wrapper.findAll("[data-test='dim-item']")[0].trigger("click"); // → val phase
+    await wrapper.findAll("[data-test='dim-item']")[0].trigger("click"); // → val stage
     expect(wrapper.find("[data-test='back-btn']").exists()).toBe(true);
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
     await wrapper.vm.$nextTick();
@@ -149,29 +149,29 @@ describe("DimensionPopover", () => {
     );
   }
 
-  it("Enter in dim phase enters the highlighted dimension's value menu", async () => {
+  it("Enter in dim stage enters the highlighted dimension's value menu", async () => {
     const wrapper = mountPop(); // highlight on Category (index 0)
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
     await wrapper.vm.$nextTick();
-    expect(wrapper.find("[data-test='back-btn']").exists()).toBe(true); // val phase
+    expect(wrapper.find("[data-test='back-btn']").exists()).toBe(true); // val stage
     expect(wrapper.text()).toContain("Engineering");
   });
 
-  it("val phase highlights the already-selected value", async () => {
+  it("val stage highlights the already-selected value", async () => {
     const wrapper = mountPop({ category: "PM" }); // values: Engineering, PM
-    await wrapper.findAll("[data-test='dim-item']")[0].trigger("click"); // → category val phase
+    await wrapper.findAll("[data-test='dim-item']")[0].trigger("click"); // → category val stage
     await wrapper.vm.$nextTick();
     expect(activeValIndex(wrapper)).toBe(1); // "PM"
   });
 
-  it("val phase highlights index 0 when no value selected yet", async () => {
+  it("val stage highlights index 0 when no value selected yet", async () => {
     const wrapper = mountPop();
     await wrapper.findAll("[data-test='dim-item']")[0].trigger("click");
     await wrapper.vm.$nextTick();
     expect(activeValIndex(wrapper)).toBe(0);
   });
 
-  it("Enter in val phase emits select for the highlighted value and prevents default", async () => {
+  it("Enter in val stage emits select for the highlighted value and prevents default", async () => {
     const wrapper = mountPop({ category: "PM" }); // not all required filled (goal missing)
     await wrapper.findAll("[data-test='dim-item']")[0].trigger("click"); // category val, active = PM(1)
     const ev = new KeyboardEvent("keydown", { key: "Enter", cancelable: true });
@@ -181,7 +181,7 @@ describe("DimensionPopover", () => {
     expect(ev.defaultPrevented).toBe(true);
   });
 
-  it("returning to dim phase after a select highlights the next unfilled dimension", async () => {
+  it("returning to dim stage after a select highlights the next unfilled dimension", async () => {
     // category preset; pick a category value → returns to dim (goal still missing)
     const wrapper = mountPop({ category: "PM" });
     await wrapper.findAll("[data-test='dim-item']")[0].trigger("click"); // category val
@@ -193,7 +193,7 @@ describe("DimensionPopover", () => {
 
   it("Esc back from val to dim re-highlights the first unfilled dimension", async () => {
     const wrapper = mountPop({ category: "Engineering" });
-    await wrapper.findAll("[data-test='dim-item']")[1].trigger("click"); // Goal val phase
+    await wrapper.findAll("[data-test='dim-item']")[1].trigger("click"); // Goal val stage
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
     await wrapper.vm.$nextTick();
     expect(activeDimIndex(wrapper)).toBe(1); // Goal still unfilled
@@ -236,7 +236,7 @@ describe("DimensionPopover", () => {
     expect(cat.classes()).not.toContain("text-[var(--color-brand-solid)]");
   });
 
-  it("val phase: active value uses the solid fill; the selected value uses brand text + ✓", async () => {
+  it("val stage: active value uses the solid fill; the selected value uses brand text + ✓", async () => {
     const wrapper = mountPop({ category: "Engineering" }); // category values: Engineering, PM
     await wrapper.findAll("[data-test='dim-item']")[0].trigger("click"); // enter Category val; active = Engineering(0)
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown" })); // 0 -> 1 (PM)

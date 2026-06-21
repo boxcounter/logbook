@@ -144,9 +144,9 @@ describe("EntryRowEdit", () => {
     input.element.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
     await wrapper.vm.$nextTick();
 
-    // Popover owns Enter: it advanced to the val phase; save must NOT be emitted.
+    // Popover owns Enter: it advanced to the val stage; save must NOT be emitted.
     expect(wrapper.emitted("save")).toBeFalsy();
-    expect(wrapper.find("[data-test='back-btn']").exists()).toBe(true); // popover advanced to val phase
+    expect(wrapper.find("[data-test='back-btn']").exists()).toBe(true); // popover advanced to val stage
   });
 
   it("exits edit mode on an outside click when there are no unsaved changes", async () => {

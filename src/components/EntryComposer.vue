@@ -1,4 +1,4 @@
-<!-- src/components/TwoLineInput.vue -->
+<!-- src/components/EntryComposer.vue -->
 <script setup lang="ts">
 import { ref, computed, inject, watch, onUnmounted, type Ref } from "vue";
 import type { Dimension, Commitment } from "../types";

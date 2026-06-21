@@ -59,13 +59,13 @@ export interface DayFile {
   entries: Entry[];
 }
 
-export interface NewEntry {
+export interface CreateEntryInput {
   item: string;
   duration: string;
   dimensions: Record<string, string>;
 }
 
-export interface UpdateEntry {
+export interface UpdateEntryInput {
   item?: string;
   duration?: string;
   dimensions?: Record<string, string>;
@@ -96,5 +96,5 @@ export interface ConfigErrorDetail {
   message: string;
 }
 
-export type Screen = "loading" | "setup" | "error" | "ready";
+export type AppStatus = "loading" | "setup" | "error" | "ready";
 

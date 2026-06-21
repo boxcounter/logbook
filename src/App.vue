@@ -40,7 +40,7 @@ onMounted(async () => {
         initApp();
       } else {
         store.configErrors = event.payload;
-        store.screen = "error";
+        store.status = "error";
       }
     });
 
@@ -54,7 +54,7 @@ onMounted(async () => {
       const newToday = todayStr();
       if (newToday === lastKnownToday) return; // same calendar day: leave the view alone
       // Midnight crossed since we were last focused.
-      if (store.currentDate === lastKnownToday && store.screen === "ready") {
+      if (store.currentDate === lastKnownToday && store.status === "ready") {
         store.currentDate = newToday; // we were following "today" → follow to the new today
         initApp();
       }
@@ -80,11 +80,11 @@ async function initApp() {
     const result = (await invoke("init")) as InitResult;
     switch (result.status) {
       case "NeedsSetup":
-        store.screen = "setup";
+        store.status = "setup";
         break;
       case "ConfigError":
         store.configErrors = result.data.errors;
-        store.screen = "error";
+        store.status = "error";
         if (result.data.scan_warnings.length > 0) {
           scanWarnings.value = result.data.scan_warnings;
           showScanWarning.value = true;
@@ -95,7 +95,7 @@ async function initApp() {
         store.config = result.data.config;
         store.today = result.data.today;
         store.commitments = result.data.commitments;
-        store.screen = "ready";
+        store.status = "ready";
         if (result.data.scan_warnings.length > 0) {
           scanWarnings.value = result.data.scan_warnings;
           showScanWarning.value = true;
@@ -106,7 +106,7 @@ async function initApp() {
   } catch (e) {
     logError("App.initApp", e);
     store.configErrors = [{ kind: "InitError", message: `Failed: ${e}` }];
-    store.screen = "error";
+    store.status = "error";
   }
 }
 
@@ -145,11 +145,11 @@ provide("focusRequestId", focusRequestId);
 
 <template>
   <div class="min-h-screen">
-    <div v-if="store.screen === 'loading'" class="flex items-center justify-center min-h-screen text-gray-500">
+    <div v-if="store.status === 'loading'" class="flex items-center justify-center min-h-screen text-gray-500">
       Loading…
     </div>
-    <SetupScreen v-else-if="store.screen === 'setup'" />
-    <template v-else-if="store.screen === 'error'">
+    <SetupScreen v-else-if="store.status === 'setup'" />
+    <template v-else-if="store.status === 'error'">
       <ConfigErrorBanner />
       <button
         class="mx-4 mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
@@ -158,7 +158,7 @@ provide("focusRequestId", focusRequestId);
         Retry
       </button>
     </template>
-    <div v-else-if="store.screen === 'ready'" class="p-8">
+    <div v-else-if="store.status === 'ready'" class="p-8">
       <MonthView />
     </div>
 

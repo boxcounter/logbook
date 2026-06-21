@@ -7,13 +7,13 @@ import HeatmapCalendar from "./HeatmapCalendar.vue";
 import CommitmentsPanel from "./CommitmentsPanel.vue";
 import DayHeader from "./DayHeader.vue";
 import EntryList from "./EntryList.vue";
-import TwoLineInput from "./TwoLineInput.vue";
+import EntryComposer from "./EntryComposer.vue";
 import type { DayFile, Entry, CommitmentProgress, Commitment } from "../types";
 import { logError, logInfo } from "../utils/errorLog";
 import { datesInMonth, yearMonthFromDate, parseDate, addDays } from "../utils/dates";
 
 const store = useStore();
-const inputRef = ref<InstanceType<typeof TwoLineInput> | null>(null);
+const inputRef = ref<InstanceType<typeof EntryComposer> | null>(null);
 
 // Newly-added entry highlight (spec §5.2 step 7): mark the id, clear after 1.5s.
 const justAddedId = ref<string | null>(null);
@@ -272,7 +272,7 @@ async function goToToday() {
       await loadMonth(year, month, parseInt(t.slice(8, 10), 10));
     }
   }
-  await nextTick(); // wait for TwoLineInput (today-only) to render before focusing
+  await nextTick(); // wait for EntryComposer (today-only) to render before focusing
   inputRef.value?.focusInput();
 }
 function onGlobalKeydown(e: KeyboardEvent) {
@@ -366,7 +366,7 @@ logInfo("MonthView", "mounted");
       />
 
       <div v-if="isSelectedToday" class="mt-[12px]">
-        <TwoLineInput
+        <EntryComposer
           ref="inputRef"
           :dimensions="store.config?.dimensions || []"
           :commitments="store.commitments"

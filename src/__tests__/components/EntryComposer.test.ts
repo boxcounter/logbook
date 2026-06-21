@@ -1,8 +1,8 @@
-// src/__tests__/components/TwoLineInput.test.ts
+// src/__tests__/components/EntryComposer.test.ts
 import { describe, it, expect, afterEach } from "vitest";
 import { ref } from "vue";
 import { mount, enableAutoUnmount } from "@vue/test-utils";
-import TwoLineInput from "../../components/TwoLineInput.vue";
+import EntryComposer from "../../components/EntryComposer.vue";
 import { makeDimension, makeCommitment } from "../mocks/fixtures";
 
 // The popover registers a window keydown listener; unmount after each test.
@@ -15,7 +15,7 @@ const dimensions = [
 const commitments = [makeCommitment({ goals: ["Bug fixes"] })];
 
 function mountInput() {
-  return mount(TwoLineInput, { props: { dimensions, commitments } });
+  return mount(EntryComposer, { props: { dimensions, commitments } });
 }
 
 // Drive dimension selections through the popover (replaces the removed
@@ -31,7 +31,7 @@ async function setDims(
   await wrapper.vm.$nextTick();
 }
 
-describe("TwoLineInput", () => {
+describe("EntryComposer", () => {
   it("renders the item input and the Enter hint", () => {
     const wrapper = mountInput();
     expect(wrapper.find("input").exists()).toBe(true);
@@ -101,7 +101,7 @@ describe("TwoLineInput", () => {
   });
 
   it("Enter while the popover is open selects the highlight instead of submitting", async () => {
-    const wrapper = mount(TwoLineInput, {
+    const wrapper = mount(EntryComposer, {
       props: { dimensions, commitments },
       attachTo: document.body,
     });
@@ -116,7 +116,7 @@ describe("TwoLineInput", () => {
 
     // Popover owns Enter: it entered the highlighted dimension's value menu; the entry is NOT submitted.
     expect(wrapper.emitted("submit")).toBeFalsy();
-    expect(wrapper.find("[data-test='back-btn']").exists()).toBe(true); // popover advanced to val phase
+    expect(wrapper.find("[data-test='back-btn']").exists()).toBe(true); // popover advanced to val stage
   });
 
   it("opens the popover upward (bottom-full) since the input is bottom-anchored", async () => {
@@ -151,7 +151,7 @@ describe("TwoLineInput", () => {
     const fid = ref(0);
     const btn = document.createElement("button");
     document.body.appendChild(btn);
-    const wrapper = mount(TwoLineInput, {
+    const wrapper = mount(EntryComposer, {
       props: { dimensions, commitments },
       attachTo: document.body,
       global: { provide: { focusRequestId: fid } },
@@ -169,7 +169,7 @@ describe("TwoLineInput", () => {
     const fid = ref(0);
     const other = document.createElement("input");
     document.body.appendChild(other);
-    const wrapper = mount(TwoLineInput, {
+    const wrapper = mount(EntryComposer, {
       props: { dimensions, commitments },
       attachTo: document.body,
       global: { provide: { focusRequestId: fid } },
@@ -184,7 +184,7 @@ describe("TwoLineInput", () => {
   });
 
   it("exposes focusInput() to focus the entry input", async () => {
-    const wrapper = mount(TwoLineInput, {
+    const wrapper = mount(EntryComposer, {
       props: { dimensions, commitments },
       attachTo: document.body,
     });
@@ -194,7 +194,7 @@ describe("TwoLineInput", () => {
   });
 
   it("Esc clears typed text without emitting submit", async () => {
-    const wrapper = mount(TwoLineInput, {
+    const wrapper = mount(EntryComposer, {
       props: { dimensions: [], commitments: [] },
     });
     const input = wrapper.find("input");
@@ -222,7 +222,7 @@ describe("TwoLineInput", () => {
   });
 
   it("Esc on an empty input does nothing", async () => {
-    const wrapper = mount(TwoLineInput, {
+    const wrapper = mount(EntryComposer, {
       props: { dimensions: [], commitments: [] },
     });
     const input = wrapper.find("input");
