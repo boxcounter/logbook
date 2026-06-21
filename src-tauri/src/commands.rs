@@ -229,9 +229,17 @@ pub fn init(app: AppHandle) -> InitResult {
         true,
         &format!("Ready, {} entries today", today.entries.len()),
     );
+    let from_template = monthly.dimensions.is_empty();
+    let dimensions = if from_template {
+        config.dimensions
+    } else {
+        monthly.dimensions.clone()
+    };
+
     InitResult::Ready {
         root_path: root_path.to_string_lossy().into_owned(),
-        config,
+        dimensions,
+        from_template,
         today,
         commitments: monthly.commitments,
         scan_warnings,
@@ -315,9 +323,16 @@ pub fn set_root_path(app: AppHandle, path: String) -> Result<InitResult, String>
     }
 
     error_log::log_command_exit("set_root_path", true, "Ready");
+    let from_template = monthly.dimensions.is_empty();
+    let dimensions = if from_template {
+        config.dimensions
+    } else {
+        monthly.dimensions.clone()
+    };
     Ok(InitResult::Ready {
         root_path: path.clone(),
-        config,
+        dimensions,
+        from_template,
         today,
         commitments: monthly.commitments,
         scan_warnings,
@@ -511,6 +526,28 @@ pub fn get_commitments(
     let count = result.as_ref().map(|c| c.len()).unwrap_or(0);
     error_log::log_command_exit("get_commitments", ok, &format!("{} commitments", count));
     result
+}
+
+#[tauri::command]
+pub fn get_month_dimensions(
+    root_path: String,
+    year: i32,
+    month: u32,
+) -> Result<MonthDimensions, String> {
+    error_log::log_command_enter("get_month_dimensions", &format!("{}-{:02}", year, month));
+    let root = std::path::Path::new(&root_path);
+    // A month is "instantiated" iff its _monthly.md has a non-empty dimensions block.
+    let from_template = match files::read_monthly_file(root, year, month) {
+        Ok(m) => m.dimensions.is_empty(),
+        Err(_) => true,
+    };
+    let dimensions = files::resolve_month_dimensions(root, year, month);
+    error_log::log_command_exit(
+        "get_month_dimensions",
+        true,
+        &format!("{} dims, from_template={}", dimensions.len(), from_template),
+    );
+    Ok(MonthDimensions { dimensions, from_template })
 }
 
 #[tauri::command]
