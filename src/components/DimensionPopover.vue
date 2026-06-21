@@ -178,7 +178,7 @@ onUnmounted(() => window.removeEventListener("keydown", onWindowKeydown, true));
           v-else
           class="ml-auto text-[length:var(--app-text-micro)]"
           :class="i === activeIndex
-            ? 'text-white/80'
+            ? 'text-white'
             : (d.required ? 'text-[var(--color-warning)] font-medium' : 'text-[var(--color-text-disabled)]')"
         >{{ d.required ? "required" : "optional" }}</span>
       </div>
@@ -218,7 +218,7 @@ onUnmounted(() => window.removeEventListener("keydown", onWindowKeydown, true));
         @mouseenter="activeIndex = i"
         @click="selectVal(v)"
       >
-        <span class="truncate">{{ v }}</span>
+        <span class="truncate min-w-0">{{ v }}</span>
         <span v-if="activeDimKey && dimValues[activeDimKey] === v" class="ml-auto flex-shrink-0">✓</span>
       </div>
       <div
