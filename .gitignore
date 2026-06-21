@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# This project uses pnpm; npm's lockfile must not be committed.
+package-lock.json
+
 .superpowers
 demos
 **/HANDOFF.md
