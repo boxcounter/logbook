@@ -13,9 +13,6 @@ const allFiles = { ...vueFiles, ...appFile };
 const ALLOWLIST = new Set<string>([
   "../App.vue",
   "../components/ConfigErrorBanner.vue",
-  "../components/HeatmapCalendar.vue",
-  "../components/MonthView.vue",
-  "../components/SetupScreen.vue",
   "../components/base/AppButton.vue",
   "../components/base/Toast.vue",
 ]);

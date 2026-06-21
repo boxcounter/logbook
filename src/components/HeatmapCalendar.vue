@@ -118,45 +118,45 @@ onUnmounted(() => document.removeEventListener("mousedown", onDocMousedown, true
   <div>
     <div ref="jumpAnchor">
       <!-- Nav row -->
-      <div class="flex items-center justify-between mb-[8px]">
-        <span data-test="prev-month" class="text-[length:var(--app-text-xs)] text-[var(--color-text-secondary)] cursor-pointer px-[4px] py-[2px] hover:text-[var(--color-text-primary)]" title="Previous month (⌘⇧[)" @click="shift(-1)">←</span>
-        <span data-test="month-label" class="text-[length:var(--app-text-base)] font-bold text-[var(--color-text-primary)] cursor-pointer" @click="onLabelClick">
+      <div class="flex items-center justify-between mb-sm">
+        <span data-test="prev-month" class="text-secondary text-[var(--color-text-secondary)] cursor-pointer px-xs py-2xs hover:text-[var(--color-text-primary)]" title="Previous month (⌘⇧[)" @click="shift(-1)">←</span>
+        <span data-test="month-label" class="text-body font-bold text-[var(--color-text-primary)] cursor-pointer" @click="onLabelClick">
           {{ MONTH_NAMES[month - 1] }}
-          <span class="font-normal text-[length:var(--app-text-xs-alt)] text-[var(--color-text-secondary)]">{{ year }} ▾</span>
+          <span class="font-normal text-secondary text-[var(--color-text-secondary)]">{{ year }} ▾</span>
         </span>
-        <span data-test="next-month" class="text-[length:var(--app-text-xs)] text-[var(--color-text-secondary)] cursor-pointer px-[4px] py-[2px] hover:text-[var(--color-text-primary)]" title="Next month (⌘⇧])" @click="shift(1)">→</span>
+        <span data-test="next-month" class="text-secondary text-[var(--color-text-secondary)] cursor-pointer px-xs py-2xs hover:text-[var(--color-text-primary)]" title="Next month (⌘⇧])" @click="shift(1)">→</span>
       </div>
 
       <QuickJumpPopover
         v-if="showJump && availableMonths !== null"
         :year="year" :month="month" :available-months="availableMonths"
-        class="mb-[8px]"
+        class="mb-sm"
         @jump="onJump"
         @close="showJump = false"
       />
     </div>
 
     <!-- Weekday headers -->
-    <div class="grid grid-cols-7 gap-[3px] text-center text-[length:var(--app-text-2xs)] text-[var(--color-text-secondary)] mb-[4px]">
+    <div class="grid grid-cols-7 gap-xs text-center text-micro text-[var(--color-text-secondary)] mb-xs">
       <span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span>
     </div>
 
     <!-- Day grid -->
-    <div class="grid grid-cols-7 gap-[3px] text-center">
+    <div class="grid grid-cols-7 gap-xs text-center">
       <span v-for="n in leadingBlanks" :key="'blank-' + n"></span>
       <span
         v-for="date in dates" :key="date"
         data-test="day-cell"
-        class="mono w-[24px] h-[24px] rounded-[var(--radius-md)] flex items-center justify-center text-[length:var(--app-text-micro)] transition-all"
+        class="mono w-[24px] h-[24px] rounded-[var(--radius-md)] flex items-center justify-center text-micro transition-all"
         :class="cellClass(date)"
         @click="clickDay(date)"
       >{{ dayNum(date) }}</span>
     </div>
 
     <!-- Month total -->
-    <div class="mt-[6px] text-center text-[length:var(--app-text-xs-alt)] font-semibold text-[var(--color-text-primary)]">
+    <div class="mt-sm text-center text-secondary font-semibold text-[var(--color-text-primary)]">
       <span class="mono">{{ monthTotalHours }}h</span>
-      <span class="font-normal text-[length:var(--app-text-micro)] text-[var(--color-text-secondary)]"> / month</span>
+      <span class="font-normal text-micro text-[var(--color-text-secondary)]"> / month</span>
     </div>
   </div>
 </template>

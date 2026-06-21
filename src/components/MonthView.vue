@@ -309,7 +309,7 @@ logInfo("MonthView", "mounted");
 <template>
   <div class="flex min-h-[calc(100vh-64px)] bg-[var(--color-surface)] border border-[var(--color-border-form)] rounded-[var(--radius-lg)] overflow-hidden">
     <!-- Sidebar -->
-    <aside class="w-[220px] flex-shrink-0 flex flex-col gap-0 bg-[var(--color-surface-muted)] border-r border-[var(--color-divider)] px-[16px] py-[24px]">
+    <aside class="w-[220px] flex-shrink-0 flex flex-col gap-0 bg-[var(--color-surface-muted)] border-r border-[var(--color-divider)] px-lg py-xl">
       <HeatmapCalendar
         :year="selectedYear"
         :month="selectedMonth"
@@ -320,7 +320,7 @@ logInfo("MonthView", "mounted");
         @select-day="handleSelectDay"
         @request-months="handleRequestMonths"
       />
-      <div class="border-t border-[var(--color-divider)] my-[20px]"></div>
+      <div class="border-t border-[var(--color-divider)] my-xl"></div>
       <CommitmentsPanel
         :progress="store.commitmentProgress"
         :commitments="store.commitments"
@@ -332,7 +332,7 @@ logInfo("MonthView", "mounted");
     </aside>
 
     <!-- Main -->
-    <main class="flex-1 min-w-0 flex flex-col px-[28px] py-[24px]">
+    <main class="flex-1 min-w-0 flex flex-col px-2xl py-xl">
       <DayHeader
         :title="dayTitle"
         :is-today="isSelectedToday"
@@ -343,10 +343,10 @@ logInfo("MonthView", "mounted");
         @next-day="shiftDay(1)"
       />
 
-      <div class="mt-[4px] mb-[8px] py-[4px]">
+      <div class="mt-xs mb-sm py-xs">
         <div
           ref="noteRef"
-          class="text-[length:var(--app-text-xs)] italic text-[var(--color-text-secondary)] leading-[1.5] cursor-text px-[10px] py-[6px] rounded-[var(--radius-form-lg)] outline-none hover:bg-[var(--color-page-bg)]"
+          class="text-secondary italic text-[var(--color-text-secondary)] leading-[1.5] cursor-text px-sm py-sm rounded-[var(--radius-form-lg)] outline-none hover:bg-[var(--color-page-bg)]"
           contenteditable="true"
           data-placeholder="Add a note…"
           @blur="saveNote"
@@ -366,7 +366,7 @@ logInfo("MonthView", "mounted");
         @update-dimensions="handleUpdateDimensions"
       />
 
-      <div v-if="isSelectedToday" class="mt-[12px]">
+      <div v-if="isSelectedToday" class="mt-md">
         <TwoLineInput
           ref="inputRef"
           :dimensions="store.config?.dimensions || []"
@@ -376,9 +376,9 @@ logInfo("MonthView", "mounted");
         />
       </div>
 
-      <div v-if="store.rootPath" class="mt-[10px] text-right">
+      <div v-if="store.rootPath" class="mt-sm text-right">
         <button
-          class="text-[length:var(--app-text-micro)] text-[var(--color-text-disabled)] hover:text-[var(--color-text-secondary)] cursor-pointer"
+          class="text-micro text-[var(--color-text-disabled)] hover:text-[var(--color-text-secondary)] cursor-pointer"
           :title="store.rootPath + '/' + dayFilePath"
           @click="openInEditor"
         >{{ displayPath }}</button>

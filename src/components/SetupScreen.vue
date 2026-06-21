@@ -57,14 +57,14 @@ async function trySetRootPath(path: string) {
 </script>
 
 <template>
-  <div class="flex flex-col items-center justify-center min-h-screen p-8">
-    <h1 class="text-2xl font-bold mb-4 text-[var(--color-text-primary)]">Welcome to Logbook</h1>
-    <p class="text-[var(--color-text-secondary)] mb-6 text-center max-w-md">
+  <div class="flex flex-col items-center justify-center min-h-screen p-2xl">
+    <h1 class="text-title font-bold mb-lg text-[var(--color-text-primary)]">Welcome to Logbook</h1>
+    <p class="text-[var(--color-text-secondary)] mb-xl text-center max-w-md">
       Logbook stores work records as Markdown files with YAML frontmatter.
       Choose a folder to store your data.
     </p>
     <button
-      class="px-[24px] py-[12px] bg-gradient-to-br from-[var(--color-brand-gradient-from)] to-[var(--color-brand-gradient-to)] text-white rounded-full hover:-translate-y-px hover:shadow-[var(--shadow-button-hover)] transition-all duration-200 text-[16px] font-semibold cursor-pointer shadow-[var(--shadow-button)]"
+      class="px-xl py-md bg-gradient-to-br from-[var(--color-brand-gradient-from)] to-[var(--color-brand-gradient-to)] text-white rounded-full hover:-translate-y-px hover:shadow-[var(--shadow-button-hover)] transition-all duration-200 text-body font-semibold cursor-pointer shadow-[var(--shadow-button)]"
       @click="selectFolder"
     >
       Choose Data Folder
