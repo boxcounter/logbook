@@ -52,12 +52,14 @@ function spacingViolations(src: string): string[] {
   const arb = new RegExp(`\\b(${SPACE_PREFIXES})-\\[(\\d+(?:\\.\\d+)?)px\\]`, "g");
   for (const m of src.matchAll(arb)) {
     const px = Math.round(Number(m[2]));
+    if (px === 0) continue;
     out.push(`${m[0]} → ${m[1]}-${spacingSuffix(px)} (--spacing-${spacingSuffix(px)}); spacing must use the named scale`);
   }
   // numeric defaults: e.g. p-8, mx-4 (but NOT named like p-sm).
   const num = new RegExp(`\\b(${SPACE_PREFIXES})-(\\d+)\\b`, "g");
   for (const m of src.matchAll(num)) {
     const px = Number(m[2]) * 4;
+    if (px === 0) continue;
     out.push(`${m[0]} → ${m[1]}-${spacingSuffix(px)} (=${px}px); use the named scale, not Tailwind's numeric default`);
   }
   return out;
