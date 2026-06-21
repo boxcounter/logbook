@@ -239,10 +239,10 @@ const dayFilePath = computed(() => {
   return `${d.slice(0, 4)}/${d.slice(5, 7)}/${d}.md`;
 });
 const displayPath = computed(() => (store.rootPath ? `…/${dayFilePath.value}` : ""));
-async function openInEditor() {
+async function revealDayFile() {
   if (!store.rootPath) return;
-  try { await invoke("open_in_editor", { rootPath: store.rootPath, date: store.currentDate }); }
-  catch (e) { logError("MonthView.openInEditor", e); }
+  try { await invoke("reveal_day_file", { rootPath: store.rootPath, date: store.currentDate }); }
+  catch (e) { logError("MonthView.revealDayFile", e); }
 }
 
 // ---- Keyboard month navigation (⌘[ / ⌘]) ----
@@ -378,7 +378,7 @@ logInfo("MonthView", "mounted");
         <button
           class="text-micro text-[var(--color-text-disabled)] hover:text-[var(--color-text-secondary)] cursor-pointer"
           :title="store.rootPath + '/' + dayFilePath"
-          @click="openInEditor"
+          @click="revealDayFile"
         >{{ displayPath }}</button>
       </div>
     </main>

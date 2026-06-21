@@ -40,7 +40,7 @@ const defaultInvoke = async (cmd: string, _args?: unknown) => {
       return { note: null, entries: [] } as unknown;
     case "set_day_note":
       return { note: "", entries: [] } as unknown;
-    case "open_in_editor":
+    case "reveal_day_file":
       return;
     case "create_starter_files":
       return;
