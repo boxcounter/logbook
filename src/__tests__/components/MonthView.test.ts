@@ -1,6 +1,6 @@
 // src/__tests__/components/MonthView.test.ts
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { mount } from "@vue/test-utils";
+import { mount, flushPromises } from "@vue/test-utils";
 import { reactive } from "vue";
 import MonthView from "../../components/MonthView.vue";
 import { STORE_KEY } from "../../stores/useStore";
@@ -42,9 +42,10 @@ function mountView(store = makeStore()) {
 
 beforeEach(() => {
   invokeMock.mockReset();
-  // Route by command so get_commitment_progress always returns an array
+  // Route by command so progress/commitments always return arrays
   invokeMock.mockImplementation(async (cmd: string) => {
     if (cmd === "get_commitment_progress") return [];
+    if (cmd === "get_commitments") return [];
     return { note: null, entries: [] };
   });
 });
@@ -159,5 +160,31 @@ describe("MonthView", () => {
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "t", metaKey: true }));
     await wrapper.vm.$nextTick();
     expect(store.currentDate).toBe(todayDateStr());
+  });
+
+  it("commitments follow the selected month when navigating to a prior month", async () => {
+    const store = makeStore(); // currentDate === today, commitments = [一个 commitment]
+    const curYM = todayDateStr().slice(0, 7); // 当前 YYYY-MM
+
+    // 当前月有 commitments；其它任何月为空（模拟「目标月还没建 commitments」）
+    invokeMock.mockImplementation(async (cmd: string, args: { year: number; month: number }) => {
+      if (cmd === "get_commitment_progress") return [];
+      if (cmd === "get_commitments") {
+        const ym = `${args.year}-${String(args.month).padStart(2, "0")}`;
+        return ym === curYM ? [makeCommitment({ role: "Dev", goals: ["G"] })] : [];
+      }
+      return { note: null, entries: [] };
+    });
+
+    mountView(store);
+    await flushPromises(); // 等 onMounted 的 loadMonth(当前月) 跑完
+    expect(store.commitments).toHaveLength(1); // 当前月：有数据
+
+    // 切到上一个月（⌘⇧[）—— 该月没有 commitments
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "[", metaKey: true, shiftKey: true }));
+    await flushPromises();
+    await flushPromises(); // belt-and-suspenders: chained async loads must settle before asserting
+
+    expect(store.commitments).toEqual([]); // 跟随目标月：空，而非停留在当前月数据
   });
 });

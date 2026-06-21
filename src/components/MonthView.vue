@@ -60,6 +60,7 @@ async function loadMonth(year: number, month: number, defaultDay?: number) {
   }
   store.monthEntries = map;
   await loadCommitmentProgress(year, month);
+  await loadCommitments(year, month);
   if (store.currentDate in map) {
     store.today = { note: null, entries: map[store.currentDate] };
     loadDayNote(store.currentDate);
@@ -70,6 +71,12 @@ async function loadCommitmentProgress(year: number, month: number) {
   try {
     store.commitmentProgress = (await invoke("get_commitment_progress", { rootPath: store.rootPath, year, month })) as CommitmentProgress[];
   } catch (e) { logError("MonthView.loadCommitmentProgress", e); store.commitmentProgress = []; }
+}
+
+async function loadCommitments(year: number, month: number) {
+  try {
+    store.commitments = (await invoke("get_commitments", { rootPath: store.rootPath, year, month })) as Commitment[];
+  } catch (e) { logError("MonthView.loadCommitments", e); store.commitments = []; }
 }
 
 // Optimistically reflect the just-saved commitments so the panel's Edit/Set-up
