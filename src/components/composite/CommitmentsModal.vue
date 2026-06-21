@@ -152,7 +152,7 @@ function onModalKeydown(e: KeyboardEvent) {
             <div class="text-title font-bold text-[var(--color-text-primary)] tracking-[-0.3px]">Edit Commitments</div>
             <div class="text-secondary text-[var(--color-text-muted)] mt-2xs">{{ monthLabel }}</div>
           </div>
-          <div class="text-right text-secondary text-[var(--color-text-muted)] leading-[1.8]">
+          <div class="text-right text-secondary text-[var(--color-text-muted)]">
             <div>Committed <span data-test="committed" class="mono font-bold text-[var(--color-brand-link)]">{{ committedHours }}h</span></div>
             <div>Logged <span data-test="logged" class="mono font-semibold text-[var(--color-text-primary)]">{{ formatDuration(loggedTotal) }}</span></div>
           </div>

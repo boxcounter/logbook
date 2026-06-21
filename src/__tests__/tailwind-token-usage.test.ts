@@ -11,9 +11,7 @@ const allFiles = { ...vueFiles, ...appFile };
 // --- Allowlist: files not yet migrated. Remove entries in Phase 3 as each file
 // is migrated. The suite stays green; the goal is an EMPTY allowlist. ---
 const ALLOWLIST = new Set<string>([]);
-const LEADING_ALLOWLIST = new Set<string>([
-  "../components/composite/CommitmentsModal.vue",
-]);
+const LEADING_ALLOWLIST = new Set<string>([]);
 
 const SPACE_PREFIXES =
   "p|px|py|pt|pb|pl|pr|m|mx|my|mt|mb|ml|mr|gap|gap-x|gap-y|space-x|space-y";
