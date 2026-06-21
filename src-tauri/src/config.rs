@@ -247,7 +247,7 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_config_valid() {
+    fn test_validate_dimensions_valid() {
         let config = Template {
             dimensions: vec![
                 Dimension {
@@ -270,7 +270,7 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_config_missing_values() {
+    fn test_validate_dimensions_missing_values() {
         let config = Template {
             dimensions: vec![Dimension {
                 name: "Cat".into(),
@@ -286,7 +286,7 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_config_empty_values() {
+    fn test_validate_dimensions_empty_values() {
         let config = Template {
             dimensions: vec![Dimension {
                 name: "Cat".into(),
@@ -302,7 +302,7 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_config_invalid_key() {
+    fn test_validate_dimensions_invalid_key() {
         let config = Template {
             dimensions: vec![Dimension {
                 name: "Bad".into(),
@@ -318,7 +318,7 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_config_multiple_monthly() {
+    fn test_validate_dimensions_multiple_monthly() {
         let config = Template {
             dimensions: vec![
                 Dimension {
@@ -343,7 +343,7 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_config_invalid_source() {
+    fn test_validate_dimensions_invalid_source() {
         let config = Template {
             dimensions: vec![Dimension {
                 name: "Bad".into(),

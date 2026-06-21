@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-// --- Config ---
+// --- Template ---
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Template {
