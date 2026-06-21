@@ -7,6 +7,7 @@ use chrono::Datelike;
 use regex::Regex;
 use std::sync::LazyLock;
 use tauri::{AppHandle, Manager};
+use tauri_plugin_opener::OpenerExt;
 
 static DURATION_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(\d+(?:\.\d+)?)\s*(h|m|H|M)?").unwrap());
@@ -876,45 +877,56 @@ pub fn get_available_months(root_path: String) -> Result<Vec<AvailableMonth>, St
     Ok(months)
 }
 
+/// What the file manager should reveal/open for a given day.
+struct RevealTarget {
+    path: std::path::PathBuf,
+    /// true  → reveal `path` and select it (it is the day file)
+    /// false → open `path` as a directory (no file to select)
+    select: bool,
+}
+
+/// Decide what to reveal for `date`:
+/// - day file `root/YYYY/MM/YYYY-MM-DD.md` exists → select that file
+/// - else the month dir `root/YYYY/MM/` exists    → open that dir
+/// - else                                         → open the data root
+fn resolve_reveal_target(root: &std::path::Path, date: &str) -> Result<RevealTarget, String> {
+    let file = files::day_path(root, date)?;
+    if file.exists() {
+        return Ok(RevealTarget { path: file, select: true });
+    }
+    if let Some(month_dir) = file.parent() {
+        if month_dir.exists() {
+            return Ok(RevealTarget {
+                path: month_dir.to_path_buf(),
+                select: false,
+            });
+        }
+    }
+    Ok(RevealTarget {
+        path: root.to_path_buf(),
+        select: false,
+    })
+}
+
 #[tauri::command]
-pub fn open_in_editor(root_path: String, date: String) -> Result<(), String> {
-    use std::process::Command;
-    error_log::log_command_enter("open_in_editor", &format!("date={}", date));
-    let parsed = validate_date_format(&date)?;
+pub fn reveal_day_file(app: AppHandle, root_path: String, date: String) -> Result<(), String> {
+    error_log::log_command_enter("reveal_day_file", &format!("date={}", date));
+    validate_date_format(&date)?;
     let root = std::path::Path::new(&root_path);
-    let year = format!("{}", parsed.year());
-    let month = format!("{:02}", parsed.month());
-    let file_path = root.join(&year).join(&month).join(format!("{}.md", date));
-    if !file_path.exists() {
-        error_log::log_command_exit("open_in_editor", false, "file not found");
-        return Err(format!("File not found: {}", file_path.display()));
-    }
-    #[cfg(target_os = "macos")]
-    {
-        Command::new("open")
-            .arg(&file_path)
-            .spawn()
-            .map_err(|e| format!("Failed to open: {}", e))?;
-    }
-    #[cfg(target_os = "linux")]
-    {
-        Command::new("xdg-open")
-            .arg(&file_path)
-            .spawn()
-            .map_err(|e| format!("Failed to open: {}", e))?;
-    }
-    #[cfg(target_os = "windows")]
-    {
-        Command::new("cmd")
-            .arg("/c")
-            .arg("start")
-            .arg("")
-            .arg(&file_path)
-            .spawn()
-            .map_err(|e| format!("Failed to open: {}", e))?;
-    }
-    error_log::log_command_exit("open_in_editor", true, "");
-    Ok(())
+    let target = resolve_reveal_target(root, &date)?;
+
+    let result = if target.select {
+        app.opener()
+            .reveal_item_in_dir(&target.path)
+            .map_err(|e| format!("Failed to reveal {}: {}", target.path.display(), e))
+    } else {
+        app.opener()
+            .open_path(target.path.to_string_lossy().into_owned(), None::<String>)
+            .map_err(|e| format!("Failed to open {}: {}", target.path.display(), e))
+    };
+
+    error_log::log_command_exit("reveal_day_file", result.is_ok(), "");
+    result
 }
 
 #[tauri::command]
@@ -1444,5 +1456,53 @@ mod tests {
         let changes = detect_goal_changes(&c, &c);
         assert!(changes.renames.is_empty());
         assert!(changes.deleted.is_empty());
+    }
+
+    #[test]
+    fn test_resolve_reveal_target_file_exists() {
+        use std::fs;
+        let tmp = std::env::temp_dir().join("logbook_test_reveal_file");
+        let _ = fs::remove_dir_all(&tmp);
+        let date = "2026-06-21";
+        let file = files::day_path(&tmp, date).unwrap();
+        fs::create_dir_all(file.parent().unwrap()).unwrap();
+        fs::write(&file, "---\nentries: []\n---\n").unwrap();
+
+        let t = resolve_reveal_target(&tmp, date).unwrap();
+        assert_eq!(t.path, file);
+        assert!(t.select, "existing file must be selected");
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_resolve_reveal_target_falls_back_to_month_dir() {
+        use std::fs;
+        let tmp = std::env::temp_dir().join("logbook_test_reveal_month");
+        let _ = fs::remove_dir_all(&tmp);
+        let date = "2026-06-21";
+        let month_dir = tmp.join("2026").join("06");
+        fs::create_dir_all(&month_dir).unwrap(); // dir exists, day file does not
+
+        let t = resolve_reveal_target(&tmp, date).unwrap();
+        assert_eq!(t.path, month_dir);
+        assert!(!t.select, "directory target must not be selected");
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_resolve_reveal_target_falls_back_to_root() {
+        use std::fs;
+        let tmp = std::env::temp_dir().join("logbook_test_reveal_root");
+        let _ = fs::remove_dir_all(&tmp);
+        fs::create_dir_all(&tmp).unwrap(); // only root exists
+        let date = "2026-06-21";
+
+        let t = resolve_reveal_target(&tmp, date).unwrap();
+        assert_eq!(t.path, tmp);
+        assert!(!t.select);
+
+        let _ = fs::remove_dir_all(&tmp);
     }
 }

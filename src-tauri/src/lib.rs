@@ -62,7 +62,7 @@ pub fn run() {
             commands::get_commitment_progress,
             commands::set_commitments,
             commands::get_available_months,
-            commands::open_in_editor,
+            commands::reveal_day_file,
             commands::create_starter_files,
             commands::log_error,
             commands::log_info,
