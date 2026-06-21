@@ -147,19 +147,19 @@ function onModalKeydown(e: KeyboardEvent) {
                shadow-[var(--shadow-popover)] overflow-hidden"
       >
         <!-- Header -->
-        <div class="flex justify-between items-start px-[28px] pt-[24px] pb-[16px] border-b border-[var(--color-divider)]">
+        <div class="flex justify-between items-start px-2xl pt-xl pb-lg border-b border-[var(--color-divider)]">
           <div>
-            <div class="text-[length:var(--app-text-xl)] font-bold text-[var(--color-text-primary)] tracking-[-0.3px]">Edit Commitments</div>
-            <div class="text-[length:var(--app-text-xs)] text-[var(--color-text-muted)] mt-[2px]">{{ monthLabel }}</div>
+            <div class="text-title font-bold text-[var(--color-text-primary)] tracking-[-0.3px]">Edit Commitments</div>
+            <div class="text-secondary text-[var(--color-text-muted)] mt-2xs">{{ monthLabel }}</div>
           </div>
-          <div class="text-right text-[length:var(--app-text-xs-alt)] text-[var(--color-text-muted)] leading-[1.8]">
+          <div class="text-right text-secondary text-[var(--color-text-muted)] leading-[1.8]">
             <div>Committed <span data-test="committed" class="mono font-bold text-[var(--color-brand-link)]">{{ committedHours }}h</span></div>
             <div>Logged <span data-test="logged" class="mono font-semibold text-[var(--color-text-primary)]">{{ formatDuration(loggedTotal) }}</span></div>
           </div>
         </div>
 
         <!-- Body -->
-        <div class="px-[28px] pt-[16px] pb-[4px] overflow-y-auto">
+        <div class="px-2xl pt-lg pb-xs overflow-y-auto">
           <VueDraggable v-model="draft" handle=".drag-grip-role" :animation="150">
             <RoleCard
               v-for="r in draft" :key="r.key"
@@ -171,33 +171,33 @@ function onModalKeydown(e: KeyboardEvent) {
 
           <button
             data-test="add-role"
-            class="my-[4px] py-[6px] text-[length:var(--app-text-sm)] font-semibold text-[var(--color-brand-link)] cursor-pointer hover:underline"
+            class="my-xs py-sm text-secondary font-semibold text-[var(--color-brand-link)] cursor-pointer hover:underline"
             @click="addRole"
           >+ Add Role</button>
         </div>
 
         <!-- Footer -->
-        <div v-if="error" class="px-[28px] pb-[8px] text-[length:var(--app-text-xs-alt)] text-[var(--color-danger)]">{{ error }}</div>
-        <div class="flex justify-end gap-[8px] px-[28px] py-[16px] border-t border-[var(--color-divider)]">
+        <div v-if="error" class="px-2xl pb-sm text-secondary text-[var(--color-danger)]">{{ error }}</div>
+        <div class="flex justify-end gap-sm px-2xl py-lg border-t border-[var(--color-divider)]">
           <button
             data-test="cancel"
-            class="text-[length:var(--app-text-sm)] font-semibold text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] rounded-[var(--radius-form)] px-[14px] py-[6px] cursor-pointer"
+            class="text-secondary font-semibold text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] rounded-[var(--radius-form)] px-md py-sm cursor-pointer"
             @click="requestClose"
           >Cancel</button>
           <button
             data-test="save" :disabled="saving"
-            class="text-[length:var(--app-text-sm)] font-semibold text-white bg-[var(--color-brand-solid)] hover:bg-[var(--color-brand-link)] rounded-[var(--radius-form)] px-[14px] py-[6px] cursor-pointer disabled:opacity-50"
+            class="text-secondary font-semibold text-white bg-[var(--color-brand-solid)] hover:bg-[var(--color-brand-link)] rounded-[var(--radius-form)] px-md py-sm cursor-pointer disabled:opacity-50"
             @click="save"
           >{{ saving ? "Saving…" : "Save" }}</button>
         </div>
 
         <div v-if="showDiscard" data-test="discard-confirm" class="absolute inset-0 flex items-center justify-center bg-black/10">
-          <div class="bg-[var(--color-surface)] border border-[var(--color-border-form)] rounded-[var(--radius-card)] shadow-[var(--shadow-toast)] p-[16px] max-w-[300px]">
-            <div class="text-[length:var(--app-text-base)] font-semibold text-[var(--color-text-primary)] mb-[4px]">Discard changes?</div>
-            <div class="text-[length:var(--app-text-xs)] text-[var(--color-text-secondary)] mb-[14px]">Your edits to this month's commitments won't be saved.</div>
-            <div class="flex justify-end gap-[8px]">
-              <button class="text-[length:var(--app-text-xs)] font-semibold text-[var(--color-text-muted)] px-[12px] py-[6px] cursor-pointer" @click="keepEditing">Keep editing</button>
-              <button data-test="discard-yes" class="text-[length:var(--app-text-xs)] font-semibold text-[var(--color-danger)] rounded-[var(--radius-form)] px-[12px] py-[6px] cursor-pointer" @click="confirmDiscard">Discard</button>
+          <div class="bg-[var(--color-surface)] border border-[var(--color-border-form)] rounded-[var(--radius-card)] shadow-[var(--shadow-toast)] p-lg max-w-[300px]">
+            <div class="text-body font-semibold text-[var(--color-text-primary)] mb-xs">Discard changes?</div>
+            <div class="text-secondary text-[var(--color-text-secondary)] mb-md">Your edits to this month's commitments won't be saved.</div>
+            <div class="flex justify-end gap-sm">
+              <button class="text-secondary font-semibold text-[var(--color-text-muted)] px-md py-sm cursor-pointer" @click="keepEditing">Keep editing</button>
+              <button data-test="discard-yes" class="text-secondary font-semibold text-[var(--color-danger)] rounded-[var(--radius-form)] px-md py-sm cursor-pointer" @click="confirmDiscard">Discard</button>
             </div>
           </div>
         </div>

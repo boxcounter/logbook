@@ -91,22 +91,22 @@ function removeGoal(g: GoalRowModel) {
 </script>
 
 <template>
-  <div class="bg-[var(--color-page-bg)] border border-[var(--color-divider)] rounded-[var(--radius-form-lg)] p-[16px] mb-[12px]" data-test="role-card">
-    <div class="flex items-center gap-[8px]">
-      <span data-test="drag-grip-role" class="drag-grip-role cursor-grab text-[var(--color-text-disabled)] select-none px-[2px]">⠿</span>
+  <div class="bg-[var(--color-page-bg)] border border-[var(--color-divider)] rounded-[var(--radius-form-lg)] p-lg mb-md" data-test="role-card">
+    <div class="flex items-center gap-sm">
+      <span data-test="drag-grip-role" class="drag-grip-role cursor-grab text-[var(--color-text-disabled)] select-none px-2xs">⠿</span>
       <input
         v-model="role.role" data-test="role-name" placeholder="Role"
         @keydown.enter.exact.prevent="allocInput?.focus()"
-        class="flex-1 px-[10px] py-[6px] border border-[var(--color-border-form)] rounded-[var(--radius-form)]
-               text-[length:var(--app-text-base)] font-semibold text-[var(--color-text-primary)]
+        class="flex-1 px-sm py-sm border border-[var(--color-border-form)] rounded-[var(--radius-form)]
+               text-body font-semibold text-[var(--color-text-primary)]
                bg-[var(--color-surface)] outline-none focus:border-[var(--color-brand-solid)]"
         :class="showErrors && roleNameInvalid ? 'border-[var(--color-danger)]' : ''"
       />
-      <span class="inline-flex items-center gap-[5px]">
+      <span class="inline-flex items-center gap-xs">
         <button
           data-test="alloc-dec" :disabled="role.allocation <= MIN_ALLOC"
           class="w-[24px] h-[26px] flex items-center justify-center border border-[var(--color-border-form)] rounded-[var(--radius-form)]
-                 text-[length:var(--app-text-base)] text-[var(--color-text-secondary)] bg-[var(--color-surface)]
+                 text-body text-[var(--color-text-secondary)] bg-[var(--color-surface)]
                  hover:border-[var(--color-brand-solid)] hover:text-[var(--color-brand-link)]
                  disabled:text-[var(--color-text-disabled)] disabled:cursor-not-allowed disabled:hover:border-[var(--color-border-form)]
                  cursor-pointer transition-[border-color,color] duration-150"
@@ -115,8 +115,8 @@ function removeGoal(g: GoalRowModel) {
         <input
           ref="allocInput"
           :value="role.allocation" type="number" data-test="alloc"
-          class="w-[42px] text-center px-[4px] py-[4px] border border-[var(--color-border-form)] rounded-[var(--radius-form)]
-                 text-[length:var(--app-text-base)] font-semibold text-[var(--color-text-primary)] mono
+          class="w-[42px] text-center px-xs py-xs border border-[var(--color-border-form)] rounded-[var(--radius-form)]
+                 text-body font-semibold text-[var(--color-text-primary)] mono
                  bg-[var(--color-surface)] outline-none focus:border-[var(--color-brand-solid)]"
           @input="onAllocInput($event)"
           @keydown.up.prevent="stepAlloc(STEP)"
@@ -125,14 +125,14 @@ function removeGoal(g: GoalRowModel) {
         <button
           data-test="alloc-inc"
           class="w-[24px] h-[26px] flex items-center justify-center border border-[var(--color-border-form)] rounded-[var(--radius-form)]
-                 text-[length:var(--app-text-base)] text-[var(--color-text-secondary)] bg-[var(--color-surface)]
+                 text-body text-[var(--color-text-secondary)] bg-[var(--color-surface)]
                  hover:border-[var(--color-brand-solid)] hover:text-[var(--color-brand-link)]
                  cursor-pointer transition-[border-color,color] duration-150"
           @click="stepAlloc(STEP)"
         >+</button>
-        <span class="text-[length:var(--app-text-xs-alt)] text-[var(--color-text-muted)]">h</span>
+        <span class="text-secondary text-[var(--color-text-muted)]">h</span>
       </span>
-      <span v-if="confirming" class="inline-flex items-center gap-[10px] text-[length:var(--app-text-xs)]">
+      <span v-if="confirming" class="inline-flex items-center gap-sm text-secondary">
         <span class="text-[var(--color-danger)] whitespace-nowrap">Delete role?</span>
         <button type="button" data-test="role-delete-confirm" class="font-semibold text-[var(--color-danger)] cursor-pointer" @click="confirmDelete">Delete</button>
         <button type="button" data-test="role-delete-cancel" class="font-semibold text-[var(--color-text-muted)] cursor-pointer" @click="cancelDelete">Cancel</button>
@@ -141,24 +141,24 @@ function removeGoal(g: GoalRowModel) {
         v-else
         data-test="role-delete" :disabled="!roleDeletable"
         :title="roleDeletable ? 'Delete role' : `Has logged time — can't delete this month`"
-        class="text-[length:var(--app-text-xs-alt)] cursor-pointer px-[5px] py-[4px] transition-[color] duration-150
+        class="text-secondary cursor-pointer px-xs py-xs transition-[color] duration-150
                text-[var(--color-text-muted)] hover:text-[var(--color-danger)]
                disabled:text-[var(--color-text-disabled)] disabled:cursor-not-allowed disabled:hover:text-[var(--color-text-disabled)]"
         @click="requestDelete"
       >Delete</button>
     </div>
 
-    <div class="flex items-center gap-[8px] mt-[8px]">
-      <div class="flex-1 h-[4px] bg-[var(--color-divider)] rounded-[2px] overflow-hidden">
+    <div class="flex items-center gap-sm mt-sm">
+      <div class="flex-1 h-[4px] bg-[var(--color-divider)] rounded-full overflow-hidden">
         <div
           data-test="bar-fill"
-          class="h-full rounded-[2px] transition-[width] duration-150"
+          class="h-full rounded-full transition-[width] duration-150"
           :class="isOver ? 'bg-[var(--color-warning)]' : 'bg-gradient-to-r from-[var(--color-brand-gradient-from)] to-[var(--color-brand-gradient-to)]'"
           :style="{ width: barPct + '%' }"
         ></div>
       </div>
       <span
-        data-test="role-spent" class="text-[length:var(--app-text-xs-alt)] whitespace-nowrap"
+        data-test="role-spent" class="text-secondary whitespace-nowrap"
         :class="isOver ? 'text-[var(--color-warning)] font-semibold' : 'text-[var(--color-text-muted)]'"
       >
         <span class="mono" :class="isOver ? '' : 'text-[var(--color-text-primary)] font-semibold'">{{ formatDuration(roleSpent) }}</span>
@@ -167,8 +167,8 @@ function removeGoal(g: GoalRowModel) {
       </span>
     </div>
 
-    <div class="mt-[12px]">
-      <VueDraggable v-model="role.goals" handle=".drag-grip-goal" :animation="150" class="flex flex-col gap-[8px]">
+    <div class="mt-md">
+      <VueDraggable v-model="role.goals" handle=".drag-grip-goal" :animation="150" class="flex flex-col gap-sm">
         <GoalRow
           v-for="g in role.goals" :key="g.key"
           :goal="g" :logged="goalLogged(g.origName)" :invalid="showErrors && goalNameInvalid(g)"
@@ -177,7 +177,7 @@ function removeGoal(g: GoalRowModel) {
       </VueDraggable>
       <button
         data-test="add-goal"
-        class="self-start mt-[8px] text-[length:var(--app-text-xs)] font-medium text-[var(--color-brand-link)] cursor-pointer hover:underline"
+        class="self-start mt-sm text-secondary font-medium text-[var(--color-brand-link)] cursor-pointer hover:underline"
         @click="addGoal"
       >+ Add Goal</button>
     </div>
