@@ -223,7 +223,7 @@ pub fn verify_op_log(root_path: &str) -> Result<(), Vec<OpLogMismatch>> {
             "update" => {
                 let entry_id = log_line["entry_id"].as_str().unwrap_or("");
                 let params = &log_line["params"];
-                let update = crate::models::UpdateEntry {
+                let update = crate::models::UpdateEntryInput {
                     item: params["item"].as_str().map(String::from),
                     duration: params["duration"].as_str().map(String::from),
                     dimensions: params["dimensions"].as_object().map(|obj| {
@@ -667,7 +667,7 @@ mod tests {
         let entry = crate::files::append_new_entry(
             &tmp,
             "2026-06-15",
-            &crate::models::NewEntry {
+            &crate::models::CreateEntryInput {
                 item: "test entry".into(),
                 duration: "30".into(),
                 dimensions: std::collections::HashMap::new(),

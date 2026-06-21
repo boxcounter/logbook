@@ -333,7 +333,7 @@ pub fn get_entries(root_path: String, date: String) -> Result<DayFile, String> {
 }
 
 #[tauri::command]
-pub fn append_entry(root_path: String, date: String, entry: NewEntry) -> Result<Entry, String> {
+pub fn append_entry(root_path: String, date: String, entry: CreateEntryInput) -> Result<Entry, String> {
     error_log::log_command_enter(
         "append_entry",
         &format!("date={} item={} dur={}", date, entry.item, entry.duration),
@@ -378,7 +378,7 @@ pub fn update_entry(
     root_path: String,
     date: String,
     entry_id: String,
-    update: UpdateEntry,
+    update: UpdateEntryInput,
 ) -> Result<DayFile, String> {
     error_log::log_command_enter("update_entry", &format!("date={} id={}", date, entry_id));
     let root = std::path::Path::new(&root_path);

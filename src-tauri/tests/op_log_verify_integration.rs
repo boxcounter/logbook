@@ -2,7 +2,7 @@
 use std::collections::HashMap;
 use std::fs;
 
-use tauri_app_lib::models::NewEntry;
+use tauri_app_lib::models::CreateEntryInput;
 use tauri_app_lib::operation_log;
 
 fn test_root(suffix: &str) -> std::path::PathBuf {
@@ -29,7 +29,7 @@ fn test_verify_consistent_after_append() {
     let entry = tauri_app_lib::files::append_new_entry(
         &tmp,
         date,
-        &NewEntry {
+        &CreateEntryInput {
             item: "test entry".to_string(),
             duration: "30".to_string(),
             dimensions: HashMap::new(),
