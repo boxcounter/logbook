@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use tauri_app_lib::files;
-use tauri_app_lib::models::CreateEntryInput;
+use tauri_app_lib::models::{Commitment, CreateEntryInput};
 
 fn fresh_root(name: &str) -> PathBuf {
     let root = std::env::temp_dir().join(name);
@@ -102,6 +102,39 @@ fn instantiate_preserves_commitments() {
     let monthly = files::read_monthly_file(&root, 2026, 9).unwrap();
     assert_eq!(monthly.dimensions.len(), 2, "dims snapshotted");
     assert_eq!(monthly.commitments.len(), 1, "commitments preserved");
+    assert_eq!(monthly.commitments[0].role, "Dev");
+
+    let _ = fs::remove_dir_all(&root);
+}
+
+// 6. set_commitments (the command) must NOT wipe an existing dimensions block.
+#[test]
+fn set_commitments_preserves_dimensions_block() {
+    let root = fresh_root("logbook_md_setcommit");
+    write_template(&root, TPL_BIZ_GOAL);
+
+    // Instantiate the month (dims block now present, no commitments yet).
+    files::ensure_month_instantiated(&root, 2026, 10).unwrap();
+    assert_eq!(files::read_monthly_file(&root, 2026, 10).unwrap().dimensions.len(), 2);
+
+    // Set commitments via the command.
+    let commitments = vec![Commitment {
+        role: "Dev".into(),
+        allocation: 40,
+        goals: vec!["Ship it".into()],
+    }];
+    tauri_app_lib::commands::set_commitments(
+        root.to_string_lossy().into_owned(),
+        2026,
+        10,
+        commitments,
+    )
+    .unwrap();
+
+    // Both the dims block AND the new commitments must be present.
+    let monthly = files::read_monthly_file(&root, 2026, 10).unwrap();
+    assert_eq!(monthly.dimensions.len(), 2, "set_commitments must preserve dims block");
+    assert_eq!(monthly.commitments.len(), 1);
     assert_eq!(monthly.commitments[0].role, "Dev");
 
     let _ = fs::remove_dir_all(&root);
