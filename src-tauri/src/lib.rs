@@ -59,6 +59,7 @@ pub fn run() {
             commands::delete_entry,
             commands::set_day_note,
             commands::get_commitments,
+            commands::get_month_dimensions,
             commands::get_commitment_progress,
             commands::set_commitments,
             commands::get_available_months,

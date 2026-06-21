@@ -4,7 +4,7 @@ import { mount, flushPromises } from "@vue/test-utils";
 import { reactive } from "vue";
 import MonthView from "../../components/MonthView.vue";
 import { STORE_KEY } from "../../stores/useStore";
-import { makeConfig, makeCommitment, makeEntry } from "../mocks/fixtures";
+import { makeDimensions, makeCommitment, makeEntry } from "../mocks/fixtures";
 import { addDays } from "../../utils/dates";
 
 const invokeMock = vi.fn();
@@ -21,7 +21,8 @@ function makeStore() {
   return reactive({
     status: "ready",
     rootPath: "/root",
-    config: makeConfig(),
+    dimensions: makeDimensions(),
+    fromTemplate: false,
     configErrors: [],
     commitments: [makeCommitment({ goals: ["Bug fixes"] })],
     commitmentProgress: [],
@@ -80,6 +81,16 @@ describe("MonthView", () => {
     store.currentDate = "2026-06-10"; // not today (past date in-month)
     const wrapper = mountView(store);
     expect(wrapper.findComponent({ name: "EntryComposer" }).exists()).toBe(false);
+  });
+
+  it("shows the default-template indicator only when fromTemplate is true", () => {
+    const off = mountView();
+    expect(off.text()).not.toContain("本月沿用默认模板");
+
+    const store = makeStore();
+    store.fromTemplate = true;
+    const on = mountView(store);
+    expect(on.text()).toContain("本月沿用默认模板");
   });
 
   it("renders the day note above the entry list", () => {

@@ -17,7 +17,7 @@ const emit = defineEmits<{
 const store = useStore();
 const editing = ref(false);
 
-const dimensions = computed(() => store.config?.dimensions || []);
+const dimensions = computed(() => store.dimensions);
 const filledDims = computed(() => dimensions.value.filter(d => props.entry.dimensions[d.key]));
 
 function chipClass(key: string): string {

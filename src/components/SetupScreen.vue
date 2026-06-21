@@ -24,7 +24,8 @@ async function trySetRootPath(path: string) {
     const result = (await invoke("set_root_path", { path })) as InitResult;
     if (result.status === "Ready") {
       store.rootPath = path;
-      store.config = result.data.config;
+      store.dimensions = result.data.dimensions;
+      store.fromTemplate = result.data.from_template;
       store.today = result.data.today;
       store.status = "ready";
     } else if (result.status === "ConfigError") {
@@ -35,7 +36,7 @@ async function trySetRootPath(path: string) {
   } catch (e) {
     const msg = String(e);
     if (msg.includes("Failed to read") || msg.includes("No such file")) {
-      const shouldCreate = confirm("No config.yaml found. Create one with default settings?");
+      const shouldCreate = confirm("No template.yaml found. Create one with default settings?");
       if (shouldCreate) {
         try {
           await invoke("create_starter_files", { path });

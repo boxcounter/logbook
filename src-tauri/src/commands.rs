@@ -1,4 +1,4 @@
-use crate::config::{validate_config, validate_monthly};
+use crate::config::{validate_dimensions, validate_monthly};
 use crate::error_log;
 use crate::operation_log;
 use crate::files::{self, read_root_path, save_root_path};
@@ -52,6 +52,7 @@ fn read_monthly_file_safe(
                 ))
             } else {
                 Ok(MonthlyFile {
+                    dimensions: vec![],
                     commitments: vec![],
                 })
             }
@@ -124,11 +125,11 @@ pub fn parse_duration(input: &str) -> Result<u32, String> {
 /// Validate that all required dimensions have values in the entry.
 /// Returns Ok(()) or Err with a human-readable message naming the first missing required dimension.
 pub fn validate_required_dimensions(
-    config: &Config,
-    dimensions: &std::collections::HashMap<String, String>,
+    dimensions: &[Dimension],
+    entry_dimensions: &std::collections::HashMap<String, String>,
 ) -> Result<(), String> {
-    for dim in &config.dimensions {
-        if dim.required && !dimensions.contains_key(&dim.key) {
+    for dim in dimensions {
+        if dim.required && !entry_dimensions.contains_key(&dim.key) {
             return Err(format!("Missing required dimension: {}", dim.name));
         }
     }
@@ -158,10 +159,10 @@ pub fn init(app: AppHandle) -> InitResult {
         error_log::log_info("init", &format!("{} scan warnings", scan_warnings.len()));
     }
 
-    let config = match files::read_config(root) {
+    let config = match files::read_template(root) {
         Ok(c) => c,
         Err(e) => {
-            error_log::log_error("init: read_config", &e);
+            error_log::log_error("init: read_template", &e);
             error_log::log_command_exit("init", false, "ConfigReadError");
             return InitResult::ConfigError {
                 errors: vec![ConfigErrorDetail {
@@ -173,7 +174,7 @@ pub fn init(app: AppHandle) -> InitResult {
         }
     };
 
-    let mut all_errors = validate_config(&config);
+    let mut all_errors = validate_dimensions(&config.dimensions);
 
     let now = chrono::Local::now();
     let monthly = match read_monthly_file_safe(root, now.year(), now.month()) {
@@ -185,6 +186,7 @@ pub fn init(app: AppHandle) -> InitResult {
                 message: e,
             });
             MonthlyFile {
+                dimensions: vec![],
                 commitments: vec![],
             }
         }
@@ -227,9 +229,17 @@ pub fn init(app: AppHandle) -> InitResult {
         true,
         &format!("Ready, {} entries today", today.entries.len()),
     );
+    let from_template = monthly.dimensions.is_empty();
+    let dimensions = if from_template {
+        config.dimensions
+    } else {
+        monthly.dimensions.clone()
+    };
+
     InitResult::Ready {
         root_path: root_path.to_string_lossy().into_owned(),
-        config,
+        dimensions,
+        from_template,
         today,
         commitments: monthly.commitments,
         scan_warnings,
@@ -258,11 +268,11 @@ pub fn set_root_path(app: AppHandle, path: String) -> Result<InitResult, String>
         error_log::log_info("set_root_path", &format!("{} scan warnings", scan_warnings.len()));
     }
 
-    let config = files::read_config(root_path).map_err(|e| {
-        error_log::log_error("set_root_path: read_config", &e);
-        format!("Failed to read config: {}", e)
+    let config = files::read_template(root_path).map_err(|e| {
+        error_log::log_error("set_root_path: read_template", &e);
+        format!("Failed to read template: {}", e)
     })?;
-    let mut all_errors = validate_config(&config);
+    let mut all_errors = validate_dimensions(&config.dimensions);
 
     let now = chrono::Local::now();
     let monthly = match read_monthly_file_safe(root_path, now.year(), now.month()) {
@@ -274,6 +284,7 @@ pub fn set_root_path(app: AppHandle, path: String) -> Result<InitResult, String>
                 message: e,
             });
             MonthlyFile {
+                dimensions: vec![],
                 commitments: vec![],
             }
         }
@@ -312,9 +323,16 @@ pub fn set_root_path(app: AppHandle, path: String) -> Result<InitResult, String>
     }
 
     error_log::log_command_exit("set_root_path", true, "Ready");
+    let from_template = monthly.dimensions.is_empty();
+    let dimensions = if from_template {
+        config.dimensions
+    } else {
+        monthly.dimensions.clone()
+    };
     Ok(InitResult::Ready {
         root_path: path.clone(),
-        config,
+        dimensions,
+        from_template,
         today,
         commitments: monthly.commitments,
         scan_warnings,
@@ -342,8 +360,10 @@ pub fn append_entry(root_path: String, date: String, entry: CreateEntryInput) ->
     let root = std::path::Path::new(&root_path);
     validate_date_format(&date)?;
     let duration = parse_duration(&entry.duration)?;
-    let config = files::read_config(root)?;
-    validate_required_dimensions(&config, &entry.dimensions)?;
+    let (year, month) = files::year_month_from_date(&date)?;
+    files::ensure_month_instantiated(root, year, month)?;
+    let dims = files::resolve_month_dimensions(root, year, month);
+    validate_required_dimensions(&dims, &entry.dimensions)?;
 
     let entry_id = uuid::Uuid::new_v4().to_string();
 
@@ -384,12 +404,14 @@ pub fn update_entry(
     error_log::log_command_enter("update_entry", &format!("date={} id={}", date, entry_id));
     let root = std::path::Path::new(&root_path);
     validate_date_format(&date)?;
+    let (year, month) = files::year_month_from_date(&date)?;
+    files::ensure_month_instantiated(root, year, month)?;
     if let Some(ref dur_str) = update.duration {
         parse_duration(dur_str)?;
     }
     if let Some(ref dims) = update.dimensions {
-        let config = files::read_config(root)?;
-        validate_required_dimensions(&config, dims)?;
+        let effective = files::resolve_month_dimensions(root, year, month);
+        validate_required_dimensions(&effective, dims)?;
     }
 
     // Read before snapshot
@@ -435,6 +457,8 @@ pub fn delete_entry(root_path: String, date: String, entry_id: String) -> Result
     error_log::log_command_enter("delete_entry", &format!("date={} id={}", date, entry_id));
     let root = std::path::Path::new(&root_path);
     validate_date_format(&date)?;
+    // Deleting an entry does not customize the month's dimensions, so it must not
+    // trigger instantiation (would freeze the month to the current template).
 
     // Read before snapshot
     let day_file = files::read_day_file(root, &date)?;
@@ -466,6 +490,8 @@ pub fn set_day_note(root_path: String, date: String, note: String) -> Result<Day
     error_log::log_command_enter("set_day_note", &format!("date={}", date));
     let root = std::path::Path::new(&root_path);
     validate_date_format(&date)?;
+    // A day note does not customize the month's dimensions, so it must not
+    // trigger instantiation (would freeze the month to the current template).
 
     // Read before snapshot
     let day_file = files::read_day_file(root, &date)?;
@@ -503,6 +529,28 @@ pub fn get_commitments(
 }
 
 #[tauri::command]
+pub fn get_month_dimensions(
+    root_path: String,
+    year: i32,
+    month: u32,
+) -> Result<MonthDimensions, String> {
+    error_log::log_command_enter("get_month_dimensions", &format!("{}-{:02}", year, month));
+    let root = std::path::Path::new(&root_path);
+    // A month is "instantiated" iff its _monthly.md has a non-empty dimensions block.
+    let from_template = match files::read_monthly_file(root, year, month) {
+        Ok(m) => m.dimensions.is_empty(),
+        Err(_) => true,
+    };
+    let dimensions = files::resolve_month_dimensions(root, year, month);
+    error_log::log_command_exit(
+        "get_month_dimensions",
+        true,
+        &format!("{} dims, from_template={}", dimensions.len(), from_template),
+    );
+    Ok(MonthDimensions { dimensions, from_template })
+}
+
+#[tauri::command]
 pub fn get_commitment_progress(
     root_path: String,
     year: i32,
@@ -516,6 +564,7 @@ pub fn get_commitment_progress(
     // 1. Read _monthly.md
     let monthly =
         crate::files::read_monthly_file(root, year, month).unwrap_or_else(|_| MonthlyFile {
+            dimensions: vec![],
             commitments: vec![],
         });
 
@@ -608,13 +657,16 @@ pub fn set_commitments(
     // 1. Validate
     validate_commitments(&commitments)?;
 
-    // 2. Read old state for diff
+    // 2. Snapshot template dims if this month is fresh (preserves any dims block)
+    files::ensure_month_instantiated(root, year, month)?;
+
+    // 3. Read old state for diff
     let old = read_monthly_file_safe(root, year, month)?;
 
-    // 3. Detect changes
+    // 4. Detect changes
     let changes = detect_goal_changes(&old.commitments, &commitments);
 
-    // 4. Check deleted goals for existing entries
+    // 5. Check deleted goals for existing entries
     for goal_name in &changes.deleted {
         let count = count_entries_with_goal(root, year, month, goal_name)?;
         if count > 0 {
@@ -625,13 +677,14 @@ pub fn set_commitments(
         }
     }
 
-    // 5. Apply renames to all day files
+    // 6. Apply renames to all day files
     for (old_name, new_name) in &changes.renames {
         rename_goal_in_entries(root, year, month, old_name, new_name)?;
     }
 
-    // 6. Write _monthly.md
-    let monthly = MonthlyFile { commitments };
+    // 7. Write _monthly.md, preserving the dimensions block
+    let mut monthly = read_monthly_file_safe(root, year, month)?;
+    monthly.commitments = commitments;
     files::write_monthly_file(root, year, month, &monthly)?;
 
     let ok = true;
@@ -935,13 +988,13 @@ pub fn create_starter_files(path: String) -> Result<(), String> {
     if !root.exists() {
         std::fs::create_dir_all(root).map_err(|e| format!("Failed to create directory: {}", e))?;
     }
-    let config_path = root.join("config.yaml");
-    if !config_path.exists() {
+    let template_path = root.join("template.yaml");
+    if !template_path.exists() {
         std::fs::write(
-            &config_path,
+            &template_path,
             "dimensions:\n  - name: Goal\n    key: goal\n    source: monthly\n",
         )
-        .map_err(|e| format!("Failed to write config.yaml: {}", e))?;
+        .map_err(|e| format!("Failed to write template.yaml: {}", e))?;
     }
     Ok(())
 }
@@ -1051,11 +1104,11 @@ mod tests {
 
     // --- validate_required_dimensions tests ---
 
-    use crate::models::{Config, Dimension};
+    use crate::models::{Dimension, Template};
     use std::collections::HashMap;
 
-    fn make_config(required_keys: &[&str]) -> Config {
-        Config {
+    fn make_config(required_keys: &[&str]) -> Template {
+        Template {
             dimensions: vec![
                 Dimension {
                     name: "Biz".into(),
@@ -1087,7 +1140,7 @@ mod tests {
         let config = make_config(&["biz"]);
         let mut dims = HashMap::new();
         dims.insert("biz".to_string(), "A".to_string());
-        assert!(validate_required_dimensions(&config, &dims).is_ok());
+        assert!(validate_required_dimensions(&config.dimensions, &dims).is_ok());
     }
 
     #[test]
@@ -1096,7 +1149,7 @@ mod tests {
         let mut dims = HashMap::new();
         dims.insert("biz".to_string(), "A".to_string());
         // cat is missing
-        let err = validate_required_dimensions(&config, &dims).unwrap_err();
+        let err = validate_required_dimensions(&config.dimensions, &dims).unwrap_err();
         assert!(
             err.contains("Cat"),
             "expected error to mention 'Cat', got: {}",
@@ -1109,14 +1162,14 @@ mod tests {
     fn test_validate_required_none_required() {
         let config = make_config(&[]);
         let dims = HashMap::new(); // empty is fine — nothing required
-        assert!(validate_required_dimensions(&config, &dims).is_ok());
+        assert!(validate_required_dimensions(&config.dimensions, &dims).is_ok());
     }
 
     #[test]
     fn test_validate_required_empty_dimensions() {
         let config = make_config(&["biz"]);
         let dims = HashMap::new();
-        let err = validate_required_dimensions(&config, &dims).unwrap_err();
+        let err = validate_required_dimensions(&config.dimensions, &dims).unwrap_err();
         assert!(err.contains("Biz"));
     }
 

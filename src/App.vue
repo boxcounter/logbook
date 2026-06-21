@@ -102,7 +102,8 @@ async function initApp() {
         break;
       case "Ready":
         store.rootPath = result.data.root_path;
-        store.config = result.data.config;
+        store.dimensions = result.data.dimensions;
+        store.fromTemplate = result.data.from_template;
         store.today = result.data.today;
         store.status = "ready";
         if (result.data.scan_warnings.length > 0) {

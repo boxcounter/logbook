@@ -1,10 +1,10 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-// --- Config ---
+// --- Template ---
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Config {
+pub struct Template {
     pub dimensions: Vec<Dimension>,
 }
 
@@ -28,6 +28,8 @@ fn default_source() -> String {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MonthlyFile {
+    #[serde(default)]
+    pub dimensions: Vec<Dimension>,
     #[serde(default)]
     pub commitments: Vec<Commitment>,
 }
@@ -103,7 +105,8 @@ pub enum InitResult {
     },
     Ready {
         root_path: String,
-        config: Config,
+        dimensions: Vec<Dimension>,
+        from_template: bool,
         today: DayFile,
         commitments: Vec<Commitment>,
         scan_warnings: Vec<ScanWarning>,
@@ -127,6 +130,12 @@ pub struct ScanWarning {
 pub struct AvailableMonth {
     pub year: i32,
     pub month: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MonthDimensions {
+    pub dimensions: Vec<Dimension>,
+    pub from_template: bool,
 }
 
 // --- Tests ---
@@ -175,9 +184,6 @@ mod tests {
 
     #[test]
     fn init_result_ready_with_scan_warnings() {
-        let config = Config {
-            dimensions: vec![],
-        };
         let today = DayFile {
             note: None,
             entries: vec![],
@@ -191,7 +197,8 @@ mod tests {
 
         let result = InitResult::Ready {
             root_path: "/tmp/logbook-test".to_string(),
-            config,
+            dimensions: vec![],
+            from_template: false,
             today,
             commitments: vec![],
             scan_warnings: vec![warning],
@@ -210,9 +217,6 @@ mod tests {
 
     #[test]
     fn init_result_ready_empty_scan_warnings() {
-        let config = Config {
-            dimensions: vec![],
-        };
         let today = DayFile {
             note: None,
             entries: vec![],
@@ -220,7 +224,8 @@ mod tests {
 
         let result = InitResult::Ready {
             root_path: "/tmp/logbook-test".to_string(),
-            config,
+            dimensions: vec![],
+            from_template: false,
             today,
             commitments: vec![],
             scan_warnings: vec![],
@@ -244,7 +249,7 @@ mod tests {
     fn init_result_config_error_with_scan_warnings() {
         let errors = vec![ConfigErrorDetail {
             kind: "MissingFile".to_string(),
-            message: "config.yaml not found".to_string(),
+            message: "template.yaml not found".to_string(),
         }];
         let warnings = vec![ScanWarning {
             kind: "CorruptedFile".to_string(),
@@ -307,9 +312,6 @@ mod tests {
             message: "bad".to_string(),
         };
 
-        let config = Config {
-            dimensions: vec![],
-        };
         let today = DayFile {
             note: None,
             entries: vec![],
@@ -317,7 +319,8 @@ mod tests {
 
         let result = InitResult::Ready {
             root_path: "/tmp/lb".to_string(),
-            config,
+            dimensions: vec![],
+            from_template: false,
             today,
             commitments: vec![],
             scan_warnings: vec![warning],

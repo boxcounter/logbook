@@ -10,7 +10,7 @@ fn setup(suffix: &str) -> std::path::PathBuf {
     fs::create_dir_all(&root).unwrap();
 
     fs::write(
-        root.join("config.yaml"),
+        root.join("template.yaml"),
         "dimensions:\n  - name: Goal\n    key: goal\n    source: monthly\n",
     )
     .unwrap();

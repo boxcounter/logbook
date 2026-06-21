@@ -4,11 +4,12 @@ import { mount } from "@vue/test-utils";
 import { reactive } from "vue";
 import EntryRow from "../../../components/composite/EntryRow.vue";
 import { STORE_KEY } from "../../../stores/useStore";
-import { makeEntry, makeConfig, makeCommitment } from "../../mocks/fixtures";
+import { makeEntry, makeDimensions, makeCommitment } from "../../mocks/fixtures";
 
 function mountRow(entryOverrides = {}, extraProps: Record<string, unknown> = {}) {
   const store = reactive({
-    config: makeConfig(),
+    dimensions: makeDimensions(),
+    fromTemplate: false,
     commitments: [makeCommitment({ goals: ["Bug fixes"] })],
   });
   const entry = makeEntry({ item: "Review PR", duration: 90, dimensions: { category: "Coding" }, ...entryOverrides });

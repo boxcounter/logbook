@@ -1,5 +1,5 @@
 use crate::files;
-use crate::models::{Config, ConfigErrorDetail, MonthlyFile};
+use crate::models::{ConfigErrorDetail, Dimension, MonthlyFile};
 use chrono::Datelike;
 use notify::{Config as NotifyConfig, Event, EventKind, RecursiveMode, Watcher};
 use std::collections::HashMap;
@@ -12,11 +12,11 @@ fn is_valid_key(key: &str) -> bool {
         .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
 }
 
-pub fn validate_config(config: &Config) -> Vec<ConfigErrorDetail> {
+pub fn validate_dimensions(dimensions: &[Dimension]) -> Vec<ConfigErrorDetail> {
     let mut errors = Vec::new();
     let mut monthly_count = 0;
 
-    for (i, dim) in config.dimensions.iter().enumerate() {
+    for (i, dim) in dimensions.iter().enumerate() {
         if dim.name.is_empty() {
             errors.push(ConfigErrorDetail {
                 kind: "MissingName".to_string(),
@@ -82,7 +82,7 @@ pub fn validate_config(config: &Config) -> Vec<ConfigErrorDetail> {
 }
 
 pub fn validate_monthly(monthly: &MonthlyFile) -> Vec<ConfigErrorDetail> {
-    let mut errors = Vec::new();
+    let mut errors = validate_dimensions(&monthly.dimensions);
     let mut seen_goals = std::collections::HashSet::new();
 
     for (i, c) in monthly.commitments.iter().enumerate() {
@@ -141,7 +141,7 @@ pub fn watch_files(app_handle: AppHandle, root_path: PathBuf) {
             .configure(NotifyConfig::default())
             .expect("Failed to configure watcher");
 
-        // Watch root directory recursively to catch config.yaml
+        // Watch root directory recursively to catch template.yaml
         // and all _monthly.md files, including across month boundaries.
         if let Err(e) = watcher.watch(&root_path, RecursiveMode::Recursive) {
             crate::error_log::log_error("file_watcher", &format!("Failed to watch: {}", e));
@@ -167,10 +167,10 @@ pub fn watch_files(app_handle: AppHandle, root_path: PathBuf) {
                 last_event.insert(path.clone(), now);
 
                 let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-                if file_name == "config.yaml" {
-                    match files::read_config(&root_path) {
+                if file_name == "template.yaml" {
+                    match files::read_template(&root_path) {
                         Ok(config) => {
-                            let errors = validate_config(&config);
+                            let errors = validate_dimensions(&config.dimensions);
                             if let Err(e) = app_handle.emit("config-changed", &errors) {
                                 crate::error_log::log_error(
                                     "file_watcher",
@@ -230,7 +230,7 @@ pub fn watch_files(app_handle: AppHandle, root_path: PathBuf) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::{Commitment, Config, Dimension, MonthlyFile};
+    use crate::models::{Commitment, Dimension, MonthlyFile, Template};
 
     #[test]
     fn test_dimension_required_defaults_to_false() {
@@ -247,8 +247,8 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_config_valid() {
-        let config = Config {
+    fn test_validate_dimensions_valid() {
+        let config = Template {
             dimensions: vec![
                 Dimension {
                     name: "Biz".into(),
@@ -266,12 +266,12 @@ mod tests {
                 },
             ],
         };
-        assert!(validate_config(&config).is_empty());
+        assert!(validate_dimensions(&config.dimensions).is_empty());
     }
 
     #[test]
-    fn test_validate_config_missing_values() {
-        let config = Config {
+    fn test_validate_dimensions_missing_values() {
+        let config = Template {
             dimensions: vec![Dimension {
                 name: "Cat".into(),
                 key: "cat".into(),
@@ -280,14 +280,14 @@ mod tests {
                 required: false,
             }],
         };
-        let errors = validate_config(&config);
+        let errors = validate_dimensions(&config.dimensions);
         assert_eq!(errors.len(), 1);
         assert_eq!(errors[0].kind, "MissingValues");
     }
 
     #[test]
-    fn test_validate_config_empty_values() {
-        let config = Config {
+    fn test_validate_dimensions_empty_values() {
+        let config = Template {
             dimensions: vec![Dimension {
                 name: "Cat".into(),
                 key: "cat".into(),
@@ -296,14 +296,14 @@ mod tests {
                 required: false,
             }],
         };
-        let errors = validate_config(&config);
+        let errors = validate_dimensions(&config.dimensions);
         assert_eq!(errors.len(), 1);
         assert_eq!(errors[0].kind, "ValuesEmpty");
     }
 
     #[test]
-    fn test_validate_config_invalid_key() {
-        let config = Config {
+    fn test_validate_dimensions_invalid_key() {
+        let config = Template {
             dimensions: vec![Dimension {
                 name: "Bad".into(),
                 key: "bad key!".into(),
@@ -312,14 +312,14 @@ mod tests {
                 required: false,
             }],
         };
-        let errors = validate_config(&config);
+        let errors = validate_dimensions(&config.dimensions);
         assert_eq!(errors.len(), 1);
         assert_eq!(errors[0].kind, "KeyInvalidChars");
     }
 
     #[test]
-    fn test_validate_config_multiple_monthly() {
-        let config = Config {
+    fn test_validate_dimensions_multiple_monthly() {
+        let config = Template {
             dimensions: vec![
                 Dimension {
                     name: "G1".into(),
@@ -337,14 +337,14 @@ mod tests {
                 },
             ],
         };
-        let errors = validate_config(&config);
+        let errors = validate_dimensions(&config.dimensions);
         assert_eq!(errors.len(), 1);
         assert_eq!(errors[0].kind, "MultipleMonthly");
     }
 
     #[test]
-    fn test_validate_config_invalid_source() {
-        let config = Config {
+    fn test_validate_dimensions_invalid_source() {
+        let config = Template {
             dimensions: vec![Dimension {
                 name: "Bad".into(),
                 key: "bad".into(),
@@ -353,7 +353,7 @@ mod tests {
                 required: false,
             }],
         };
-        let errors = validate_config(&config);
+        let errors = validate_dimensions(&config.dimensions);
         assert_eq!(errors.len(), 1);
         assert_eq!(errors[0].kind, "InvalidSource");
     }
@@ -361,6 +361,7 @@ mod tests {
     #[test]
     fn test_validate_monthly_valid() {
         let monthly = MonthlyFile {
+            dimensions: vec![],
             commitments: vec![Commitment {
                 role: "Dev".into(),
                 allocation: 40,
@@ -373,6 +374,7 @@ mod tests {
     #[test]
     fn test_validate_monthly_empty_role() {
         let monthly = MonthlyFile {
+            dimensions: vec![],
             commitments: vec![Commitment {
                 role: "".into(),
                 allocation: 10,
@@ -387,6 +389,7 @@ mod tests {
     #[test]
     fn test_validate_monthly_zero_allocation() {
         let monthly = MonthlyFile {
+            dimensions: vec![],
             commitments: vec![Commitment {
                 role: "Dev".into(),
                 allocation: 0,
@@ -401,6 +404,7 @@ mod tests {
     #[test]
     fn test_validate_monthly_duplicate_goal() {
         let monthly = MonthlyFile {
+            dimensions: vec![],
             commitments: vec![
                 Commitment {
                     role: "Dev".into(),

@@ -45,7 +45,7 @@ fn test_scan_returns_warnings_for_bad_files() {
     let root = temp_root();
 
     // Valid config and monthly files (should not produce warnings)
-    write_file(&root.join("config.yaml"), CONFIG_YAML);
+    write_file(&root.join("template.yaml"), CONFIG_YAML);
     write_file(&root.join("2026/06/_monthly.md"), MONTHLY_MD);
 
     // Invalid filename — not YYYY-MM-DD format
@@ -89,7 +89,7 @@ fn test_scan_returns_warnings_for_bad_files() {
 fn test_scan_returns_empty_for_clean_data() {
     let root = temp_root();
 
-    write_file(&root.join("config.yaml"), CONFIG_YAML);
+    write_file(&root.join("template.yaml"), CONFIG_YAML);
     write_file(&root.join("2026/06/_monthly.md"), MONTHLY_MD);
 
     // Valid day file with proper frontmatter and an entry

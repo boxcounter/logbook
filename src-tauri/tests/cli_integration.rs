@@ -18,11 +18,11 @@ fn cli_binary() -> std::path::PathBuf {
         })
 }
 
-/// Create a minimal fixture with config.yaml.
+/// Create a minimal fixture with template.yaml.
 fn setup_fixture(tmp: &Path) {
     fs::create_dir_all(tmp).unwrap();
     let config = "dimensions:\n  - name: Goal\n    key: goal\n    source: monthly\n";
-    fs::write(tmp.join("config.yaml"), config).unwrap();
+    fs::write(tmp.join("template.yaml"), config).unwrap();
 }
 
 /// Create a _monthly.md with given commitments YAML body.
@@ -248,6 +248,36 @@ fn test_commitments_set_roundtrip() {
 }
 
 #[test]
+fn test_commitments_set_preserves_dimensions_block() {
+    let tmp = std::env::temp_dir().join("logbook_cli_test_setdims");
+    let _ = fs::remove_dir_all(&tmp);
+    setup_fixture(&tmp);
+    // Instantiated month: _monthly.md already carries a dimensions snapshot.
+    setup_monthly(
+        &tmp,
+        2026,
+        8,
+        "dimensions:\n  - name: Biz\n    key: biz\n    source: static\n    values: [Product]\ncommitments:\n  - role: Dev\n    allocation: 40\n    goals:\n      - Feature A",
+    );
+
+    // set with the documented commitments-only input.
+    let input = "commitments:\n  - role: PM\n    allocation: 10\n    goals:\n      - Planning";
+    let output = run_with_stdin(&[
+        "--root-path", tmp.to_str().unwrap(),
+        "commitments", "set", "--year", "2026", "--month", "8",
+    ], input);
+    assert!(output.status.success(), "set failed: {}", String::from_utf8_lossy(&output.stderr));
+
+    // The dimensions block must survive; commitments are replaced.
+    let content = fs::read_to_string(tmp.join("2026").join("08").join("_monthly.md")).unwrap();
+    assert!(content.contains("biz"), "dimensions block was wiped: {}", content);
+    assert!(content.contains("PM"));
+    assert!(!content.contains("Feature A"), "old commitments should be replaced: {}", content);
+
+    let _ = fs::remove_dir_all(&tmp);
+}
+
+#[test]
 fn test_commitments_set_validation_error_no_write() {
     let tmp = std::env::temp_dir().join("logbook_cli_test_val_err");
     let _ = fs::remove_dir_all(&tmp);
@@ -262,7 +292,11 @@ fn test_commitments_set_validation_error_no_write() {
     ], input);
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("MissingRole") || stderr.contains("role"));
+    assert!(
+        stderr.contains("Role name cannot be empty") || stderr.contains("Role"),
+        "unexpected error: {}",
+        stderr
+    );
 
     // Verify file was NOT written
     let monthly_path = tmp.join("2026").join("09").join("_monthly.md");

@@ -1,4 +1,4 @@
-use crate::models::{Config, DayFile, Entry, MonthlyFile};
+use crate::models::{DayFile, Dimension, Entry, MonthlyFile, Template};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -39,9 +39,9 @@ pub fn monthly_path(root: &Path, year: i32, month: u32) -> PathBuf {
         .join("_monthly.md")
 }
 
-/// Config path: {root}/config.yaml
-pub fn config_path(root: &Path) -> PathBuf {
-    root.join("config.yaml")
+/// Template path: {root}/template.yaml
+pub fn template_path(root: &Path) -> PathBuf {
+    root.join("template.yaml")
 }
 
 /// Read a day file. Returns empty DayFile if file doesn't exist.
@@ -93,8 +93,10 @@ pub fn append_new_entry(
     new_entry: &crate::models::CreateEntryInput,
 ) -> Result<Entry, String> {
     let duration = crate::commands::parse_duration(&new_entry.duration)?;
-    let config = read_config(root)?;
-    crate::commands::validate_required_dimensions(&config, &new_entry.dimensions)?;
+    let (year, month) = year_month_from_date(date)?;
+    ensure_month_instantiated(root, year, month)?;
+    let dims = resolve_month_dimensions(root, year, month);
+    crate::commands::validate_required_dimensions(&dims, &new_entry.dimensions)?;
     let entry = Entry {
         id: uuid::Uuid::new_v4().to_string(),
         item: new_entry.item.clone(),
@@ -128,8 +130,9 @@ pub fn update_entry_in_file(
                 .map_err(|e| format!("Invalid duration: {}", e))?;
         }
         if let Some(ref dims) = update.dimensions {
-            let config = read_config(root)?;
-            crate::commands::validate_required_dimensions(&config, dims)?;
+            let (year, month) = year_month_from_date(date)?;
+            let effective = resolve_month_dimensions(root, year, month);
+            crate::commands::validate_required_dimensions(&effective, dims)?;
             entry.dimensions = dims.clone();
         }
         write_day_file(root, date, &day_file)?;
@@ -173,6 +176,7 @@ pub fn read_monthly_file(root: &Path, year: i32, month: u32) -> Result<MonthlyFi
     let path = monthly_path(root, year, month);
     if !path.exists() {
         return Ok(MonthlyFile {
+            dimensions: vec![],
             commitments: vec![],
         });
     }
@@ -202,13 +206,55 @@ pub fn write_monthly_file(
     Ok(())
 }
 
-/// Read config.yaml. Returns error if file missing.
-pub fn read_config(root: &Path) -> Result<Config, String> {
-    let path = config_path(root);
+/// Read template.yaml. Returns error if file missing.
+pub fn read_template(root: &Path) -> Result<Template, String> {
+    let path = template_path(root);
     let content = fs::read_to_string(&path)
         .map_err(|e| format!("Failed to read {}: {}", path.display(), e))?;
-    yaml_serde::from_str::<Config>(&content)
+    yaml_serde::from_str::<Template>(&content)
         .map_err(|e| format!("Failed to parse {}: {}", path.display(), e))
+}
+
+/// Parse (year, month) from an ISO date string "YYYY-MM-DD".
+pub fn year_month_from_date(date: &str) -> Result<(i32, u32), String> {
+    use chrono::Datelike;
+    let d = chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d")
+        .map_err(|e| format!("Invalid date '{}': {}", date, e))?;
+    Ok((d.year(), d.month()))
+}
+
+/// Effective dimensions for a month: the month's own `dimensions` block if
+/// non-empty, otherwise the template's. Tolerant of missing files (returns
+/// empty vec) so replay and uninstantiated months never error.
+pub fn resolve_month_dimensions(root: &Path, year: i32, month: u32) -> Vec<Dimension> {
+    if let Ok(monthly) = read_monthly_file(root, year, month) {
+        if !monthly.dimensions.is_empty() {
+            return monthly.dimensions;
+        }
+    }
+    match read_template(root) {
+        Ok(t) => t.dimensions,
+        Err(_) => vec![],
+    }
+}
+
+/// Snapshot the template into a month's `_monthly.md` if it has no dimensions
+/// block yet. Preserves any existing commitments (merge, not overwrite).
+/// No-op if already instantiated or the template has no dimensions.
+pub fn ensure_month_instantiated(root: &Path, year: i32, month: u32) -> Result<(), String> {
+    let mut monthly = read_monthly_file(root, year, month)?;
+    if !monthly.dimensions.is_empty() {
+        return Ok(());
+    }
+    let template_dims = match read_template(root) {
+        Ok(t) => t.dimensions,
+        Err(_) => vec![],
+    };
+    if template_dims.is_empty() {
+        return Ok(());
+    }
+    monthly.dimensions = template_dims;
+    write_monthly_file(root, year, month, &monthly)
 }
 
 /// Remove orphaned .tmp files from the data tree (crashed mid-write).
@@ -315,10 +361,20 @@ mod tests {
     }
 
     #[test]
-    fn test_config_path() {
+    fn test_template_path() {
         let root = Path::new("/data");
-        let p = config_path(root);
-        assert_eq!(p, PathBuf::from("/data/config.yaml"));
+        let p = template_path(root);
+        assert_eq!(p, PathBuf::from("/data/template.yaml"));
+    }
+
+    #[test]
+    fn test_year_month_from_date() {
+        assert_eq!(year_month_from_date("2026-07-15").unwrap(), (2026, 7));
+    }
+
+    #[test]
+    fn test_year_month_from_date_invalid() {
+        assert!(year_month_from_date("nope").is_err());
     }
 
     #[test]

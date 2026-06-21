@@ -9,9 +9,9 @@ fn setup(suffix: &str) -> std::path::PathBuf {
     let _ = fs::remove_dir_all(&root);
     fs::create_dir_all(&root).unwrap();
 
-    // Write config.yaml
+    // Write template.yaml
     fs::write(
-        root.join("config.yaml"),
+        root.join("template.yaml"),
         "dimensions:\n  - name: Goal\n    key: goal\n    source: monthly\n",
     )
     .unwrap();

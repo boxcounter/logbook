@@ -6,8 +6,9 @@ export interface Dimension {
   required: boolean;
 }
 
-export interface Config {
+export interface MonthDimensions {
   dimensions: Dimension[];
+  from_template: boolean;
 }
 
 export interface Commitment {
@@ -84,7 +85,8 @@ export type InitResult =
       status: "Ready";
       data: {
         root_path: string;
-        config: Config;
+        dimensions: Dimension[];
+        from_template: boolean;
         today: DayFile;
         commitments: Commitment[];
         scan_warnings: ScanWarning[];
