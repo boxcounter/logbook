@@ -1,21 +1,21 @@
 @import './tokens.css';
 @import 'tailwindcss';
 
+@source not "../../docs";
+@source not "../../.superpowers";
+
 @theme {
   --text-*: initial;
 
   /* === Type scale (4 semantic tiers) ===
      Defining --text-* generates the text-* font-size utilities. We deliberately
      use the --text-* namespace (the old --app-text-* prefix existed only to AVOID
-     it while tokens lived in :root). Line-heights match the prior per-element values. */
+     it while tokens lived in :root).
+     Font-size only (line-height stays with each element's leading-* class, matching prior behavior). */
   --text-title: 20px;
-  --text-title--line-height: 1.2;
   --text-body: 14px;
-  --text-body--line-height: 1.4;
   --text-secondary: 12px;
-  --text-secondary--line-height: 1.5;
   --text-micro: 10px;
-  --text-micro--line-height: 1.6;
 
   /* === Spacing scale (7-tier, 4px grid + 2px micro) ===
      Defining named --spacing-* keys generates named utilities (gap-md, p-sm, mt-lg…)

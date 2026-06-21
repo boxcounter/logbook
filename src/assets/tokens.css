@@ -115,14 +115,6 @@
   --weight-bold: 700;
   --weight-heavy: 800;
 
-  /* === Spacing === */
-  --space-xs: 4px;
-  --space-sm: 8px;
-  --space-md: 12px;
-  --space-lg: 16px;
-  --space-xl: 24px;
-  --space-2xl: 28px;
-
   /* === Radius === */
   --radius-sm: 3px;      /* chips, tokens */
   --radius-md: 4px;      /* heatmap cells, Enter key badge, today badge */
