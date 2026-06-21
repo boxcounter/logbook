@@ -23,6 +23,10 @@ Logbook — 个人工作时间记录工具。Tauri 2.x + Vue 3 + TypeScript。
 
 新增或修改弹层、编辑器、输入控件、焦点/键盘/取消行为时，遵循 `docs/interaction-principles.md`，不逐组件另起一套。评审时按该文件逐条核对。
 
+### 设计 token
+
+间距、字号必须用语义 token：间距走 `--spacing-*` 命名档（`gap-sm`/`p-md`，禁止裸 px 与 Tailwind 数字默认档如 `p-4`）；字号走 `text-title/body/secondary/micro`（默认 `text-sm` 等已用 `--text-*: initial` 清除，不可用）。组件尺寸（`w-`/`h-`/`min-`/`max-`）不在此约束内，可用任意 px。新增或调整阶梯走 PR 说明理由；破例需一行注释 + 显式豁免 + 人工签字。`src/__tests__/tailwind-token-usage.test.ts` 是可执行护栏（报错含合法替代），接入 `npm run verify` + pre-commit + CI。详见 `docs/superpowers/specs/2026-06-21-design-system-consolidation-design.md` §2–3。
+
 ### 其他
 
 - 诊断先于计划：handoff 标记了 bug → 先写测试确认 bug 还存在 → 再计划修复
