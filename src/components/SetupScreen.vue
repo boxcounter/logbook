@@ -64,7 +64,7 @@ async function trySetRootPath(path: string) {
       Choose a folder to store your data.
     </p>
     <button
-      class="px-xl py-md bg-gradient-to-br from-[var(--color-brand-gradient-from)] to-[var(--color-brand-gradient-to)] text-white rounded-full hover:-translate-y-px hover:shadow-[var(--shadow-button-hover)] transition-all duration-200 text-body font-semibold cursor-pointer shadow-[var(--shadow-button)]"
+      class="px-xl py-md bg-gradient-to-br from-[var(--color-brand-gradient-from)] to-[var(--color-brand-gradient-to)] text-white rounded-full hover:-translate-y-px hover:shadow-[var(--shadow-button-hover)] transition-all duration-[var(--motion-base)] text-body font-semibold cursor-pointer shadow-[var(--shadow-button)]"
       @click="selectFolder"
     >
       Choose Data Folder

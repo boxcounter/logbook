@@ -14,11 +14,11 @@ defineEmits<{
   <button
     :disabled="disabled"
     class="inline-flex items-center justify-center font-semibold cursor-pointer
-           transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+           transition-all duration-[var(--motion-base)] disabled:opacity-50 disabled:cursor-not-allowed"
     :class="[
       size === 'sm'
-        ? 'text-[13px] py-[7px] px-[16px]'
-        : 'text-[14px] py-[10px] px-[24px]',
+        ? 'text-secondary py-sm px-lg'
+        : 'text-body py-sm px-xl',
       variant === 'primary' || variant === undefined
         ? 'rounded-full border-none text-white'
           + ' bg-gradient-to-br from-[var(--color-brand-gradient-from)] to-[var(--color-brand-gradient-to)]'

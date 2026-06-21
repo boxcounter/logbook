@@ -17,10 +17,10 @@ defineEmits<{
       <div
         v-if="show"
         class="fixed bottom-[24px] left-1/2 -translate-x-1/2
-               flex items-center gap-[12px]
+               flex items-center gap-md
                bg-[var(--color-text-primary)] text-white
-               px-[20px] py-[12px] rounded-[10px]
-               shadow-[var(--shadow-toast)] z-50 text-[13px]"
+               px-xl py-md rounded-[var(--radius-card)]
+               shadow-[var(--shadow-toast)] z-50 text-secondary"
       >
         <span>{{ message }}</span>
         <button
@@ -31,7 +31,7 @@ defineEmits<{
           {{ undoLabel }}
         </button>
         <button
-          class="text-[var(--color-text-secondary)] hover:text-white text-[16px] leading-none cursor-pointer transition-colors"
+          class="text-[var(--color-text-secondary)] hover:text-white text-body leading-none cursor-pointer transition-colors"
           @click="$emit('dismiss')"
         >
           &times;
@@ -42,7 +42,7 @@ defineEmits<{
 </template>
 
 <style scoped>
-.toast-enter-active { transition: all 0.2s ease-out; }
-.toast-leave-active { transition: all 0.2s ease-in; }
+.toast-enter-active { transition: all var(--motion-base) var(--ease-out); }
+.toast-leave-active { transition: all var(--motion-base) var(--ease-in); }
 .toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, 1rem); }
 </style>

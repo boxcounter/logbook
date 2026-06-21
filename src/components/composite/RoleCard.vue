@@ -109,7 +109,7 @@ function removeGoal(g: GoalRowModel) {
                  text-body text-[var(--color-text-secondary)] bg-[var(--color-surface)]
                  hover:border-[var(--color-brand-solid)] hover:text-[var(--color-brand-link)]
                  disabled:text-[var(--color-text-disabled)] disabled:cursor-not-allowed disabled:hover:border-[var(--color-border-form)]
-                 cursor-pointer transition-[border-color,color] duration-150"
+                 cursor-pointer transition-[border-color,color] duration-[var(--motion-fast)]"
           @click="stepAlloc(-STEP)"
         >&minus;</button>
         <input
@@ -127,7 +127,7 @@ function removeGoal(g: GoalRowModel) {
           class="w-[24px] h-[26px] flex items-center justify-center border border-[var(--color-border-form)] rounded-[var(--radius-form)]
                  text-body text-[var(--color-text-secondary)] bg-[var(--color-surface)]
                  hover:border-[var(--color-brand-solid)] hover:text-[var(--color-brand-link)]
-                 cursor-pointer transition-[border-color,color] duration-150"
+                 cursor-pointer transition-[border-color,color] duration-[var(--motion-fast)]"
           @click="stepAlloc(STEP)"
         >+</button>
         <span class="text-secondary text-[var(--color-text-muted)]">h</span>
@@ -141,7 +141,7 @@ function removeGoal(g: GoalRowModel) {
         v-else
         data-test="role-delete" :disabled="!roleDeletable"
         :title="roleDeletable ? 'Delete role' : `Has logged time — can't delete this month`"
-        class="text-secondary cursor-pointer px-xs py-xs transition-[color] duration-150
+        class="text-secondary cursor-pointer px-xs py-xs transition-[color] duration-[var(--motion-fast)]
                text-[var(--color-text-muted)] hover:text-[var(--color-danger)]
                disabled:text-[var(--color-text-disabled)] disabled:cursor-not-allowed disabled:hover:text-[var(--color-text-disabled)]"
         @click="requestDelete"
@@ -152,7 +152,7 @@ function removeGoal(g: GoalRowModel) {
       <div class="flex-1 h-[4px] bg-[var(--color-divider)] rounded-full overflow-hidden">
         <div
           data-test="bar-fill"
-          class="h-full rounded-full transition-[width] duration-150"
+          class="h-full rounded-full transition-[width] duration-[var(--motion-fast)]"
           :class="isOver ? 'bg-[var(--color-warning)]' : 'bg-gradient-to-r from-[var(--color-brand-gradient-from)] to-[var(--color-brand-gradient-to)]'"
           :style="{ width: barPct + '%' }"
         ></div>

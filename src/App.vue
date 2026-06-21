@@ -152,13 +152,13 @@ provide("focusRequestId", focusRequestId);
     <template v-else-if="store.screen === 'error'">
       <ConfigErrorBanner />
       <button
-        class="mx-4 mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+        class="mx-lg mt-lg px-lg py-sm bg-blue-600 text-white rounded-[var(--radius-form-lg)] hover:bg-blue-700 text-secondary"
         @click="initApp"
       >
         Retry
       </button>
     </template>
-    <div v-else-if="store.screen === 'ready'" class="p-8">
+    <div v-else-if="store.screen === 'ready'" class="p-2xl">
       <MonthView />
     </div>
 

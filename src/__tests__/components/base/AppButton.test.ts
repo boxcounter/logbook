@@ -24,7 +24,7 @@ describe("AppButton", () => {
 
   it("applies size sm class", () => {
     const wrapper = mount(AppButton, { props: { size: "sm" } });
-    expect(wrapper.classes()).toContain("text-[13px]");
+    expect(wrapper.classes()).toContain("text-secondary");
   });
 
   it("applies variant classes", () => {

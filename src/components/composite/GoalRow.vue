@@ -30,7 +30,7 @@ defineEmits<{ remove: []; enter: [] }>();
     <button
       data-test="goal-remove" :disabled="logged > 0"
       :title="logged > 0 ? `${formatDuration(logged)} logged — rename instead` : 'Remove goal'"
-      class="text-body cursor-pointer px-xs transition-[color] duration-150
+      class="text-body cursor-pointer px-xs transition-[color] duration-[var(--motion-fast)]
              text-[var(--color-text-disabled)] hover:text-[var(--color-danger)]
              disabled:text-[var(--color-divider)] disabled:cursor-not-allowed disabled:hover:text-[var(--color-divider)]"
       @click="$emit('remove')"
