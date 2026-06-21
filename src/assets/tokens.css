@@ -89,6 +89,13 @@
   --anim-highlight-bg: #eef2ff;
   --anim-highlight-duration: 1.5s;
 
+  /* Motion durations (naming existing values; behavior unchanged) */
+  --motion-fast: 150ms;   /* hover / color / border / opacity micro-feedback */
+  --motion-base: 200ms;   /* buttons, toast enter/leave */
+  --motion-slow: 500ms;   /* progress-bar fill (watchable) */
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+
   /* === Typography: Family ===
      NOTE: `--app-font-*` prefix (NOT `--font-*`) is deliberate. Tailwind v4 reserves
      the `--font-*` @theme namespace for font-family utilities; a bare `--font-*` token
@@ -108,6 +115,7 @@
   --app-text-base: 14px;     /* body: entry item, input field, sidebar month name */
   --app-text-lg: 18px;       /* input "+" sign */
   --app-text-xl: 20px;       /* day title */
+  --glyph-plus: 18px;     /* decorative "+" in the composer; NOT a text tier */
 
   /* === Typography: Weight === */
   --weight-book: 400;
