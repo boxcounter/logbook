@@ -10,7 +10,7 @@ describe("createStore", () => {
     expect(store.today).toBeNull();
     expect(store.commitments).toEqual([]);
     expect(store.commitmentProgress).toEqual([]);
-    expect(store.lastDimensions).toEqual({});
+    expect("lastDimensions" in store).toBe(false);
     expect(store.monthEntries).toEqual({});
     expect(store.availableMonths).toBeNull();
   });

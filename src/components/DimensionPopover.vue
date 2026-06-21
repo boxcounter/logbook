@@ -155,20 +155,31 @@ onUnmounted(() => window.removeEventListener("keydown", onWindowKeydown, true));
         class="px-[14px] py-[9px] text-[length:var(--app-text-sm)]
                flex items-center gap-[10px] cursor-pointer border-b border-[var(--color-surface-muted)]
                last:border-b-0"
-        :class="[
+        :class="
           i === activeIndex
-            ? 'bg-[var(--color-popover-item-active-bg)]'
-            : (dimValues[d.key] ? 'bg-[var(--color-popover-item-selected-bg)]' : ''),
-          dimValues[d.key] ? 'text-[var(--color-brand-solid)] font-semibold' : 'text-[var(--color-text-primary)]',
-        ]"
+            ? 'bg-[var(--color-brand-solid)] text-white'
+            : (dimValues[d.key]
+                ? 'text-[var(--color-brand-solid)] font-semibold'
+                : 'text-[var(--color-text-primary)]')
+        "
         @mouseenter="activeIndex = i"
         @click="selectDim(d.key)"
       >
         <span class="w-[3px] h-[18px] rounded-[var(--radius-sm)] flex-shrink-0" :class="barClass(d.key)"></span>
         {{ d.name }}
         <span
+          v-if="dimValues[d.key]"
+          class="ml-auto flex items-center gap-[4px] text-[length:var(--app-text-micro)] max-w-[110px]"
+        >
+          <span class="truncate">{{ dimValues[d.key] }}</span>
+          <span class="flex-shrink-0">✓</span>
+        </span>
+        <span
+          v-else
           class="ml-auto text-[length:var(--app-text-micro)]"
-          :class="d.required ? 'text-[var(--color-warning)] font-medium' : 'text-[var(--color-text-disabled)]'"
+          :class="i === activeIndex
+            ? 'text-white'
+            : (d.required ? 'text-[var(--color-warning)] font-medium' : 'text-[var(--color-text-disabled)]')"
         >{{ d.required ? "required" : "optional" }}</span>
       </div>
       <div
@@ -196,16 +207,20 @@ onUnmounted(() => window.removeEventListener("keydown", onWindowKeydown, true));
         data-test="val-item"
         :data-active="i === activeIndex"
         class="px-[14px] py-[9px] text-[length:var(--app-text-sm)]
-               cursor-pointer border-b border-[var(--color-surface-muted)] last:border-b-0"
-        :class="[
+               flex items-center cursor-pointer border-b border-[var(--color-surface-muted)] last:border-b-0"
+        :class="
           i === activeIndex
-            ? 'bg-[var(--color-popover-item-active-bg)]'
-            : (activeDimKey && dimValues[activeDimKey] === v ? 'bg-[var(--color-popover-item-selected-bg)]' : ''),
-          activeDimKey && dimValues[activeDimKey] === v ? 'text-[var(--color-brand-solid)] font-semibold' : 'text-[var(--color-text-primary)]',
-        ]"
+            ? 'bg-[var(--color-brand-solid)] text-white'
+            : (activeDimKey && dimValues[activeDimKey] === v
+                ? 'text-[var(--color-brand-solid)] font-semibold'
+                : 'text-[var(--color-text-primary)]')
+        "
         @mouseenter="activeIndex = i"
         @click="selectVal(v)"
-      >{{ v }}</div>
+      >
+        <span class="truncate min-w-0">{{ v }}</span>
+        <span v-if="activeDimKey && dimValues[activeDimKey] === v" class="ml-auto flex-shrink-0">✓</span>
+      </div>
       <div
         class="px-[14px] py-[6px] text-[length:var(--app-text-2xs)] text-[var(--color-text-disabled)]
                border-t border-[var(--color-divider)] flex gap-[12px]"

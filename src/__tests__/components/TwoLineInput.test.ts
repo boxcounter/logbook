@@ -14,8 +14,21 @@ const dimensions = [
 ];
 const commitments = [makeCommitment({ goals: ["Bug fixes"] })];
 
-function mountInput(initialValues: Record<string, string> = {}) {
-  return mount(TwoLineInput, { props: { dimensions, commitments, initialValues } });
+function mountInput() {
+  return mount(TwoLineInput, { props: { dimensions, commitments } });
+}
+
+// Drive dimension selections through the popover (replaces the removed
+// initialValues prop), then close it so Esc/Enter return to the input.
+async function setDims(
+  wrapper: ReturnType<typeof mountInput>,
+  dims: Record<string, string>,
+) {
+  await wrapper.find("input").trigger("keydown", { key: "@" });
+  const pop = wrapper.findComponent({ name: "DimensionPopover" });
+  for (const [k, v] of Object.entries(dims)) await pop.vm.$emit("select", k, v);
+  await pop.vm.$emit("close");
+  await wrapper.vm.$nextTick();
 }
 
 describe("TwoLineInput", () => {
@@ -48,14 +61,15 @@ describe("TwoLineInput", () => {
   });
 
   it("emits submit with item, minutes, and dimensions on Enter (all required filled)", async () => {
-    const wrapper = mountInput({ category: "Engineering", goal: "Bug fixes" });
+    const wrapper = mountInput();
+    await setDims(wrapper, { category: "Engineering", goal: "Bug fixes" });
     await wrapper.find("input").setValue("Code review 1h");
     await wrapper.find("input").trigger("keydown", { key: "Enter" });
     expect(wrapper.emitted("submit")?.[0]).toEqual(["Code review", 60, { category: "Engineering", goal: "Bug fixes" }]);
   });
 
   it("does NOT emit submit when there is no parseable duration", async () => {
-    const wrapper = mountInput({ category: "Engineering" });
+    const wrapper = mountInput();
     await wrapper.find("input").setValue("Code review");
     await wrapper.find("input").trigger("keydown", { key: "Enter" });
     expect(wrapper.emitted("submit")).toBeFalsy();
@@ -88,7 +102,7 @@ describe("TwoLineInput", () => {
 
   it("Enter while the popover is open selects the highlight instead of submitting", async () => {
     const wrapper = mount(TwoLineInput, {
-      props: { dimensions, commitments, initialValues: { category: "Engineering", goal: "Bug fixes" } },
+      props: { dimensions, commitments },
       attachTo: document.body,
     });
     const input = wrapper.find("input");
@@ -116,18 +130,21 @@ describe("TwoLineInput", () => {
   });
 
   it("removes a dimension token when its × is clicked", async () => {
-    const wrapper = mountInput({ category: "Engineering" });
+    const wrapper = mountInput();
+    await setDims(wrapper, { category: "Engineering" });
     expect(wrapper.find("[data-test='dim-token']").exists()).toBe(true);
     await wrapper.find("[data-test='dim-token-remove']").trigger("click");
     expect(wrapper.find("[data-test='dim-token']").exists()).toBe(false);
   });
 
-  it("clearInput() empties the field", async () => {
+  it("clearInput() empties the field and dims", async () => {
     const wrapper = mountInput();
+    await setDims(wrapper, { category: "Engineering" });
     await wrapper.find("input").setValue("Something 1h");
     (wrapper.vm as unknown as { clearInput: () => void }).clearInput();
     await wrapper.vm.$nextTick();
     expect((wrapper.find("input").element as HTMLInputElement).value).toBe("");
+    expect(wrapper.find("[data-test='dim-token']").exists()).toBe(false);
   });
 
   it("focuses the input on a focus request even when a non-editable element holds focus", async () => {
@@ -135,7 +152,7 @@ describe("TwoLineInput", () => {
     const btn = document.createElement("button");
     document.body.appendChild(btn);
     const wrapper = mount(TwoLineInput, {
-      props: { dimensions, commitments, initialValues: {} },
+      props: { dimensions, commitments },
       attachTo: document.body,
       global: { provide: { focusRequestId: fid } },
     });
@@ -153,7 +170,7 @@ describe("TwoLineInput", () => {
     const other = document.createElement("input");
     document.body.appendChild(other);
     const wrapper = mount(TwoLineInput, {
-      props: { dimensions, commitments, initialValues: {} },
+      props: { dimensions, commitments },
       attachTo: document.body,
       global: { provide: { focusRequestId: fid } },
     });
@@ -168,7 +185,7 @@ describe("TwoLineInput", () => {
 
   it("exposes focusInput() to focus the entry input", async () => {
     const wrapper = mount(TwoLineInput, {
-      props: { dimensions, commitments, initialValues: {} },
+      props: { dimensions, commitments },
       attachTo: document.body,
     });
     (wrapper.vm as unknown as { focusInput: () => void }).focusInput();
@@ -178,7 +195,7 @@ describe("TwoLineInput", () => {
 
   it("Esc clears typed text without emitting submit", async () => {
     const wrapper = mount(TwoLineInput, {
-      props: { dimensions: [], commitments: [], initialValues: {} },
+      props: { dimensions: [], commitments: [] },
     });
     const input = wrapper.find("input");
     await input.setValue("draft work 1h");
@@ -188,9 +205,9 @@ describe("TwoLineInput", () => {
   });
 
   it("Esc clears a selected dimension token even with no text", async () => {
-    // Covers the JSON.stringify(dimValues) !== initialValues half of hasContent:
-    // dims are dirty but the text is empty, so esc must reset dims (not submit).
-    const wrapper = mountInput({}); // initial dims empty
+    // Covers the dimValues-non-empty half of hasContent: dims are dirty but text is empty,
+    // so esc resets dims (not submit).
+    const wrapper = mountInput();
     // Drive a dimension selection through the popover so dimValues differs from {}.
     await wrapper.find("input").trigger("keydown", { key: "@" }); // open popover
     await wrapper.findComponent({ name: "DimensionPopover" }).vm.$emit("select", "category", "Engineering");
@@ -206,7 +223,7 @@ describe("TwoLineInput", () => {
 
   it("Esc on an empty input does nothing", async () => {
     const wrapper = mount(TwoLineInput, {
-      props: { dimensions: [], commitments: [], initialValues: {} },
+      props: { dimensions: [], commitments: [] },
     });
     const input = wrapper.find("input");
     await input.trigger("keydown", { key: "Escape" });

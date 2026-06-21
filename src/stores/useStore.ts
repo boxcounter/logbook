@@ -14,7 +14,6 @@ export interface AppStore {
   today: DayFile | null;
   commitments: Commitment[];
   commitmentProgress: CommitmentProgress[];
-  lastDimensions: Record<string, string>;
   currentDate: string;
   monthEntries: Record<string, Entry[]>;
   availableMonths: AvailableMonth[] | null; // null = not yet loaded
@@ -34,7 +33,6 @@ export function createStore(): AppStore {
     today: null,
     commitments: [],
     commitmentProgress: [],
-    lastDimensions: {},
     currentDate: dateStr,
     monthEntries: {},
     availableMonths: null,
