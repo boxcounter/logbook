@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # 项目审查
 
-对项目进行多 Agent 综合审查。在重大变更后、里程碑前、或用户要求 review / audit / 审查时调用。
+对项目进行多 Agent 综合审查。
 
 ## 总体架构
 
