@@ -160,7 +160,7 @@ watch(focusRequestId, () => {
           placeholder="What did you work on?"
           class="flex-1 border-none outline-none bg-transparent text-body
                  text-[var(--color-text-primary)] placeholder:text-[var(--color-placeholder)]
-                 caret-[var(--color-brand-solid)] leading-[1.5] py-2xs"
+                 caret-[var(--color-brand-solid)] py-2xs"
           @keydown="onKeydown"
         />
         <span class="mono text-micro font-semibold text-[var(--color-text-secondary)]
@@ -173,7 +173,7 @@ watch(focusRequestId, () => {
         <span
           v-for="d in filledDims" :key="d.key"
           data-test="dim-token"
-          class="text-micro font-medium px-sm py-2xs rounded-[var(--radius-sm)] inline-flex items-center gap-xs leading-[1.6]"
+          class="text-micro font-medium px-sm py-2xs rounded-[var(--radius-sm)] inline-flex items-center gap-xs"
           :class="tokenClass(d.key)"
         >
           {{ dimValues[d.key] }}
@@ -183,7 +183,7 @@ watch(focusRequestId, () => {
         <span
           v-if="parsedDuration"
           data-test="dur-token"
-          class="mono text-micro font-medium px-sm py-2xs rounded-[var(--radius-sm)] inline-flex items-center gap-xs leading-[1.6]
+          class="mono text-micro font-medium px-sm py-2xs rounded-[var(--radius-sm)] inline-flex items-center gap-xs
                  bg-[var(--color-token-dur-bg)] text-[var(--color-token-dur-text)]"
         >{{ formatDuration(parsedDuration) }}</span>
 

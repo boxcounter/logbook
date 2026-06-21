@@ -12,7 +12,6 @@ const allFiles = { ...vueFiles, ...appFile };
 // is migrated. The suite stays green; the goal is an EMPTY allowlist. ---
 const ALLOWLIST = new Set<string>([]);
 const LEADING_ALLOWLIST = new Set<string>([
-  "../components/EntryComposer.vue",
   "../components/MonthView.vue",
   "../components/composite/CommitmentsModal.vue",
   "../components/composite/EntryRow.vue",
