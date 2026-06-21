@@ -137,12 +137,14 @@ describe("TwoLineInput", () => {
     expect(wrapper.find("[data-test='dim-token']").exists()).toBe(false);
   });
 
-  it("clearInput() empties the field", async () => {
+  it("clearInput() empties the field and dims", async () => {
     const wrapper = mountInput();
+    await setDims(wrapper, { category: "Engineering" });
     await wrapper.find("input").setValue("Something 1h");
     (wrapper.vm as unknown as { clearInput: () => void }).clearInput();
     await wrapper.vm.$nextTick();
     expect((wrapper.find("input").element as HTMLInputElement).value).toBe("");
+    expect(wrapper.find("[data-test='dim-token']").exists()).toBe(false);
   });
 
   it("focuses the input on a focus request even when a non-editable element holds focus", async () => {
@@ -203,8 +205,8 @@ describe("TwoLineInput", () => {
   });
 
   it("Esc clears a selected dimension token even with no text", async () => {
-    // Covers the case where dims are dirty but the text is empty,
-    // so esc must reset dims (not submit).
+    // Covers the dimValues-non-empty half of hasContent: dims are dirty but text is empty,
+    // so esc resets dims (not submit).
     const wrapper = mountInput();
     // Drive a dimension selection through the popover so dimValues differs from {}.
     await wrapper.find("input").trigger("keydown", { key: "@" }); // open popover

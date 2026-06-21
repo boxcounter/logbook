@@ -118,6 +118,8 @@ function handleSubmit() {
 
 function clearInput() {
   text.value = "";
+  dimValues.value = {};
+  submitAttempted.value = false;
 }
 
 function focusInput() {
