@@ -1,4 +1,4 @@
-use crate::config::{validate_config, validate_monthly};
+use crate::config::{validate_dimensions, validate_monthly};
 use crate::error_log;
 use crate::operation_log;
 use crate::files::{self, read_root_path, save_root_path};
@@ -52,6 +52,7 @@ fn read_monthly_file_safe(
                 ))
             } else {
                 Ok(MonthlyFile {
+                    dimensions: vec![],
                     commitments: vec![],
                 })
             }
@@ -124,7 +125,7 @@ pub fn parse_duration(input: &str) -> Result<u32, String> {
 /// Validate that all required dimensions have values in the entry.
 /// Returns Ok(()) or Err with a human-readable message naming the first missing required dimension.
 pub fn validate_required_dimensions(
-    config: &Config,
+    config: &Template,
     dimensions: &std::collections::HashMap<String, String>,
 ) -> Result<(), String> {
     for dim in &config.dimensions {
@@ -173,7 +174,7 @@ pub fn init(app: AppHandle) -> InitResult {
         }
     };
 
-    let mut all_errors = validate_config(&config);
+    let mut all_errors = validate_dimensions(&config.dimensions);
 
     let now = chrono::Local::now();
     let monthly = match read_monthly_file_safe(root, now.year(), now.month()) {
@@ -185,6 +186,7 @@ pub fn init(app: AppHandle) -> InitResult {
                 message: e,
             });
             MonthlyFile {
+                dimensions: vec![],
                 commitments: vec![],
             }
         }
@@ -262,7 +264,7 @@ pub fn set_root_path(app: AppHandle, path: String) -> Result<InitResult, String>
         error_log::log_error("set_root_path: read_template", &e);
         format!("Failed to read template: {}", e)
     })?;
-    let mut all_errors = validate_config(&config);
+    let mut all_errors = validate_dimensions(&config.dimensions);
 
     let now = chrono::Local::now();
     let monthly = match read_monthly_file_safe(root_path, now.year(), now.month()) {
@@ -274,6 +276,7 @@ pub fn set_root_path(app: AppHandle, path: String) -> Result<InitResult, String>
                 message: e,
             });
             MonthlyFile {
+                dimensions: vec![],
                 commitments: vec![],
             }
         }
@@ -516,6 +519,7 @@ pub fn get_commitment_progress(
     // 1. Read _monthly.md
     let monthly =
         crate::files::read_monthly_file(root, year, month).unwrap_or_else(|_| MonthlyFile {
+            dimensions: vec![],
             commitments: vec![],
         });
 
@@ -631,7 +635,10 @@ pub fn set_commitments(
     }
 
     // 6. Write _monthly.md
-    let monthly = MonthlyFile { commitments };
+    let monthly = MonthlyFile {
+        dimensions: vec![],
+        commitments,
+    };
     files::write_monthly_file(root, year, month, &monthly)?;
 
     let ok = true;
@@ -1051,11 +1058,11 @@ mod tests {
 
     // --- validate_required_dimensions tests ---
 
-    use crate::models::{Config, Dimension};
+    use crate::models::{Dimension, Template};
     use std::collections::HashMap;
 
-    fn make_config(required_keys: &[&str]) -> Config {
-        Config {
+    fn make_config(required_keys: &[&str]) -> Template {
+        Template {
             dimensions: vec![
                 Dimension {
                     name: "Biz".into(),

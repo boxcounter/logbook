@@ -15,7 +15,7 @@ fn fixture_root() -> std::path::PathBuf {
 fn test_read_and_validate_config() {
     let root = fixture_root();
     let config = tauri_app_lib::files::read_template(&root).expect("read_template should succeed");
-    let errors = tauri_app_lib::config::validate_config(&config);
+    let errors = tauri_app_lib::config::validate_dimensions(&config.dimensions);
     assert!(
         errors.is_empty(),
         "Config validation failed:\n{}",

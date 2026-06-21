@@ -1,4 +1,4 @@
-use crate::models::{Config, DayFile, Entry, MonthlyFile};
+use crate::models::{DayFile, Entry, MonthlyFile, Template};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -173,6 +173,7 @@ pub fn read_monthly_file(root: &Path, year: i32, month: u32) -> Result<MonthlyFi
     let path = monthly_path(root, year, month);
     if !path.exists() {
         return Ok(MonthlyFile {
+            dimensions: vec![],
             commitments: vec![],
         });
     }
@@ -203,11 +204,11 @@ pub fn write_monthly_file(
 }
 
 /// Read template.yaml. Returns error if file missing.
-pub fn read_template(root: &Path) -> Result<Config, String> {
+pub fn read_template(root: &Path) -> Result<Template, String> {
     let path = template_path(root);
     let content = fs::read_to_string(&path)
         .map_err(|e| format!("Failed to read {}: {}", path.display(), e))?;
-    yaml_serde::from_str::<Config>(&content)
+    yaml_serde::from_str::<Template>(&content)
         .map_err(|e| format!("Failed to parse {}: {}", path.display(), e))
 }
 

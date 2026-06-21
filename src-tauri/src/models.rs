@@ -4,7 +4,7 @@ use std::collections::HashMap;
 // --- Config ---
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Config {
+pub struct Template {
     pub dimensions: Vec<Dimension>,
 }
 
@@ -28,6 +28,8 @@ fn default_source() -> String {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MonthlyFile {
+    #[serde(default)]
+    pub dimensions: Vec<Dimension>,
     #[serde(default)]
     pub commitments: Vec<Commitment>,
 }
@@ -103,7 +105,7 @@ pub enum InitResult {
     },
     Ready {
         root_path: String,
-        config: Config,
+        config: Template,
         today: DayFile,
         commitments: Vec<Commitment>,
         scan_warnings: Vec<ScanWarning>,
@@ -175,7 +177,7 @@ mod tests {
 
     #[test]
     fn init_result_ready_with_scan_warnings() {
-        let config = Config {
+        let config = Template {
             dimensions: vec![],
         };
         let today = DayFile {
@@ -210,7 +212,7 @@ mod tests {
 
     #[test]
     fn init_result_ready_empty_scan_warnings() {
-        let config = Config {
+        let config = Template {
             dimensions: vec![],
         };
         let today = DayFile {
@@ -307,7 +309,7 @@ mod tests {
             message: "bad".to_string(),
         };
 
-        let config = Config {
+        let config = Template {
             dimensions: vec![],
         };
         let today = DayFile {
