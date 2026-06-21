@@ -43,6 +43,16 @@ function spacingViolations(src: string): string[] {
     if (px === 0) continue;
     out.push(`${m[0]} → ${m[1]}-${spacingSuffix(px)} (=${px}px); use the named scale, not Tailwind's numeric default`);
   }
+  // px keyword utility (e.g. gap-px = 1px)
+  const pxKw = new RegExp(`\\b(${SPACE_PREFIXES})-px\\b`, "g");
+  for (const m of src.matchAll(pxKw)) {
+    out.push(`${m[0]} → ${m[1]}-2xs (--spacing-2xs); use the named scale`);
+  }
+  // arbitrary spacing in a non-px unit (the px form is handled above)
+  const arbOther = new RegExp(`\\b(${SPACE_PREFIXES})-\\[(?![0-9.]+px\\])[^\\]]+\\]`, "g");
+  for (const m of src.matchAll(arbOther)) {
+    out.push(`${m[0]} → use the named --spacing-* scale (gap-sm/p-md/…); arbitrary spacing is not allowed`);
+  }
   return out;
 }
 
