@@ -161,6 +161,26 @@ fn get_month_dimensions_reports_from_template_flag() {
     let _ = fs::remove_dir_all(&root);
 }
 
+// 8. A day note must NOT instantiate the month (narrowed trigger): writing a note
+//    is not customizing dimensions, so the month stays on the live template.
+#[test]
+fn set_day_note_does_not_instantiate() {
+    let root = fresh_root("logbook_md_noteonly");
+    write_template(&root, TPL_BIZ_GOAL);
+    let root_str = root.to_string_lossy().into_owned();
+
+    tauri_app_lib::commands::set_day_note(root_str.clone(), "2026-12-05".into(), "a note".into())
+        .unwrap();
+
+    let monthly = files::read_monthly_file(&root, 2026, 12).unwrap();
+    assert!(monthly.dimensions.is_empty(), "set_day_note must not snapshot dimensions");
+
+    let md = tauri_app_lib::commands::get_month_dimensions(root_str, 2026, 12).unwrap();
+    assert!(md.from_template, "note-only month must remain from_template = true");
+
+    let _ = fs::remove_dir_all(&root);
+}
+
 // 5. Missing template → resolve is lenient (empty), ensure is a no-op.
 #[test]
 fn missing_template_is_lenient() {

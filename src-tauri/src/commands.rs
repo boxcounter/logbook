@@ -457,8 +457,8 @@ pub fn delete_entry(root_path: String, date: String, entry_id: String) -> Result
     error_log::log_command_enter("delete_entry", &format!("date={} id={}", date, entry_id));
     let root = std::path::Path::new(&root_path);
     validate_date_format(&date)?;
-    let (year, month) = files::year_month_from_date(&date)?;
-    files::ensure_month_instantiated(root, year, month)?;
+    // Deleting an entry does not customize the month's dimensions, so it must not
+    // trigger instantiation (would freeze the month to the current template).
 
     // Read before snapshot
     let day_file = files::read_day_file(root, &date)?;
@@ -490,8 +490,8 @@ pub fn set_day_note(root_path: String, date: String, note: String) -> Result<Day
     error_log::log_command_enter("set_day_note", &format!("date={}", date));
     let root = std::path::Path::new(&root_path);
     validate_date_format(&date)?;
-    let (year, month) = files::year_month_from_date(&date)?;
-    files::ensure_month_instantiated(root, year, month)?;
+    // A day note does not customize the month's dimensions, so it must not
+    // trigger instantiation (would freeze the month to the current template).
 
     // Read before snapshot
     let day_file = files::read_day_file(root, &date)?;
