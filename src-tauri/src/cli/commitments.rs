@@ -46,7 +46,7 @@ pub fn set(root: &Path, year: i32, month: u32, json: bool) {
         });
 
     // Try JSON first, then YAML
-    let monthly: MonthlyFile =
+    let mut monthly: MonthlyFile =
         if let Ok(mf) = serde_json::from_str::<MonthlyFile>(&input) {
             mf
         } else if let Ok(mf) = yaml_serde::from_str::<MonthlyFile>(&input) {
@@ -59,6 +59,15 @@ pub fn set(root: &Path, year: i32, month: u32, json: bool) {
             );
             std::process::exit(1);
         };
+
+    // Preserve the month's per-month dimensions snapshot: the documented input is
+    // commitments-only, so writing the parsed struct verbatim would wipe an existing
+    // dimensions block. Mirror the GUI set_commitments read-modify-write behavior.
+    if monthly.dimensions.is_empty() {
+        if let Ok(existing) = files::read_monthly_file(root, year, month) {
+            monthly.dimensions = existing.dimensions;
+        }
+    }
 
     // Validate
     let errors = config::validate_monthly(&monthly);
