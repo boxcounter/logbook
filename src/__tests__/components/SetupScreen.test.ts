@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach} from "vitest";
 import { mount } from "@vue/test-utils";
 import { STORE_KEY } from "../../stores/useStore";
 import { createTestStore } from "../mocks/store";
-import { makeConfig } from "../mocks/fixtures";
+import { makeDimensions } from "../mocks/fixtures";
 import SetupScreen from "../../components/SetupScreen.vue";
 
 // ============================================================
@@ -81,12 +81,13 @@ describe("SetupScreen", () => {
 
   it("Ready result: updates store and navigates to ready screen", async () => {
     mockOpen.mockResolvedValue("/my/path");
-    const config = makeConfig();
+    const dimensions = makeDimensions();
     mockInvoke.mockResolvedValue({
       status: "Ready",
       data: {
         root_path: "/my/path",
-        config,
+        dimensions,
+        from_template: false,
         today: { note: null, entries: [] },
         commitments: [],
       },
@@ -97,7 +98,7 @@ describe("SetupScreen", () => {
 
     expect(store.status).toBe("ready");
     expect(store.rootPath).toBe("/my/path");
-    expect(store.config).toEqual(config);
+    expect(store.dimensions).toEqual(dimensions);
   });
 
   it("ConfigError result: updates store to error screen", async () => {
@@ -150,7 +151,7 @@ describe("SetupScreen", () => {
         // Second set_root_path call succeeds
         return {
           status: "Ready",
-          data: { root_path: args!.path, config: makeConfig(), today: { note: null, entries: [] }, commitments: [] },
+          data: { root_path: args!.path, dimensions: makeDimensions(), from_template: false, today: { note: null, entries: [] }, commitments: [] },
         };
       }
       return undefined;

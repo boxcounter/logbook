@@ -1,6 +1,5 @@
 import type {
   Entry,
-  Config,
   Dimension,
   Commitment,
   DayFile,
@@ -13,7 +12,7 @@ import type {
 // merged with the caller's overrides.
 //
 // Usage:
-//   import { makeEntry, makeConfig, makeCommitment } from "../mocks/fixtures";
+//   import { makeEntry, makeDimensions, makeCommitment } from "../mocks/fixtures";
 //   const entry = makeEntry({ item: "Meeting", duration: 60 });
 // ============================================================
 
@@ -45,15 +44,12 @@ export function makeDimension(overrides?: Partial<Dimension>): Dimension {
   };
 }
 
-export function makeConfig(overrides?: Partial<Config>): Config {
-  return {
-    dimensions: [
-      makeDimension({ name: "Goal", key: "goal", source: "monthly", required: true }),
-      makeDimension({ name: "Business Line", key: "business-line", source: "static", values: ["Platform", "Growth"], required: true }),
-      makeDimension({ name: "Category", key: "category", source: "static", values: ["Coding", "Meeting"], required: false }),
-    ],
-    ...overrides,
-  };
+export function makeDimensions(): Dimension[] {
+  return [
+    makeDimension({ name: "Goal", key: "goal", source: "monthly", required: true }),
+    makeDimension({ name: "Business Line", key: "business-line", source: "static", values: ["Platform", "Growth"], required: true }),
+    makeDimension({ name: "Category", key: "category", source: "static", values: ["Coding", "Meeting"], required: false }),
+  ];
 }
 
 export function makeCommitment(overrides?: Partial<Commitment>): Commitment {

@@ -8,7 +8,7 @@ import CommitmentsPanel from "./CommitmentsPanel.vue";
 import DayHeader from "./DayHeader.vue";
 import EntryList from "./EntryList.vue";
 import EntryComposer from "./EntryComposer.vue";
-import type { DayFile, Entry, CommitmentProgress, Commitment } from "../types";
+import type { DayFile, Entry, CommitmentProgress, Commitment, MonthDimensions } from "../types";
 import { logError, logInfo } from "../utils/errorLog";
 import { datesInMonth, yearMonthFromDate, parseDate, addDays } from "../utils/dates";
 
@@ -60,6 +60,7 @@ async function loadMonth(year: number, month: number, defaultDay?: number) {
   }
   store.monthEntries = map;
   await loadCommitmentProgress(year, month);
+  await loadMonthDimensions(year, month);
   if (store.currentDate in map) {
     store.today = { note: null, entries: map[store.currentDate] };
     loadDayNote(store.currentDate);
@@ -70,6 +71,19 @@ async function loadCommitmentProgress(year: number, month: number) {
   try {
     store.commitmentProgress = (await invoke("get_commitment_progress", { rootPath: store.rootPath, year, month })) as CommitmentProgress[];
   } catch (e) { logError("MonthView.loadCommitmentProgress", e); store.commitmentProgress = []; }
+}
+
+// Refresh the dimension set for the viewed month: a month's own snapshot if
+// instantiated, else the global template (from_template = true → preview state).
+async function loadMonthDimensions(year: number, month: number) {
+  try {
+    const md = (await invoke("get_month_dimensions", { rootPath: store.rootPath, year, month })) as MonthDimensions;
+    // Only adopt a well-formed response; never wipe dimensions on a malformed/missing one.
+    if (md && Array.isArray(md.dimensions)) {
+      store.dimensions = md.dimensions;
+      store.fromTemplate = md.from_template;
+    }
+  } catch (e) { logError("MonthView.loadMonthDimensions", e); }
 }
 
 // Optimistically reflect the just-saved commitments so the panel's Edit/Set-up
@@ -109,7 +123,7 @@ async function handleRequestMonths() {
 
 // ---- Append (absorbed from the deleted QuickEntry) ----
 function sanitizeValues(vals: Record<string, string>): Record<string, string> {
-  const validKeys = new Set((store.config?.dimensions || []).map(d => d.key));
+  const validKeys = new Set(store.dimensions.map(d => d.key));
   const cleaned: Record<string, string> = {};
   for (const [k, v] of Object.entries(vals)) if (validKeys.has(k) && v) cleaned[k] = v;
   return cleaned;
@@ -357,6 +371,10 @@ logInfo("MonthView", "mounted");
         ></div>
       </div>
 
+      <p v-if="store.fromTemplate" class="mb-sm text-micro text-[var(--color-text-disabled)]">
+        本月沿用默认模板（尚未自定义维度）
+      </p>
+
       <EntryList
         :entries="dayEntries"
         :just-added-id="justAddedId"
@@ -368,7 +386,7 @@ logInfo("MonthView", "mounted");
       <div v-if="isSelectedToday" class="mt-md">
         <EntryComposer
           ref="inputRef"
-          :dimensions="store.config?.dimensions || []"
+          :dimensions="store.dimensions"
           :commitments="store.commitments"
           @submit="handleSubmit"
         />

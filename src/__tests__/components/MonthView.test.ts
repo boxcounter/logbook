@@ -4,7 +4,7 @@ import { mount } from "@vue/test-utils";
 import { reactive } from "vue";
 import MonthView from "../../components/MonthView.vue";
 import { STORE_KEY } from "../../stores/useStore";
-import { makeConfig, makeCommitment, makeEntry } from "../mocks/fixtures";
+import { makeDimensions, makeCommitment, makeEntry } from "../mocks/fixtures";
 import { addDays } from "../../utils/dates";
 
 const invokeMock = vi.fn();
@@ -21,7 +21,8 @@ function makeStore() {
   return reactive({
     status: "ready",
     rootPath: "/root",
-    config: makeConfig(),
+    dimensions: makeDimensions(),
+    fromTemplate: false,
     configErrors: [],
     commitments: [makeCommitment({ goals: ["Bug fixes"] })],
     commitmentProgress: [],

@@ -3,7 +3,7 @@ import { mount } from "@vue/test-utils";
 import { nextTick } from "vue";
 import { STORE_KEY } from "../../stores/useStore";
 import { createTestStore } from "../mocks/store";
-import { makeConfig, makeDayFile } from "../mocks/fixtures";
+import { makeDimensions, makeDayFile } from "../mocks/fixtures";
 import App from "../../App.vue";
 
 // Hoisted mocks for Tauri APIs
@@ -111,11 +111,11 @@ describe("App", () => {
   });
 
   it("Ready: shows MonthView and populates store", async () => {
-    const config = makeConfig();
+    const dimensions = makeDimensions();
     const today = makeDayFile();
     mockInvoke.mockResolvedValue({
       status: "Ready",
-      data: { root_path: "/test", config, today, commitments: [], scan_warnings: [] },
+      data: { root_path: "/test", dimensions, from_template: false, today, commitments: [], scan_warnings: [] },
     });
     const { wrapper, store } = mountApp();
     await vi.runAllTimersAsync();
@@ -123,7 +123,7 @@ describe("App", () => {
 
     expect(store.status).toBe("ready");
     expect(store.rootPath).toBe("/test");
-    expect(store.config).toEqual(config);
+    expect(store.dimensions).toEqual(dimensions);
     expect(wrapper.findComponent({ name: "MonthView" }).exists()).toBe(true);
   });
 
@@ -152,7 +152,7 @@ describe("App", () => {
     vi.clearAllMocks();
     mockInvoke.mockResolvedValue({
       status: "Ready",
-      data: { root_path: "/test", config: makeConfig(), today: makeDayFile(), commitments: [], scan_warnings: [] },
+      data: { root_path: "/test", dimensions: makeDimensions(), from_template: false, today: makeDayFile(), commitments: [], scan_warnings: [] },
     });
 
     const retryBtn = wrapper.find("button");
@@ -244,7 +244,7 @@ describe("App", () => {
     vi.setSystemTime(new Date(2026, 5, 20, 10, 0, 0));
     mockInvoke.mockResolvedValue({
       status: "Ready",
-      data: { root_path: "/test", config: makeConfig(), today: makeDayFile(), commitments: [], scan_warnings: [] },
+      data: { root_path: "/test", dimensions: makeDimensions(), from_template: false, today: makeDayFile(), commitments: [], scan_warnings: [] },
     });
     const { store } = mountApp();
     await vi.runAllTimersAsync();
@@ -264,7 +264,7 @@ describe("App", () => {
     vi.setSystemTime(new Date(2026, 5, 20, 23, 59, 0));
     mockInvoke.mockResolvedValue({
       status: "Ready",
-      data: { root_path: "/test", config: makeConfig(), today: makeDayFile(), commitments: [], scan_warnings: [] },
+      data: { root_path: "/test", dimensions: makeDimensions(), from_template: false, today: makeDayFile(), commitments: [], scan_warnings: [] },
     });
     const { store } = mountApp();
     await vi.runAllTimersAsync();
@@ -284,7 +284,7 @@ describe("App", () => {
     vi.setSystemTime(new Date(2026, 5, 20, 23, 59, 0));
     mockInvoke.mockResolvedValue({
       status: "Ready",
-      data: { root_path: "/test", config: makeConfig(), today: makeDayFile(), commitments: [], scan_warnings: [] },
+      data: { root_path: "/test", dimensions: makeDimensions(), from_template: false, today: makeDayFile(), commitments: [], scan_warnings: [] },
     });
     const { store } = mountApp();
     await vi.runAllTimersAsync();
@@ -308,7 +308,7 @@ describe("App", () => {
     // The provide is done in App.vue, available to child components
     mockInvoke.mockResolvedValue({
       status: "Ready",
-      data: { root_path: "/test", config: makeConfig(), today: makeDayFile(), commitments: [], scan_warnings: [] },
+      data: { root_path: "/test", dimensions: makeDimensions(), from_template: false, today: makeDayFile(), commitments: [], scan_warnings: [] },
     });
     const { wrapper } = mountApp();
     await vi.runAllTimersAsync();
@@ -338,7 +338,8 @@ describe("App", () => {
       status: "Ready",
       data: {
         root_path: "/test",
-        config: makeConfig(),
+        dimensions: makeDimensions(),
+        from_template: false,
         today: makeDayFile(),
         commitments: [],
         scan_warnings: scanWarnings,
@@ -380,7 +381,8 @@ describe("App", () => {
       status: "Ready",
       data: {
         root_path: "/test",
-        config: makeConfig(),
+        dimensions: makeDimensions(),
+        from_template: false,
         today: makeDayFile(),
         commitments: [],
         scan_warnings: [],
@@ -401,7 +403,8 @@ describe("App", () => {
       status: "Ready",
       data: {
         root_path: "/test",
-        config: makeConfig(),
+        dimensions: makeDimensions(),
+        from_template: false,
         today: makeDayFile(),
         commitments: [],
         scan_warnings: scanWarnings,

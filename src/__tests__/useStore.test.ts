@@ -6,7 +6,7 @@ describe("createStore", () => {
     const store = createStore();
     expect(store.status).toBe("loading");
     expect(store.rootPath).toBe("");
-    expect(store.config).toBeNull();
+    expect(store.dimensions).toEqual([]);
     expect(store.today).toBeNull();
     expect(store.commitments).toEqual([]);
     expect(store.commitmentProgress).toEqual([]);
