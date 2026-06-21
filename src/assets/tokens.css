@@ -1,6 +1,7 @@
-/* Design tokens — extracted from UX-REDESIGN-DEMO.html (2026-06-19)
-   This file is the canonical token reference for the UX redesign.
-   Compare with demo to verify no drift before implementation. */
+/* Canonical design-token source (single source of truth).
+   Utility-generating scales (type sizes, spacing) live in main.css @theme.
+   This file holds the remaining :root tokens: color, border, brand, semantic,
+   chips, heatmap, popover, motion, radius, shadow, fonts, weights, spacing-legacy. */
 
 :root {
   /* === Surface & Background === */
@@ -98,8 +99,9 @@
 
   /* === Typography: Family ===
      NOTE: `--app-font-*` prefix (NOT `--font-*`) is deliberate. Tailwind v4 reserves
-     the `--font-*` @theme namespace for font-family utilities; a bare `--font-*` token
-     in :root collides with it. See commit 0acd2ee. */
+     `--font-*` in @theme for font-family utilities; a bare `--font-*` in :root collides.
+     Type SIZES (formerly `--app-text-*`) have moved to main.css @theme under `--text-*`
+     to generate text-title/body/secondary/micro utilities directly. See commit 0acd2ee. */
   --app-font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   --app-font-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Menlo', monospace;
 
