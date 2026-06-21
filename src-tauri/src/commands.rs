@@ -125,11 +125,11 @@ pub fn parse_duration(input: &str) -> Result<u32, String> {
 /// Validate that all required dimensions have values in the entry.
 /// Returns Ok(()) or Err with a human-readable message naming the first missing required dimension.
 pub fn validate_required_dimensions(
-    config: &Template,
-    dimensions: &std::collections::HashMap<String, String>,
+    dimensions: &[Dimension],
+    entry_dimensions: &std::collections::HashMap<String, String>,
 ) -> Result<(), String> {
-    for dim in &config.dimensions {
-        if dim.required && !dimensions.contains_key(&dim.key) {
+    for dim in dimensions {
+        if dim.required && !entry_dimensions.contains_key(&dim.key) {
             return Err(format!("Missing required dimension: {}", dim.name));
         }
     }
@@ -345,8 +345,10 @@ pub fn append_entry(root_path: String, date: String, entry: CreateEntryInput) ->
     let root = std::path::Path::new(&root_path);
     validate_date_format(&date)?;
     let duration = parse_duration(&entry.duration)?;
-    let config = files::read_template(root)?;
-    validate_required_dimensions(&config, &entry.dimensions)?;
+    let (year, month) = files::year_month_from_date(&date)?;
+    files::ensure_month_instantiated(root, year, month)?;
+    let dims = files::resolve_month_dimensions(root, year, month);
+    validate_required_dimensions(&dims, &entry.dimensions)?;
 
     let entry_id = uuid::Uuid::new_v4().to_string();
 
@@ -387,12 +389,14 @@ pub fn update_entry(
     error_log::log_command_enter("update_entry", &format!("date={} id={}", date, entry_id));
     let root = std::path::Path::new(&root_path);
     validate_date_format(&date)?;
+    let (year, month) = files::year_month_from_date(&date)?;
+    files::ensure_month_instantiated(root, year, month)?;
     if let Some(ref dur_str) = update.duration {
         parse_duration(dur_str)?;
     }
     if let Some(ref dims) = update.dimensions {
-        let config = files::read_template(root)?;
-        validate_required_dimensions(&config, dims)?;
+        let effective = files::resolve_month_dimensions(root, year, month);
+        validate_required_dimensions(&effective, dims)?;
     }
 
     // Read before snapshot
@@ -438,6 +442,8 @@ pub fn delete_entry(root_path: String, date: String, entry_id: String) -> Result
     error_log::log_command_enter("delete_entry", &format!("date={} id={}", date, entry_id));
     let root = std::path::Path::new(&root_path);
     validate_date_format(&date)?;
+    let (year, month) = files::year_month_from_date(&date)?;
+    files::ensure_month_instantiated(root, year, month)?;
 
     // Read before snapshot
     let day_file = files::read_day_file(root, &date)?;
@@ -469,6 +475,8 @@ pub fn set_day_note(root_path: String, date: String, note: String) -> Result<Day
     error_log::log_command_enter("set_day_note", &format!("date={}", date));
     let root = std::path::Path::new(&root_path);
     validate_date_format(&date)?;
+    let (year, month) = files::year_month_from_date(&date)?;
+    files::ensure_month_instantiated(root, year, month)?;
 
     // Read before snapshot
     let day_file = files::read_day_file(root, &date)?;
@@ -612,13 +620,16 @@ pub fn set_commitments(
     // 1. Validate
     validate_commitments(&commitments)?;
 
-    // 2. Read old state for diff
+    // 2. Snapshot template dims if this month is fresh (preserves any dims block)
+    files::ensure_month_instantiated(root, year, month)?;
+
+    // 3. Read old state for diff
     let old = read_monthly_file_safe(root, year, month)?;
 
-    // 3. Detect changes
+    // 4. Detect changes
     let changes = detect_goal_changes(&old.commitments, &commitments);
 
-    // 4. Check deleted goals for existing entries
+    // 5. Check deleted goals for existing entries
     for goal_name in &changes.deleted {
         let count = count_entries_with_goal(root, year, month, goal_name)?;
         if count > 0 {
@@ -629,16 +640,14 @@ pub fn set_commitments(
         }
     }
 
-    // 5. Apply renames to all day files
+    // 6. Apply renames to all day files
     for (old_name, new_name) in &changes.renames {
         rename_goal_in_entries(root, year, month, old_name, new_name)?;
     }
 
-    // 6. Write _monthly.md
-    let monthly = MonthlyFile {
-        dimensions: vec![],
-        commitments,
-    };
+    // 7. Write _monthly.md, preserving the dimensions block
+    let mut monthly = read_monthly_file_safe(root, year, month)?;
+    monthly.commitments = commitments;
     files::write_monthly_file(root, year, month, &monthly)?;
 
     let ok = true;
@@ -1094,7 +1103,7 @@ mod tests {
         let config = make_config(&["biz"]);
         let mut dims = HashMap::new();
         dims.insert("biz".to_string(), "A".to_string());
-        assert!(validate_required_dimensions(&config, &dims).is_ok());
+        assert!(validate_required_dimensions(&config.dimensions, &dims).is_ok());
     }
 
     #[test]
@@ -1103,7 +1112,7 @@ mod tests {
         let mut dims = HashMap::new();
         dims.insert("biz".to_string(), "A".to_string());
         // cat is missing
-        let err = validate_required_dimensions(&config, &dims).unwrap_err();
+        let err = validate_required_dimensions(&config.dimensions, &dims).unwrap_err();
         assert!(
             err.contains("Cat"),
             "expected error to mention 'Cat', got: {}",
@@ -1116,14 +1125,14 @@ mod tests {
     fn test_validate_required_none_required() {
         let config = make_config(&[]);
         let dims = HashMap::new(); // empty is fine — nothing required
-        assert!(validate_required_dimensions(&config, &dims).is_ok());
+        assert!(validate_required_dimensions(&config.dimensions, &dims).is_ok());
     }
 
     #[test]
     fn test_validate_required_empty_dimensions() {
         let config = make_config(&["biz"]);
         let dims = HashMap::new();
-        let err = validate_required_dimensions(&config, &dims).unwrap_err();
+        let err = validate_required_dimensions(&config.dimensions, &dims).unwrap_err();
         assert!(err.contains("Biz"));
     }
 
