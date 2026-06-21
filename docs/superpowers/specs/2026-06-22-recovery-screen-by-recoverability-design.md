@@ -31,8 +31,8 @@
 
 | Tier | 判定 | 含义 | watcher | 主操作 | 次操作 |
 |---|---|---|---|---|---|
-| **1 in_place** | `root.exists()` 且 `read_config` 成功，但 validate/monthly/day 文件有错 | 内容非法，可在原地改文件修复 | 有效 | 错误清单 + Reveal in Finder | —（存盘即自动重载，**去掉 Retry**） |
-| **2 config_missing** | `root.exists()` 但 `read_config` 失败 | 数据目录在，仅 config 丢失；数据大概率还在 | 有效 | Recreate default config.yaml | Choose a different folder |
+| **1 in_place** | `root.exists()` 且（`config.yaml` 存在但解析失败 **或** validate/monthly/day 文件有错） | 内容非法，可在原地改文件修复 | 有效 | 错误清单 + Reveal in Finder | —（存盘即自动重载，**去掉 Retry**） |
+| **2 config_missing** | `root.exists()` 但 `config.yaml` 不存在（ENOENT） | 数据目录在，仅 config 文件丢失；数据大概率还在 | 有效 | Recreate default config.yaml | Choose a different folder |
 | **3 root_missing** | `!root.exists()` | 整个目录不可用；可能在同步/未挂载/被删 | 失效 | Retry + Choose a different folder | ▸ Start fresh here（展开后二次确认） |
 
 设计原则：**affordance 即承诺**。Retry 仅出现在重试可能改变结果的 Tier 3（目录可能同步回来）；Tier 1 用自动检测取代 Retry；破坏性的「重建/Start fresh」在风险最高的 Tier 3 降级为需二次确认的隐藏操作。
@@ -56,20 +56,25 @@ pub enum RecoveryCategory {
 // InitResult::ConfigError 增加字段
 ConfigError {
     category: RecoveryCategory,
+    root_path: String,        // 解析出的目标 root，供前端 Recreate / Reveal / 路径展示使用
     errors: Vec<ConfigErrorDetail>,
     scan_warnings: Vec<ScanWarning>,
 }
 ```
 
+`root_path` 由 `load_root_state(root)` 始终填入（它本就持有 root）。前端 `applyInitResult` 据此设置 `store.rootPath`，让 Tier 2/3 的恢复操作（`create_starter_files` / `reveal_config_file`）能拿到路径——`init` 进入 ConfigError 时 `store.rootPath` 原本是空的。
+
 ## 5. 后端改动
 
 ### 5.1 `init` 与 `set_root_path` 分类（`commands.rs`）
 
-`init` 在 `read_config` 之前先判 `root.exists()`：
+分类逻辑抽取成纯函数 `load_root_state(root: &Path) -> InitResult`（不持有 `AppHandle`，便于集成测试），`init` 与 `set_root_path` 都委托它——顺带消除两者现有的大段重复（`init:156-236` 与 `set_root_path:256-321` 近乎一致）。判定顺序：
 
-- `false` → 返回 `ConfigError { category: RootMissing, errors: [一条说明性错误], scan_warnings: [] }`（root 不存在时跳过 scan）。
-- `true` 且 `read_config` 失败 → `ConfigError { category: ConfigMissing, ... }`。
+- `!root.exists()` → `ConfigError { category: RootMissing, errors: [一条说明性错误], scan_warnings: [] }`（root 不存在时跳过 scan）。
+- `root.exists()` 且 `config_path(root)` **不存在** → `ConfigError { category: ConfigMissing, ... }`。
+- `config_path(root)` 存在但 `read_config` 失败（YAML 解析错）→ `ConfigError { category: InPlace, ... }`。关键：`create_starter_files` 仅在 config 缺失时写入，若把"存在但损坏"误判为 config_missing，Recreate 按钮会静默 no-op。
 - `read_config` 成功但 `validate_config` / monthly / day 文件有错 → `ConfigError { category: InPlace, ... }`。
+- 全部正常 → `Ready`。
 
 `set_root_path` 的错误返回同样携带 `category`（当前它对「无 config」返回 `Err(String)`，改为返回 `Ok(ConfigError { category, .. })`，与 `init` 对齐，便于前端统一处理）。
 
