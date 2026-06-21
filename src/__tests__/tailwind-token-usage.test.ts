@@ -14,7 +14,6 @@ const ALLOWLIST = new Set<string>([]);
 const LEADING_ALLOWLIST = new Set<string>([
   "../components/MonthView.vue",
   "../components/composite/CommitmentsModal.vue",
-  "../components/composite/EntryRow.vue",
 ]);
 
 const SPACE_PREFIXES =

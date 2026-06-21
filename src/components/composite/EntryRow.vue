@@ -60,13 +60,13 @@ function onSave(item: string, durationMinutes: number, dims: Record<string, stri
   >
     <div class="flex-1 min-w-0">
       <div
-        class="text-body font-medium text-[var(--color-text-primary)] leading-[1.4] break-words overflow-hidden [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical]"
+        class="text-body font-medium text-[var(--color-text-primary)] break-words overflow-hidden [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical]"
         :title="entry.item"
       >{{ entry.item }}</div>
       <div v-if="filledDims.length" class="flex gap-xs mt-xs flex-wrap">
         <span
           v-for="d in filledDims" :key="d.key"
-          class="text-micro font-[450] px-sm rounded-[var(--radius-sm)] leading-[1.7] max-w-[100px] overflow-hidden text-ellipsis whitespace-nowrap"
+          class="text-micro font-[450] px-sm rounded-[var(--radius-sm)] max-w-[100px] overflow-hidden text-ellipsis whitespace-nowrap"
           :class="chipClass(d.key)"
           :title="entry.dimensions[d.key]"
         >{{ entry.dimensions[d.key] }}</span>
