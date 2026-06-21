@@ -11,8 +11,24 @@ fn fixture_root() -> std::path::PathBuf {
         })
 }
 
+/// These tests assert on a developer's local scratch dir. Skip cleanly when it is
+/// absent (CI, or the dir was cleared) instead of failing the whole suite on
+/// environment state unrelated to the code under test.
+macro_rules! skip_if_no_fixture {
+    () => {
+        if !fixture_root().join("template.yaml").exists() {
+            eprintln!(
+                "skipping fixture test: no template.yaml under {:?} (set LOGBOOK_TEST_FIXTURE to override)",
+                fixture_root()
+            );
+            return;
+        }
+    };
+}
+
 #[test]
 fn test_read_and_validate_config() {
+    skip_if_no_fixture!();
     let root = fixture_root();
     let config = tauri_app_lib::files::read_template(&root).expect("read_template should succeed");
     let errors = tauri_app_lib::config::validate_dimensions(&config.dimensions);
@@ -29,6 +45,7 @@ fn test_read_and_validate_config() {
 
 #[test]
 fn test_read_and_validate_monthly() {
+    skip_if_no_fixture!();
     let root = fixture_root();
     let monthly = tauri_app_lib::files::read_monthly_file(&root, 2026, 6)
         .expect("read_monthly_file should succeed");
@@ -46,6 +63,7 @@ fn test_read_and_validate_monthly() {
 
 #[test]
 fn test_config_dimensions_count() {
+    skip_if_no_fixture!();
     let root = fixture_root();
     let config = tauri_app_lib::files::read_template(&root).unwrap();
     assert_eq!(config.dimensions.len(), 4);
@@ -58,6 +76,7 @@ fn test_config_dimensions_count() {
 
 #[test]
 fn test_monthly_commitments_count() {
+    skip_if_no_fixture!();
     let root = fixture_root();
     let monthly = tauri_app_lib::files::read_monthly_file(&root, 2026, 6).unwrap();
     assert_eq!(monthly.commitments.len(), 2);
