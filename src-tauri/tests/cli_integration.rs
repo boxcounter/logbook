@@ -292,7 +292,11 @@ fn test_commitments_set_validation_error_no_write() {
     ], input);
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("MissingRole") || stderr.contains("role"));
+    assert!(
+        stderr.contains("Role name cannot be empty") || stderr.contains("Role"),
+        "unexpected error: {}",
+        stderr
+    );
 
     // Verify file was NOT written
     let monthly_path = tmp.join("2026").join("09").join("_monthly.md");
