@@ -13,8 +13,8 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div class="flex-1 flex flex-col overflow-y-auto pr-[4px]">
-    <div v-if="entries.length === 0" class="p-8 text-center text-[var(--color-text-secondary)] text-[length:var(--app-text-sm)]">
+  <div class="flex-1 flex flex-col overflow-y-auto pr-xs">
+    <div v-if="entries.length === 0" class="p-2xl text-center text-[var(--color-text-secondary)] text-secondary">
       No entries yet. Log your first work item below.
     </div>
     <EntryRow

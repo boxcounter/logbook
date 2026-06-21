@@ -53,31 +53,31 @@ function onSave(item: string, durationMinutes: number, dims: Record<string, stri
   <div
     v-else
     data-test="entry-row"
-    class="group flex justify-between items-start gap-[8px] px-[14px] py-[9px]
+    class="group flex justify-between items-start gap-sm px-md py-sm
            hover:bg-[var(--color-surface-muted)] transition-colors"
     :class="[{ 'just-added': justAdded }, index > 0 ? 'border-t border-[var(--color-divider)]' : '']"
     @dblclick="editing = true"
   >
     <div class="flex-1 min-w-0">
       <div
-        class="text-[length:var(--app-text-base)] font-medium text-[var(--color-text-primary)] leading-[1.4] break-words overflow-hidden [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical]"
+        class="text-body font-medium text-[var(--color-text-primary)] leading-[1.4] break-words overflow-hidden [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical]"
         :title="entry.item"
       >{{ entry.item }}</div>
-      <div v-if="filledDims.length" class="flex gap-[3px] mt-[3px] flex-wrap">
+      <div v-if="filledDims.length" class="flex gap-xs mt-xs flex-wrap">
         <span
           v-for="d in filledDims" :key="d.key"
-          class="text-[length:var(--app-text-micro)] font-[450] px-[6px] rounded-[var(--radius-sm)] leading-[1.7] max-w-[100px] overflow-hidden text-ellipsis whitespace-nowrap"
+          class="text-micro font-[450] px-sm rounded-[var(--radius-sm)] leading-[1.7] max-w-[100px] overflow-hidden text-ellipsis whitespace-nowrap"
           :class="chipClass(d.key)"
           :title="entry.dimensions[d.key]"
         >{{ entry.dimensions[d.key] }}</span>
       </div>
     </div>
-    <span class="mono text-[length:var(--app-text-sm)] text-[var(--color-text-primary)] flex-shrink-0 ml-[16px] pt-[1px]">
+    <span class="mono text-secondary text-[var(--color-text-primary)] flex-shrink-0 ml-lg pt-2xs">
       {{ entry.duration > 0 ? formatDuration(entry.duration) : "—" }}
     </span>
     <span
       data-test="edit-trigger"
-      class="text-[var(--color-text-secondary)] hover:text-[var(--color-brand-solid)] text-[14px] leading-none flex-shrink-0 ml-[8px] px-[2px] cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
+      class="text-[var(--color-text-secondary)] hover:text-[var(--color-brand-solid)] text-body leading-none flex-shrink-0 ml-sm px-2xs cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
       title="Edit"
       @click="editing = true"
     >⋯</span>

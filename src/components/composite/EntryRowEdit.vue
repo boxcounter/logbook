@@ -135,39 +135,39 @@ function save() {
   <div
     ref="rootEl"
     class="bg-[var(--color-surface)] border border-[var(--color-brand-solid)] rounded-[var(--radius-form-lg)]
-           shadow-[var(--shadow-focus-ring)] px-[14px] py-[9px] flex flex-col gap-[4px] relative"
+           shadow-[var(--shadow-focus-ring)] px-md py-sm flex flex-col gap-xs relative"
     @keydown.esc.stop="onEsc"
   >
-    <div class="flex gap-[8px] items-center">
+    <div class="flex gap-sm items-center">
       <input
         v-model="item"
-        class="flex-1 text-[length:var(--app-text-base)] font-medium text-[var(--color-text-primary)] border-none outline-none bg-transparent py-[1px]"
+        class="flex-1 text-body font-medium text-[var(--color-text-primary)] border-none outline-none bg-transparent py-2xs"
         @keydown.enter.prevent="onEnter"
         @input="confirming = false"
       />
       <input
         v-model="durText"
-        class="mono w-[56px] text-right text-[length:var(--app-text-sm)] text-[var(--color-text-primary)]
-               border border-[var(--color-border-form)] rounded-[var(--radius-form)] px-[8px] py-[2px]
+        class="mono w-[56px] text-right text-secondary text-[var(--color-text-primary)]
+               border border-[var(--color-border-form)] rounded-[var(--radius-form)] px-sm py-2xs
                outline-none focus:border-[var(--color-brand-solid)]"
         @keydown.enter.prevent="onEnter"
         @input="confirming = false"
       />
-      <span class="text-[length:var(--app-text-xs-alt)] text-[var(--color-text-secondary)]">min</span>
+      <span class="text-secondary text-[var(--color-text-secondary)]">min</span>
     </div>
 
-    <div class="flex gap-[3px] flex-wrap mt-[2px] items-center">
+    <div class="flex gap-xs flex-wrap mt-2xs items-center">
       <span
         v-for="d in filled()" :key="d.key"
-        class="text-[length:var(--app-text-micro)] font-medium px-[7px] py-[1px] rounded-[var(--radius-sm)] inline-flex items-center gap-[5px]"
+        class="text-micro font-medium px-sm py-2xs rounded-[var(--radius-sm)] inline-flex items-center gap-xs"
         :class="chipClass(d.key)"
       >
         {{ dimValues[d.key] }}
-        <span data-test="chip-remove" class="cursor-pointer opacity-50 hover:opacity-100 text-[length:var(--app-text-xs-alt)] leading-none" @click="removeDim(d.key)">×</span>
+        <span data-test="chip-remove" class="cursor-pointer opacity-50 hover:opacity-100 text-secondary leading-none" @click="removeDim(d.key)">×</span>
       </span>
       <span
         data-test="add-tag"
-        class="text-[length:var(--app-text-micro)] font-medium px-[7px] py-[1px] rounded-[var(--radius-sm)]
+        class="text-micro font-medium px-sm py-2xs rounded-[var(--radius-sm)]
                border border-dashed border-[var(--color-border-form)] text-[var(--color-text-secondary)]
                cursor-pointer hover:border-[var(--color-text-muted)]"
         @click="openPopover"
@@ -175,20 +175,20 @@ function save() {
       <span
         v-if="submitAttempted && missingRequired.length"
         data-test="required-hint"
-        class="text-[length:var(--app-text-micro)] text-[var(--color-warning)]"
+        class="text-micro text-[var(--color-warning)]"
       >Required: {{ missingRequired.map(d => d.name).join(", ") }}</span>
     </div>
 
-    <div class="flex gap-[8px] mt-[4px] items-center">
+    <div class="flex gap-sm mt-xs items-center">
       <template v-if="!confirming">
-        <button data-test="save" class="text-[length:var(--app-text-micro)] font-semibold px-[10px] py-[2px] rounded-[var(--radius-form)] bg-[var(--color-brand-solid)] text-white hover:bg-[var(--color-brand-link)]" @click="save">Save</button>
-        <button data-test="cancel" class="text-[length:var(--app-text-micro)] font-semibold px-[10px] py-[2px] rounded-[var(--radius-form)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]" @click="emit('cancel')">Cancel</button>
-        <button data-test="delete" class="text-[length:var(--app-text-micro)] font-semibold px-[10px] py-[2px] rounded-[var(--radius-form)] text-[var(--color-text-disabled)] hover:text-[var(--color-danger)] ml-auto" @click="emit('delete')">Delete</button>
+        <button data-test="save" class="text-micro font-semibold px-sm py-2xs rounded-[var(--radius-form)] bg-[var(--color-brand-solid)] text-white hover:bg-[var(--color-brand-link)]" @click="save">Save</button>
+        <button data-test="cancel" class="text-micro font-semibold px-sm py-2xs rounded-[var(--radius-form)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]" @click="emit('cancel')">Cancel</button>
+        <button data-test="delete" class="text-micro font-semibold px-sm py-2xs rounded-[var(--radius-form)] text-[var(--color-text-disabled)] hover:text-[var(--color-danger)] ml-auto" @click="emit('delete')">Delete</button>
       </template>
       <template v-else>
-        <span data-test="discard-prompt" class="text-[length:var(--app-text-micro)] text-[var(--color-text-secondary)]">放弃修改？</span>
-        <button data-test="discard" class="text-[length:var(--app-text-micro)] font-semibold px-[10px] py-[2px] rounded-[var(--radius-form)] text-[var(--color-danger)] hover:underline" @click="emit('cancel')">放弃</button>
-        <button data-test="keep-editing" class="text-[length:var(--app-text-micro)] font-semibold px-[10px] py-[2px] rounded-[var(--radius-form)] bg-[var(--color-brand-solid)] text-white hover:bg-[var(--color-brand-link)]" @click="confirming = false">继续编辑</button>
+        <span data-test="discard-prompt" class="text-micro text-[var(--color-text-secondary)]">放弃修改？</span>
+        <button data-test="discard" class="text-micro font-semibold px-sm py-2xs rounded-[var(--radius-form)] text-[var(--color-danger)] hover:underline" @click="emit('cancel')">放弃</button>
+        <button data-test="keep-editing" class="text-micro font-semibold px-sm py-2xs rounded-[var(--radius-form)] bg-[var(--color-brand-solid)] text-white hover:bg-[var(--color-brand-link)]" @click="confirming = false">继续编辑</button>
       </template>
     </div>
 
@@ -198,7 +198,7 @@ function save() {
       :commitments="commitments"
       :dim-values="dimValues"
       class="absolute left-0 z-10"
-      :class="popoverUp ? 'bottom-full mb-[4px]' : 'top-full mt-[4px]'"
+      :class="popoverUp ? 'bottom-full mb-xs' : 'top-full mt-xs'"
       @select="onSelect"
       @close="popoverOpen = false"
     />

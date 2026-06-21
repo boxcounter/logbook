@@ -14,9 +14,7 @@ const ALLOWLIST = new Set<string>([
   "../App.vue",
   "../components/CommitmentsPanel.vue",
   "../components/ConfigErrorBanner.vue",
-  "../components/DayHeader.vue",
   "../components/DimensionPopover.vue",
-  "../components/EntryList.vue",
   "../components/HeatmapCalendar.vue",
   "../components/MonthView.vue",
   "../components/QuickJumpPopover.vue",
@@ -25,8 +23,6 @@ const ALLOWLIST = new Set<string>([
   "../components/base/AppButton.vue",
   "../components/base/Toast.vue",
   "../components/composite/CommitmentsModal.vue",
-  "../components/composite/EntryRow.vue",
-  "../components/composite/EntryRowEdit.vue",
   "../components/composite/GoalRow.vue",
   "../components/composite/RoleCard.vue",
 ]);

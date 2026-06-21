@@ -25,19 +25,19 @@ function onNext() {
 </script>
 
 <template>
-  <div class="flex justify-between items-baseline mb-[20px] pb-[14px] border-b border-[var(--color-divider)]">
-    <div class="flex items-center gap-[8px]">
-      <div class="flex items-center gap-[2px]">
+  <div class="flex justify-between items-baseline mb-xl pb-md border-b border-[var(--color-divider)]">
+    <div class="flex items-center gap-sm">
+      <div class="flex items-center gap-2xs">
         <button
           data-test="prev-day"
-          class="leading-none text-[length:var(--app-text-base)] text-[var(--color-text-secondary)]
-                 hover:text-[var(--color-text-primary)] cursor-pointer px-[4px] py-[2px] transition-colors"
+          class="leading-none text-body text-[var(--color-text-secondary)]
+                 hover:text-[var(--color-text-primary)] cursor-pointer px-xs py-2xs transition-colors"
           title="Previous day (⌘[)"
           @click="emit('prev-day')"
         >←</button>
         <button
           data-test="next-day"
-          class="leading-none text-[length:var(--app-text-base)] px-[4px] py-[2px] transition-colors"
+          class="leading-none text-body px-xs py-2xs transition-colors"
           :class="canGoNext
             ? 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] cursor-pointer'
             : 'text-[var(--color-text-disabled)] opacity-40 cursor-default'"
@@ -46,15 +46,15 @@ function onNext() {
           @click="onNext"
         >→</button>
       </div>
-      <span class="text-[length:var(--app-text-xl)] font-bold text-[var(--color-text-primary)] tracking-[-0.3px]">{{ title }}</span>
+      <span class="text-title font-bold text-[var(--color-text-primary)] tracking-[-0.3px]">{{ title }}</span>
       <span
         v-if="isToday"
         data-test="today-badge"
-        class="ml-[6px] align-middle text-[length:var(--app-text-micro)] font-semibold
-               text-[var(--color-brand-link)] bg-[var(--color-brand-soft-bg)] px-[8px] py-[2px] rounded-[var(--radius-md)]"
+        class="ml-sm align-middle text-micro font-semibold
+               text-[var(--color-brand-link)] bg-[var(--color-brand-soft-bg)] px-sm py-2xs rounded-[var(--radius-md)]"
       >Today</span>
     </div>
-    <span class="text-[length:var(--app-text-xs)] text-[var(--color-text-secondary)]">
+    <span class="text-secondary text-[var(--color-text-secondary)]">
       <span class="mono">{{ entryCount }}</span> {{ countLabel }} · <span class="mono">{{ total }}</span>
     </span>
   </div>
