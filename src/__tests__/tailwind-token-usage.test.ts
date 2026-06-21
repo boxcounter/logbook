@@ -11,6 +11,12 @@ const allFiles = { ...vueFiles, ...appFile };
 // --- Allowlist: files not yet migrated. Remove entries in Phase 3 as each file
 // is migrated. The suite stays green; the goal is an EMPTY allowlist. ---
 const ALLOWLIST = new Set<string>([]);
+const LEADING_ALLOWLIST = new Set<string>([
+  "../components/EntryComposer.vue",
+  "../components/MonthView.vue",
+  "../components/composite/CommitmentsModal.vue",
+  "../components/composite/EntryRow.vue",
+]);
 
 const SPACE_PREFIXES =
   "p|px|py|pt|pb|pl|pr|m|mx|my|mt|mb|ml|mr|gap|gap-x|gap-y|space-x|space-y";
@@ -52,6 +58,26 @@ function spacingViolations(src: string): string[] {
   const arbOther = new RegExp(`\\b(${SPACE_PREFIXES})-\\[(?![0-9.]+px\\])[^\\]]+\\]`, "g");
   for (const m of src.matchAll(arbOther)) {
     out.push(`${m[0]} → use the named --spacing-* scale (gap-sm/p-md/…); arbitrary spacing is not allowed`);
+  }
+  return out;
+}
+
+function leadingViolations(src: string): string[] {
+  const out: string[] = [];
+  // 任意行高: leading-[1.4] / leading-[1.8] / leading-[2rem] …（leading-none 不在此列）
+  const arb = /\bleading-\[[^\]]+\]/g;
+  for (const m of src.matchAll(arb)) {
+    out.push(`${m[0]} → 行高跟随字号档；需紧排用 leading-none（破例需注释 + 显式豁免）`);
+  }
+  // Tailwind 数字档: leading-6 / leading-7
+  const num = /\bleading-\d+\b/g;
+  for (const m of src.matchAll(num)) {
+    out.push(`${m[0]} → 行高跟随字号档；需紧排用 leading-none`);
+  }
+  // 具名非 none 档: leading-tight/snug/normal/relaxed/loose
+  const named = /\bleading-(tight|snug|normal|relaxed|loose)\b/g;
+  for (const m of src.matchAll(named)) {
+    out.push(`${m[0]} → 行高跟随字号档；需紧排用 leading-none`);
   }
   return out;
 }
@@ -103,12 +129,28 @@ describe("Tailwind token usage", () => {
     expect(offenders).toEqual([]);
   });
 
+  it("uses only the sanctioned leading utility (leading-none); shrinking to empty", () => {
+    const offenders: string[] = [];
+    for (const [path, src] of Object.entries(allFiles)) {
+      if (LEADING_ALLOWLIST.has(path)) continue;
+      const v = leadingViolations(src);
+      if (v.length) offenders.push(`${path}:\n  ${v.join("\n  ")}`);
+    }
+    expect(offenders).toEqual([]);
+  });
+
   it("has no stale allowlist entries (migrated files must be removed)", () => {
     const stale: string[] = [];
     for (const path of ALLOWLIST) {
       const src = allFiles[path];
       if (src && spacingViolations(src).length === 0 && fontViolations(src).length === 0) {
         stale.push(path);
+      }
+    }
+    for (const path of LEADING_ALLOWLIST) {
+      const src = allFiles[path];
+      if (src && leadingViolations(src).length === 0) {
+        stale.push(`${path} (leading)`);
       }
     }
     expect(stale).toEqual([]);
