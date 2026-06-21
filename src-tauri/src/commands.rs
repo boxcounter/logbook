@@ -136,6 +136,103 @@ pub fn validate_required_dimensions(
     Ok(())
 }
 
+/// Classify the data root and load initial state.
+/// No AppHandle → unit/integration testable. init/set_root_path delegate here.
+pub fn load_root_state(root: &std::path::Path) -> InitResult {
+    if !root.exists() {
+        return InitResult::ConfigError {
+            category: RecoveryCategory::RootMissing,
+            root_path: root.to_string_lossy().into_owned(),
+            errors: vec![ConfigErrorDetail {
+                kind: "RootMissing".to_string(),
+                message: format!("Data folder not found: {}", root.display()),
+            }],
+            scan_warnings: vec![],
+        };
+    }
+
+    let scan_warnings = crate::scan::scan_data_dir(root);
+
+    if !files::template_path(root).exists() {
+        return InitResult::ConfigError {
+            category: RecoveryCategory::ConfigMissing,
+            root_path: root.to_string_lossy().into_owned(),
+            errors: vec![ConfigErrorDetail {
+                kind: "ConfigMissing".to_string(),
+                message: format!("template.yaml not found in {}", root.display()),
+            }],
+            scan_warnings,
+        };
+    }
+
+    let template = match files::read_template(root) {
+        Ok(c) => c,
+        Err(e) => {
+            return InitResult::ConfigError {
+                category: RecoveryCategory::InPlace,
+                root_path: root.to_string_lossy().into_owned(),
+                errors: vec![ConfigErrorDetail {
+                    kind: "ConfigReadError".to_string(),
+                    message: e,
+                }],
+                scan_warnings,
+            };
+        }
+    };
+
+    let mut all_errors = validate_dimensions(&template.dimensions);
+
+    let now = chrono::Local::now();
+    let monthly = match read_monthly_file_safe(root, now.year(), now.month()) {
+        Ok(mf) => mf,
+        Err(e) => {
+            all_errors.push(ConfigErrorDetail {
+                kind: "MonthlyFileCorrupt".to_string(),
+                message: e,
+            });
+            MonthlyFile { dimensions: vec![], commitments: vec![] }
+        }
+    };
+    all_errors.extend(validate_monthly(&monthly));
+
+    let today_date = format!("{}-{:02}-{:02}", now.year(), now.month(), now.day());
+    let today = match read_day_file_safe(root, &today_date) {
+        Ok(df) => df,
+        Err(e) => {
+            all_errors.push(ConfigErrorDetail {
+                kind: "DayFileCorrupt".to_string(),
+                message: e,
+            });
+            DayFile { note: None, entries: vec![] }
+        }
+    };
+
+    if !all_errors.is_empty() {
+        return InitResult::ConfigError {
+            category: RecoveryCategory::InPlace,
+            root_path: root.to_string_lossy().into_owned(),
+            errors: all_errors,
+            scan_warnings,
+        };
+    }
+
+    let from_template = monthly.dimensions.is_empty();
+    let dimensions = if from_template {
+        template.dimensions
+    } else {
+        monthly.dimensions.clone()
+    };
+
+    InitResult::Ready {
+        root_path: root.to_string_lossy().into_owned(),
+        dimensions,
+        from_template,
+        today,
+        commitments: monthly.commitments,
+        scan_warnings,
+    }
+}
+
 #[tauri::command]
 pub fn init(app: AppHandle) -> InitResult {
     error_log::log_command_enter("init", "");
@@ -152,98 +249,36 @@ pub fn init(app: AppHandle) -> InitResult {
         }
     };
 
-    let root = std::path::Path::new(&root_path);
-
-    let scan_warnings = crate::scan::scan_data_dir(root);
-    if !scan_warnings.is_empty() {
-        error_log::log_info("init", &format!("{} scan warnings", scan_warnings.len()));
+    let result = load_root_state(&root_path);
+    if root_path.exists() {
+        // TODO(task4): crate::config::ensure_watcher(&app, root_path.clone());
     }
-
-    let config = match files::read_template(root) {
-        Ok(c) => c,
-        Err(e) => {
-            error_log::log_error("init: read_template", &e);
-            error_log::log_command_exit("init", false, "ConfigReadError");
-            return InitResult::ConfigError {
-                errors: vec![ConfigErrorDetail {
-                    kind: "ConfigReadError".to_string(),
-                    message: e,
-                }],
-                scan_warnings,
-            };
-        }
-    };
-
-    let mut all_errors = validate_dimensions(&config.dimensions);
-
-    let now = chrono::Local::now();
-    let monthly = match read_monthly_file_safe(root, now.year(), now.month()) {
-        Ok(mf) => mf,
-        Err(e) => {
-            error_log::log_error("init: read_monthly_file", &e);
-            all_errors.push(ConfigErrorDetail {
-                kind: "MonthlyFileCorrupt".to_string(),
-                message: e,
-            });
-            MonthlyFile {
-                dimensions: vec![],
-                commitments: vec![],
+    match &result {
+        InitResult::ConfigError { errors, scan_warnings, category, .. } => {
+            for e in errors {
+                error_log::log_error("init", &format!("{}: {}", e.kind, e.message));
             }
-        }
-    };
-    all_errors.extend(validate_monthly(&monthly));
-
-    let today_date = format!("{}-{:02}-{:02}", now.year(), now.month(), now.day());
-    let today = match read_day_file_safe(root, &today_date) {
-        Ok(df) => df,
-        Err(e) => {
-            error_log::log_error("init: read_day_file", &e);
-            all_errors.push(ConfigErrorDetail {
-                kind: "DayFileCorrupt".to_string(),
-                message: e,
-            });
-            DayFile {
-                note: None,
-                entries: vec![],
+            for w in scan_warnings {
+                error_log::log_error("init: scan", &format!("{}: {}", w.path, w.message));
             }
+            error_log::log_command_exit(
+                "init",
+                false,
+                &format!("{:?}: {} errors", category, errors.len()),
+            );
         }
-    };
-
-    if !all_errors.is_empty() {
-        error_log::log_command_exit(
-            "init",
-            false,
-            &format!("{} config errors", all_errors.len()),
-        );
-        for w in &scan_warnings {
-            error_log::log_error("init: scan", &format!("{}: {}", w.path, w.message));
+        InitResult::Ready { today, .. } => {
+            error_log::log_command_exit(
+                "init",
+                true,
+                &format!("Ready, {} entries today", today.entries.len()),
+            );
         }
-        return InitResult::ConfigError {
-            errors: all_errors,
-            scan_warnings,
-        };
+        InitResult::NeedsSetup => {
+            error_log::log_command_exit("init", true, "NeedsSetup");
+        }
     }
-
-    error_log::log_command_exit(
-        "init",
-        true,
-        &format!("Ready, {} entries today", today.entries.len()),
-    );
-    let from_template = monthly.dimensions.is_empty();
-    let dimensions = if from_template {
-        config.dimensions
-    } else {
-        monthly.dimensions.clone()
-    };
-
-    InitResult::Ready {
-        root_path: root_path.to_string_lossy().into_owned(),
-        dimensions,
-        from_template,
-        today,
-        commitments: monthly.commitments,
-        scan_warnings,
-    }
+    result
 }
 
 #[tauri::command]
@@ -263,80 +298,34 @@ pub fn set_root_path(app: AppHandle, path: String) -> Result<InitResult, String>
 
     save_root_path(&app_data_dir, root_path)?;
 
-    let scan_warnings = crate::scan::scan_data_dir(root_path);
-    if !scan_warnings.is_empty() {
-        error_log::log_info("set_root_path", &format!("{} scan warnings", scan_warnings.len()));
-    }
-
-    let config = files::read_template(root_path).map_err(|e| {
-        error_log::log_error("set_root_path: read_template", &e);
-        format!("Failed to read template: {}", e)
-    })?;
-    let mut all_errors = validate_dimensions(&config.dimensions);
-
-    let now = chrono::Local::now();
-    let monthly = match read_monthly_file_safe(root_path, now.year(), now.month()) {
-        Ok(mf) => mf,
-        Err(e) => {
-            error_log::log_error("set_root_path: read_monthly_file", &e);
-            all_errors.push(ConfigErrorDetail {
-                kind: "MonthlyFileCorrupt".to_string(),
-                message: e,
-            });
-            MonthlyFile {
-                dimensions: vec![],
-                commitments: vec![],
+    let result = load_root_state(root_path);
+    // TODO(task4): crate::config::ensure_watcher(&app, root_path.to_path_buf());
+    match &result {
+        InitResult::ConfigError { errors, scan_warnings, category, .. } => {
+            for e in errors {
+                error_log::log_error("set_root_path", &format!("{}: {}", e.kind, e.message));
             }
-        }
-    };
-    all_errors.extend(validate_monthly(&monthly));
-
-    let today_date = format!("{}-{:02}-{:02}", now.year(), now.month(), now.day());
-    let today = match read_day_file_safe(root_path, &today_date) {
-        Ok(df) => df,
-        Err(e) => {
-            error_log::log_error("set_root_path: read_day_file", &e);
-            all_errors.push(ConfigErrorDetail {
-                kind: "DayFileCorrupt".to_string(),
-                message: e,
-            });
-            DayFile {
-                note: None,
-                entries: vec![],
+            for w in scan_warnings {
+                error_log::log_error("set_root_path: scan", &format!("{}: {}", w.path, w.message));
             }
+            error_log::log_command_exit(
+                "set_root_path",
+                true,
+                &format!("{:?}: {} errors", category, errors.len()),
+            );
         }
-    };
-
-    if !all_errors.is_empty() {
-        error_log::log_command_exit(
-            "set_root_path",
-            true,
-            &format!("{} config errors", all_errors.len()),
-        );
-        for w in &scan_warnings {
-            error_log::log_error("set_root_path: scan", &format!("{}: {}", w.path, w.message));
+        InitResult::Ready { today, .. } => {
+            error_log::log_command_exit(
+                "set_root_path",
+                true,
+                &format!("Ready, {} entries today", today.entries.len()),
+            );
         }
-        return Ok(InitResult::ConfigError {
-            errors: all_errors,
-            scan_warnings,
-        });
+        InitResult::NeedsSetup => {
+            error_log::log_command_exit("set_root_path", true, "NeedsSetup");
+        }
     }
-
-    error_log::log_command_exit("set_root_path", true, "Ready");
-    let from_template = monthly.dimensions.is_empty();
-    let dimensions = if from_template {
-        config.dimensions
-    } else {
-        monthly.dimensions.clone()
-    };
-    Ok(InitResult::Ready {
-        root_path: path.clone(),
-        dimensions,
-        from_template,
-        today,
-        commitments: monthly.commitments,
-        scan_warnings,
-    })
+    Ok(result)
 }
 
 #[tauri::command]

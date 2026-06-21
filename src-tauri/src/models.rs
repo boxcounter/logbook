@@ -95,11 +95,21 @@ pub struct UpdateEntryInput {
 
 // --- Init result ---
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RecoveryCategory {
+    InPlace,
+    ConfigMissing,
+    RootMissing,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "status", content = "data")]
 pub enum InitResult {
     NeedsSetup,
     ConfigError {
+        category: RecoveryCategory,
+        root_path: String,
         errors: Vec<ConfigErrorDetail>,
         scan_warnings: Vec<ScanWarning>,
     },
@@ -258,6 +268,8 @@ mod tests {
         }];
 
         let result = InitResult::ConfigError {
+            category: RecoveryCategory::ConfigMissing,
+            root_path: "/tmp/x".to_string(),
             errors,
             scan_warnings: warnings,
         };
@@ -266,6 +278,7 @@ mod tests {
             InitResult::ConfigError {
                 errors,
                 scan_warnings,
+                ..
             } => {
                 assert_eq!(errors.len(), 1);
                 assert_eq!(errors[0].kind, "MissingFile");
@@ -277,6 +290,32 @@ mod tests {
     }
 
     #[test]
+    fn recovery_category_serializes_snake_case() {
+        let json = serde_json::to_string(&RecoveryCategory::RootMissing).expect("serialize");
+        assert_eq!(json, "\"root_missing\"");
+        let back: RecoveryCategory =
+            serde_json::from_str("\"config_missing\"").expect("deserialize");
+        assert_eq!(back, RecoveryCategory::ConfigMissing);
+    }
+
+    #[test]
+    fn config_error_carries_category_and_root_path() {
+        let result = InitResult::ConfigError {
+            category: RecoveryCategory::ConfigMissing,
+            root_path: "/tmp/logbook".to_string(),
+            errors: vec![],
+            scan_warnings: vec![],
+        };
+        match result {
+            InitResult::ConfigError { category, root_path, .. } => {
+                assert_eq!(category, RecoveryCategory::ConfigMissing);
+                assert_eq!(root_path, "/tmp/logbook");
+            }
+            _ => panic!("expected ConfigError"),
+        }
+    }
+
+    #[test]
     fn init_result_config_error_empty_warnings() {
         let errors = vec![ConfigErrorDetail {
             kind: "InvalidConfig".to_string(),
@@ -284,6 +323,8 @@ mod tests {
         }];
 
         let result = InitResult::ConfigError {
+            category: RecoveryCategory::InPlace,
+            root_path: "/tmp/x".to_string(),
             errors,
             scan_warnings: vec![],
         };
@@ -292,6 +333,7 @@ mod tests {
             InitResult::ConfigError {
                 errors,
                 scan_warnings,
+                ..
             } => {
                 assert_eq!(errors.len(), 1);
                 assert!(scan_warnings.is_empty());
@@ -363,6 +405,8 @@ mod tests {
         ];
 
         let result = InitResult::ConfigError {
+            category: RecoveryCategory::InPlace,
+            root_path: "/tmp/x".to_string(),
             errors,
             scan_warnings: warnings,
         };
@@ -374,6 +418,7 @@ mod tests {
             InitResult::ConfigError {
                 errors,
                 scan_warnings,
+                ..
             } => {
                 assert_eq!(errors.len(), 1);
                 assert_eq!(errors[0].kind, "BadYaml");
