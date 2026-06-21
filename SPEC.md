@@ -30,7 +30,7 @@ get_commitments(root_path: String, year: i32, month: u32) → Result<Vec<Commitm
 set_commitments(root_path: String, year: i32, month: u32, commitments: Vec<Commitment>) → Result<Vec<Commitment>, String>
 get_commitment_progress(root_path: String, year: i32, month: u32) → Result<Vec<CommitmentProgress>, String>
 get_available_months(root_path: String) → Result<Vec<AvailableMonth>, String>  // 扫描有数据的年月，懒加载
-open_in_editor(root_path: String, date: String) → Result<(), String>  // 用系统编辑器打开文件
+reveal_day_file(root_path: String, date: String) → Result<(), String>  // 在文件管理器中打开目录并选中日文件
 create_starter_files(path: String) → Result<(), String>  // 空目录创建初始文件
 log_error(message: String)                              // 前端 error → error.log
 log_info(message: String)                               // 前端 info → info.log
