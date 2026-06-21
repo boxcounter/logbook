@@ -6,6 +6,7 @@ Logbook — 个人工作时间记录工具。Tauri 2.x + Vue 3 + TypeScript。
 **技术规格**：`SPEC.md`
 **后端约定**：`src-tauri/CLAUDE.md`（Rust 测试规范、模块结构）
 **交互原则**：`docs/interaction-principles.md`（不丢输入、消解一致性、快捷键按频率分配、尊重输入上下文——治理所有前端交互）
+**命名约定**：`docs/naming-conventions.md`（组件按职责命名、DTO 用 `*Input`、落盘格式与标识符解耦——治理命名）
 
 ## 项目级规则
 

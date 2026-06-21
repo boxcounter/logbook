@@ -112,3 +112,11 @@
 - 批 2 额外：`pnpm tauri dev` 手动冒烟（新增 + 编辑条目走通 IPC）。
 - 收尾：`/check-consistency`。
 - 不新增功能测试——本任务是纯重命名，行为不变；现有测试即回归网。
+
+## 实施调整（2026-06-21 整合进 main 时）
+
+合并时 main 已前移并合入 `worktree-entry-dim-ux`，与本设计重叠，故两处调整：
+
+- **#3 `lastDimensions` 改名作废**：main 的 `e9be865` 已「不再预填上次 dimension」并**删除** `lastDimensions`（且加了断言其不存在）。要改名的符号已不存在，本项丢弃。
+- **#5 `Screen` 的最终名改为 `AppStatus`（而非 `AppPhase`）**：评审中为避免 "phase" 与弹层两步导航的 `stage` 多义，改用业界通用的 `status`；同时把属性 `screen` 一并改为 `status`（`store.status`），使生命周期概念在类型与属性两侧一致。
+- 其余改名（EntryComposer、popover `stage`/`selectedDimKey`/`highlightedIndex`、`CreateEntryInput`/`UpdateEntryInput`）按设计重新套用到 main 的当前代码，以更新后的测试套件为准验证全绿。
