@@ -83,8 +83,6 @@
   --color-popover-dim-header-text: #6366f1;
   --color-popover-val-header-bg: #fafaf9;
   --color-popover-val-header-text: #78716c;
-  --color-popover-item-selected-bg: #fafaff;
-  --color-popover-item-active-bg: #eef2ff;
 
   /* === Animation === */
   --anim-highlight-bg: #eef2ff;
@@ -153,8 +151,6 @@
     --color-missing-dot: #475569;
     --color-popover-dim-header-bg: #1e1b3a;
     --color-popover-val-header-bg: #1e1e1a;
-    --color-popover-item-selected-bg: #1e1b3a;
-    --color-popover-item-active-bg: #2e2a52;
     --shadow-card: none;
     --shadow-quickjump: 0 12px 32px rgba(0,0,0,0.3);
     --shadow-popover: 0 16px 48px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.05);

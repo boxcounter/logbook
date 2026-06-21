@@ -95,7 +95,7 @@ describe("SetupScreen", () => {
     const { wrapper, store } = mountSetup();
     await wrapper.find("button").trigger("click");
 
-    expect(store.screen).toBe("ready");
+    expect(store.status).toBe("ready");
     expect(store.rootPath).toBe("/my/path");
     expect(store.config).toEqual(config);
   });
@@ -111,7 +111,7 @@ describe("SetupScreen", () => {
     const { wrapper, store } = mountSetup();
     await wrapper.find("button").trigger("click");
 
-    expect(store.screen).toBe("error");
+    expect(store.status).toBe("error");
     expect(store.configErrors).toEqual(errors);
   });
 
@@ -161,7 +161,7 @@ describe("SetupScreen", () => {
     await new Promise(r => setTimeout(r, 50));
 
     expect(mockInvoke).toHaveBeenCalledWith("create_starter_files", { path: "/empty/path" });
-    expect(store.screen).toBe("ready");
+    expect(store.status).toBe("ready");
     confirmSpy.mockRestore();
   });
 
@@ -173,7 +173,7 @@ describe("SetupScreen", () => {
     await wrapper.find("button").trigger("click");
 
     // No confirm dialog for generic errors
-    expect(store.screen).toBe("error");
+    expect(store.status).toBe("error");
     expect(store.configErrors[0].kind).toBe("SetupError");
   });
 });

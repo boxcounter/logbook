@@ -4,13 +4,13 @@ import { createStore } from "../stores/useStore";
 describe("createStore", () => {
   it("defaults", () => {
     const store = createStore();
-    expect(store.screen).toBe("loading");
+    expect(store.status).toBe("loading");
     expect(store.rootPath).toBe("");
     expect(store.config).toBeNull();
     expect(store.today).toBeNull();
     expect(store.commitments).toEqual([]);
     expect(store.commitmentProgress).toEqual([]);
-    expect(store.lastDimensions).toEqual({});
+    expect("lastDimensions" in store).toBe(false);
     expect(store.monthEntries).toEqual({});
     expect(store.availableMonths).toBeNull();
   });

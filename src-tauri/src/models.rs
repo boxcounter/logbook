@@ -74,7 +74,7 @@ pub struct Entry {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NewEntry {
+pub struct CreateEntryInput {
     pub item: String,
     pub duration: String, // pre-parsed total by frontend, e.g. "60"
     #[serde(default)]
@@ -82,7 +82,7 @@ pub struct NewEntry {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UpdateEntry {
+pub struct UpdateEntryInput {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub item: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

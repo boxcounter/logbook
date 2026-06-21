@@ -22,8 +22,8 @@
 init(app: AppHandle) → InitResult
 set_root_path(app: AppHandle, path: String) → Result<InitResult, String>
 get_entries(root_path: String, date: String) → Result<DayFile, String>
-append_entry(root_path: String, date: String, entry: NewEntry) → Result<Entry, String>
-update_entry(root_path: String, date: String, entry_id: String, update: UpdateEntry) → Result<DayFile, String>
+append_entry(root_path: String, date: String, entry: CreateEntryInput) → Result<Entry, String>
+update_entry(root_path: String, date: String, entry_id: String, update: UpdateEntryInput) → Result<DayFile, String>
 delete_entry(root_path: String, date: String, entry_id: String) → Result<DayFile, String>
 set_day_note(root_path: String, date: String, note: String) → Result<DayFile, String>
 get_commitments(root_path: String, year: i32, month: u32) → Result<Vec<Commitment>, String>
@@ -71,12 +71,12 @@ struct Entry {
     duration: u32,              // minutes
     dimensions: HashMap<String, String>,
 }
-struct NewEntry {
+struct CreateEntryInput {
     item: String,
     duration: String,           // 前端已扫描求和、去重片段、合并为总分钟数字符串（如 "60"）；Rust parse_duration 做最终转换
     dimensions: HashMap<String, String>,
 }
-struct UpdateEntry {
+struct UpdateEntryInput {
     item: Option<String>,
     duration: Option<String>,
     dimensions: Option<HashMap<String, String>>,
@@ -200,7 +200,7 @@ App.vue
 
 - Goal 维度：值列表不从 config 取，从 Rust 端 `get_commitments` 返回的 goals 并集构建
 - CommitmentsPanel：Today 页和 Stats 页复用同一组件。Today 页始终可见（录入框上方）
-- DimensionPopover 键盘导航：`CTRL+N`/`CTRL+P` 或 `↑`/`↓` 移动高亮（循环），默认高亮第一个还没填 value 的维度（从 val 阶段返回时高亮下一个未填项）。popover 开启时 `Enter` 改为「选中当前高亮项」（dim 阶段进入值菜单 / val 阶段填值），不再提交 entry / 保存编辑；按 `Esc` 关闭 popover 后 `Enter` 恢复提交。`TwoLineInput` 与 `EntryRowEdit` 复用同一 popover，行为一致。
+- DimensionPopover 键盘导航：`CTRL+N`/`CTRL+P` 或 `↑`/`↓` 移动高亮（循环），默认高亮第一个还没填 value 的维度（从 val 阶段返回时高亮下一个未填项）。popover 开启时 `Enter` 改为「选中当前高亮项」（dim 阶段进入值菜单 / val 阶段填值），不再提交 entry / 保存编辑；按 `Esc` 关闭 popover 后 `Enter` 恢复提交。`EntryComposer` 与 `EntryRowEdit` 复用同一 popover，行为一致。
 
 ## 数据流
 

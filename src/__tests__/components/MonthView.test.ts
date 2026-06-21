@@ -19,14 +19,13 @@ function todayDateStr(): string {
 function makeStore() {
   const today = todayDateStr();
   return reactive({
-    screen: "ready",
+    status: "ready",
     rootPath: "/root",
     config: makeConfig(),
     configErrors: [],
     commitments: [makeCommitment({ goals: ["Bug fixes"] })],
     commitmentProgress: [],
     today: { note: null, entries: [makeEntry({ item: "Existing", duration: 60 })] },
-    lastDimensions: {},
     currentDate: today,
     monthEntries: { [today]: [makeEntry({ item: "Existing", duration: 60 })] },
     availableMonths: null,
@@ -51,23 +50,23 @@ beforeEach(() => {
 });
 
 describe("MonthView", () => {
-  it("renders the three zones: HeatmapCalendar, DayHeader, EntryList, TwoLineInput", () => {
+  it("renders the three zones: HeatmapCalendar, DayHeader, EntryList, EntryComposer", () => {
     const wrapper = mountView();
     expect(wrapper.findComponent({ name: "HeatmapCalendar" }).exists()).toBe(true);
     expect(wrapper.findComponent({ name: "DayHeader" }).exists()).toBe(true);
     expect(wrapper.findComponent({ name: "EntryList" }).exists()).toBe(true);
-    expect(wrapper.findComponent({ name: "TwoLineInput" }).exists()).toBe(true);
+    expect(wrapper.findComponent({ name: "EntryComposer" }).exists()).toBe(true);
     expect(wrapper.findComponent({ name: "CommitmentsPanel" }).exists()).toBe(true);
   });
 
-  it("calls append_entry when TwoLineInput emits submit", async () => {
+  it("calls append_entry when EntryComposer emits submit", async () => {
     invokeMock.mockImplementation(async (cmd: string) => {
       if (cmd === "append_entry") return makeEntry({ item: "New task", duration: 30 });
       if (cmd === "get_commitment_progress") return [];
       return { note: null, entries: [] };
     });
     const wrapper = mountView();
-    wrapper.findComponent({ name: "TwoLineInput" }).vm.$emit("submit", "New task", 30, { category: "Coding" });
+    wrapper.findComponent({ name: "EntryComposer" }).vm.$emit("submit", "New task", 30, { category: "Coding" });
     await wrapper.vm.$nextTick();
     expect(invokeMock).toHaveBeenCalledWith(
       "append_entry",
@@ -75,11 +74,11 @@ describe("MonthView", () => {
     );
   });
 
-  it("only renders TwoLineInput when the selected day is today", () => {
+  it("only renders EntryComposer when the selected day is today", () => {
     const store = makeStore();
     store.currentDate = "2026-06-10"; // not today (past date in-month)
     const wrapper = mountView(store);
-    expect(wrapper.findComponent({ name: "TwoLineInput" }).exists()).toBe(false);
+    expect(wrapper.findComponent({ name: "EntryComposer" }).exists()).toBe(false);
   });
 
   it("renders the day note above the entry list", () => {

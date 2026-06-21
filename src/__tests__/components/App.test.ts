@@ -89,7 +89,7 @@ describe("App", () => {
     await vi.runAllTimersAsync();
     await nextTick();
 
-    expect(store.screen).toBe("setup");
+    expect(store.status).toBe("setup");
     expect(wrapper.findComponent({ name: "SetupScreen" }).exists()).toBe(true);
   });
 
@@ -105,7 +105,7 @@ describe("App", () => {
     await vi.runAllTimersAsync();
     await nextTick();
 
-    expect(store.screen).toBe("error");
+    expect(store.status).toBe("error");
     expect(wrapper.findComponent({ name: "ConfigErrorBanner" }).exists()).toBe(true);
     expect(wrapper.text()).toContain("Retry");
   });
@@ -121,7 +121,7 @@ describe("App", () => {
     await vi.runAllTimersAsync();
     await nextTick();
 
-    expect(store.screen).toBe("ready");
+    expect(store.status).toBe("ready");
     expect(store.rootPath).toBe("/test");
     expect(store.config).toEqual(config);
     expect(wrapper.findComponent({ name: "MonthView" }).exists()).toBe(true);
@@ -133,7 +133,7 @@ describe("App", () => {
     await vi.runAllTimersAsync();
     await nextTick();
 
-    expect(store.screen).toBe("error");
+    expect(store.status).toBe("error");
     expect(store.configErrors[0].kind).toBe("InitError");
   });
 
@@ -214,7 +214,7 @@ describe("App", () => {
       configChangedCallback({ payload: errors });
     }
 
-    expect(store.screen).toBe("error");
+    expect(store.status).toBe("error");
     expect(store.configErrors).toEqual([{ kind: "MissingName", message: "Bad config" }]);
   });
 
@@ -271,7 +271,7 @@ describe("App", () => {
     await nextTick();
 
     expect(store.currentDate).toBe(ymd(new Date(2026, 5, 20)));
-    store.screen = "ready";
+    store.status = "ready";
     vi.setSystemTime(new Date(2026, 5, 21, 0, 1, 0)); // crossed midnight
     focusChangedCallback?.({ payload: true });
     await vi.runAllTimersAsync();
@@ -291,7 +291,7 @@ describe("App", () => {
     await nextTick();
 
     store.currentDate = "2026-06-12"; // viewing a different day
-    store.screen = "ready";
+    store.status = "ready";
     vi.clearAllMocks();
     vi.setSystemTime(new Date(2026, 5, 21, 0, 1, 0));
     focusChangedCallback?.({ payload: true });

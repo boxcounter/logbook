@@ -2,7 +2,7 @@
 use std::collections::HashMap;
 use std::fs;
 
-use tauri_app_lib::models::{Commitment, NewEntry};
+use tauri_app_lib::models::{Commitment, CreateEntryInput};
 
 fn setup(suffix: &str) -> std::path::PathBuf {
     let root = std::env::temp_dir().join(format!("logbook_int_sc_{}", suffix));
@@ -128,7 +128,7 @@ fn test_set_commitments_goal_rename_syncs_entries() {
     tauri_app_lib::files::append_new_entry(
         &root,
         "2026-06-01",
-        &NewEntry {
+        &CreateEntryInput {
             item: "Coding".into(),
             duration: "60".into(),
             dimensions: dims.clone(),
@@ -139,7 +139,7 @@ fn test_set_commitments_goal_rename_syncs_entries() {
     tauri_app_lib::files::append_new_entry(
         &root,
         "2026-06-02",
-        &NewEntry {
+        &CreateEntryInput {
             item: "More coding".into(),
             duration: "30".into(),
             dimensions: dims,
@@ -179,7 +179,7 @@ fn test_set_commitments_delete_goal_rejected_when_entries_exist() {
     tauri_app_lib::files::append_new_entry(
         &root,
         "2026-06-01",
-        &NewEntry {
+        &CreateEntryInput {
             item: "Reviewing".into(),
             duration: "30".into(),
             dimensions: dims,

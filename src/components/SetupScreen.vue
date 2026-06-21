@@ -27,11 +27,11 @@ async function trySetRootPath(path: string) {
       store.config = result.data.config;
       store.today = result.data.today;
       store.commitments = result.data.commitments;
-      store.screen = "ready";
+      store.status = "ready";
     } else if (result.status === "ConfigError") {
       store.rootPath = path;
       store.configErrors = result.data.errors;
-      store.screen = "error";
+      store.status = "error";
     }
   } catch (e) {
     const msg = String(e);
@@ -44,13 +44,13 @@ async function trySetRootPath(path: string) {
         } catch (e2) {
           logError("SetupScreen.selectFolder", e2);
           store.configErrors = [{ kind: "SetupError", message: `Failed: ${e2}` }];
-          store.screen = "error";
+          store.status = "error";
         }
       }
     } else {
       logError("SetupScreen.selectFolder", e);
       store.configErrors = [{ kind: "SetupError", message: `Failed: ${e}` }];
-      store.screen = "error";
+      store.status = "error";
     }
   }
 }

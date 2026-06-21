@@ -2,7 +2,7 @@
 use std::collections::HashMap;
 use std::fs;
 
-use tauri_app_lib::models::{NewEntry, UpdateEntry};
+use tauri_app_lib::models::{CreateEntryInput, UpdateEntryInput};
 
 fn test_root(suffix: &str) -> std::path::PathBuf {
     std::env::temp_dir().join(format!("logbook_integration_test_{}", suffix))
@@ -43,7 +43,7 @@ fn test_append_read_update_delete_roundtrip() {
     let mut dims = HashMap::new();
     dims.insert("goal".to_string(), "Ship it".to_string());
 
-    let new_entry = NewEntry {
+    let new_entry = CreateEntryInput {
         item: "Integration test entry".to_string(),
         duration: "45".to_string(),
         dimensions: dims,
@@ -63,7 +63,7 @@ fn test_append_read_update_delete_roundtrip() {
     assert_eq!(day_file.entries[0].id, entry.id);
 
     // Update entry
-    let update = UpdateEntry {
+    let update = UpdateEntryInput {
         item: Some("Updated entry".to_string()),
         duration: Some("90".to_string()),
         dimensions: None,
@@ -117,7 +117,7 @@ fn test_read_nonexistent_date_returns_empty() {
 
 #[test]
 fn test_parse_duration_via_append() {
-    // Test that NewEntry with various duration formats roundtrips correctly
+    // Test that CreateEntryInput with various duration formats roundtrips correctly
     let suffix = "parse_dur";
     setup(suffix);
     let root = test_root(suffix);
@@ -132,7 +132,7 @@ fn test_parse_duration_via_append() {
     ];
 
     for (input, expected) in &cases {
-        let new_entry = NewEntry {
+        let new_entry = CreateEntryInput {
             item: format!("Test {}", input),
             duration: input.to_string(),
             dimensions: HashMap::new(),
@@ -167,7 +167,7 @@ fn test_append_entry_rejects_missing_required_dimension() {
     .unwrap();
 
     let date = "2026-06-12";
-    let new_entry = NewEntry {
+    let new_entry = CreateEntryInput {
         item: "Missing required dim".to_string(),
         duration: "30".to_string(),
         dimensions: HashMap::new(), // biz is required but missing
@@ -204,7 +204,7 @@ fn test_append_entry_accepts_when_required_dimensions_present() {
     let mut dims = HashMap::new();
     dims.insert("biz".to_string(), "A".to_string());
 
-    let new_entry = NewEntry {
+    let new_entry = CreateEntryInput {
         item: "Has required dim".to_string(),
         duration: "30".to_string(),
         dimensions: dims,
@@ -243,7 +243,7 @@ fn test_update_entry_rejects_clearing_required_dimension() {
     let entry = tauri_app_lib::files::append_new_entry(
         &root,
         date,
-        &NewEntry {
+        &CreateEntryInput {
             item: "Original".into(),
             duration: "30".into(),
             dimensions: dims,
@@ -252,7 +252,7 @@ fn test_update_entry_rejects_clearing_required_dimension() {
     .unwrap();
 
     // Try to update with empty dimensions (clearing required dim)
-    let update = UpdateEntry {
+    let update = UpdateEntryInput {
         item: None,
         duration: None,
         dimensions: Some(HashMap::new()), // clears biz

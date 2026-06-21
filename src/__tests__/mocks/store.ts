@@ -6,7 +6,7 @@ import { createStore, type AppStore } from "../../stores/useStore";
 //
 // Usage:
 //   import { createTestStore } from "../mocks/store";
-//   const store = createTestStore({ screen: "ready", config: makeConfig() });
+//   const store = createTestStore({ status: "ready", config: makeConfig() });
 //
 //   // Mount component with store provided:
 //   mount(Component, {

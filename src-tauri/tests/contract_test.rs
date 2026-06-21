@@ -215,7 +215,7 @@ fn dispatch_command(
         "append_entry" => {
             let date = input["date"].as_str().unwrap().to_string();
             let entry_input = &input["entry"];
-            let new_entry = tauri_app_lib::models::NewEntry {
+            let new_entry = tauri_app_lib::models::CreateEntryInput {
                 item: entry_input["item"].as_str().unwrap().to_string(),
                 duration: entry_input["duration"].as_str().unwrap().to_string(),
                 dimensions: entry_input["dimensions"]
@@ -235,7 +235,7 @@ fn dispatch_command(
             let date = input["date"].as_str().unwrap().to_string();
             let entry_id = input["entry_id"].as_str().unwrap().to_string();
             let update_input = &input["update"];
-            let update = tauri_app_lib::models::UpdateEntry {
+            let update = tauri_app_lib::models::UpdateEntryInput {
                 item: update_input.get("item").and_then(|v| v.as_str()).map(String::from),
                 duration: update_input.get("duration").and_then(|v| v.as_str()).map(String::from),
                 dimensions: update_input.get("dimensions").map(|d| {

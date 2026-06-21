@@ -14,9 +14,9 @@ const emit = defineEmits<{
   close: [];
 }>();
 
-const phase = ref<"dim" | "val">("dim");
-const activeDimKey = ref<string | null>(null);
-const activeIndex = ref(0);
+const stage = ref<"dim" | "val">("dim");
+const selectedDimKey = ref<string | null>(null);
+const highlightedIndex = ref(0);
 
 // First dimension still missing a value. `justFilled` lets callers treat a
 // key as filled before props.dimValues reflects the just-emitted select.
@@ -28,13 +28,13 @@ function firstUnfilledIndex(justFilled?: string): number {
 }
 
 function listLength(): number {
-  return phase.value === "dim" ? props.dimensions.length : activeValues.value.length;
+  return stage.value === "dim" ? props.dimensions.length : activeValues.value.length;
 }
 
 function move(delta: number) {
   const n = listLength();
   if (!n) return;
-  activeIndex.value = (activeIndex.value + delta + n) % n;
+  highlightedIndex.value = (highlightedIndex.value + delta + n) % n;
 }
 
 const goalOptions = computed(() => {
@@ -43,7 +43,7 @@ const goalOptions = computed(() => {
   return [...goals];
 });
 
-const activeDim = computed(() => props.dimensions.find(d => d.key === activeDimKey.value) || null);
+const activeDim = computed(() => props.dimensions.find(d => d.key === selectedDimKey.value) || null);
 
 const activeValues = computed(() => {
   const d = activeDim.value;
@@ -63,20 +63,20 @@ function barClass(key: string): string {
 }
 
 function defaultValIndex(): number {
-  const cur = activeDimKey.value ? props.dimValues[activeDimKey.value] : undefined;
+  const cur = selectedDimKey.value ? props.dimValues[selectedDimKey.value] : undefined;
   const i = cur ? activeValues.value.indexOf(cur) : -1;
   return i >= 0 ? i : 0;
 }
 
 function selectDim(key: string) {
-  activeDimKey.value = key;
-  phase.value = "val";
-  activeIndex.value = defaultValIndex();
+  selectedDimKey.value = key;
+  stage.value = "val";
+  highlightedIndex.value = defaultValIndex();
 }
 
 function selectVal(value: string) {
-  if (!activeDimKey.value) return;
-  const justFilledKey = activeDimKey.value;
+  if (!selectedDimKey.value) return;
+  const justFilledKey = selectedDimKey.value;
   emit("select", justFilledKey, value);
   const allFilled = props.dimensions
     .filter(d => d.required)
@@ -84,16 +84,16 @@ function selectVal(value: string) {
   if (allFilled) {
     emit("close");
   } else {
-    phase.value = "dim";
-    activeDimKey.value = null;
-    activeIndex.value = firstUnfilledIndex(justFilledKey);
+    stage.value = "dim";
+    selectedDimKey.value = null;
+    highlightedIndex.value = firstUnfilledIndex(justFilledKey);
   }
 }
 
 function goBack() {
-  phase.value = "dim";
-  activeDimKey.value = null;
-  activeIndex.value = firstUnfilledIndex();
+  stage.value = "dim";
+  selectedDimKey.value = null;
+  highlightedIndex.value = firstUnfilledIndex();
 }
 
 // Window-level capture-phase handler (spec §5.1/§5.2 + keyboard nav design):
@@ -105,7 +105,7 @@ function onWindowKeydown(e: KeyboardEvent) {
   if (e.key === "Escape") {
     e.preventDefault();
     e.stopPropagation();
-    if (phase.value === "val") goBack();
+    if (stage.value === "val") goBack();
     else emit("close");
     return;
   }
@@ -116,18 +116,18 @@ function onWindowKeydown(e: KeyboardEvent) {
   if (e.key === "Enter") {
     e.preventDefault();
     e.stopPropagation();
-    if (phase.value === "dim") {
-      const d = props.dimensions[activeIndex.value];
+    if (stage.value === "dim") {
+      const d = props.dimensions[highlightedIndex.value];
       if (d) selectDim(d.key);
     } else {
-      const v = activeValues.value[activeIndex.value];
+      const v = activeValues.value[highlightedIndex.value];
       if (v !== undefined) selectVal(v);
     }
     return;
   }
 }
 onMounted(() => {
-  activeIndex.value = firstUnfilledIndex();
+  highlightedIndex.value = firstUnfilledIndex();
   window.addEventListener("keydown", onWindowKeydown, true);
 });
 onUnmounted(() => window.removeEventListener("keydown", onWindowKeydown, true));
@@ -138,8 +138,8 @@ onUnmounted(() => window.removeEventListener("keydown", onWindowKeydown, true));
     class="w-[240px] bg-[var(--color-surface)] border border-[var(--color-border-form)]
            rounded-[var(--radius-card)] shadow-[var(--shadow-popover)] overflow-hidden"
   >
-    <!-- Dim phase -->
-    <template v-if="phase === 'dim'">
+    <!-- Dim stage -->
+    <template v-if="stage === 'dim'">
       <div
         class="px-md py-sm text-micro font-bold uppercase tracking-wider
                text-[var(--color-popover-dim-header-text)] bg-[var(--color-popover-dim-header-bg)]
@@ -151,24 +151,35 @@ onUnmounted(() => window.removeEventListener("keydown", onWindowKeydown, true));
       <div
         v-for="(d, i) in dimensions" :key="d.key"
         data-test="dim-item"
-        :data-active="i === activeIndex"
+        :data-active="i === highlightedIndex"
         class="px-md py-sm text-secondary
                flex items-center gap-sm cursor-pointer border-b border-[var(--color-surface-muted)]
                last:border-b-0"
-        :class="[
-          i === activeIndex
-            ? 'bg-[var(--color-popover-item-active-bg)]'
-            : (dimValues[d.key] ? 'bg-[var(--color-popover-item-selected-bg)]' : ''),
-          dimValues[d.key] ? 'text-[var(--color-brand-solid)] font-semibold' : 'text-[var(--color-text-primary)]',
-        ]"
-        @mouseenter="activeIndex = i"
+        :class="
+          i === highlightedIndex
+            ? 'bg-[var(--color-brand-solid)] text-white'
+            : (dimValues[d.key]
+                ? 'text-[var(--color-brand-solid)] font-semibold'
+                : 'text-[var(--color-text-primary)]')
+        "
+        @mouseenter="highlightedIndex = i"
         @click="selectDim(d.key)"
       >
         <span class="w-[3px] h-[18px] rounded-[var(--radius-sm)] flex-shrink-0" :class="barClass(d.key)"></span>
         {{ d.name }}
         <span
+          v-if="dimValues[d.key]"
+          class="ml-auto flex items-center gap-xs text-micro max-w-[110px]"
+        >
+          <span class="truncate">{{ dimValues[d.key] }}</span>
+          <span class="flex-shrink-0">✓</span>
+        </span>
+        <span
+          v-else
           class="ml-auto text-micro"
-          :class="d.required ? 'text-[var(--color-warning)] font-medium' : 'text-[var(--color-text-disabled)]'"
+          :class="i === highlightedIndex
+            ? 'text-white'
+            : (d.required ? 'text-[var(--color-warning)] font-medium' : 'text-[var(--color-text-disabled)]')"
         >{{ d.required ? "required" : "optional" }}</span>
       </div>
       <div
@@ -181,7 +192,7 @@ onUnmounted(() => window.removeEventListener("keydown", onWindowKeydown, true));
       </div>
     </template>
 
-    <!-- Val phase -->
+    <!-- Val stage -->
     <template v-else>
       <div
         class="px-md py-sm text-micro font-bold uppercase tracking-wider
@@ -194,18 +205,22 @@ onUnmounted(() => window.removeEventListener("keydown", onWindowKeydown, true));
       <div
         v-for="(v, i) in activeValues" :key="v"
         data-test="val-item"
-        :data-active="i === activeIndex"
+        :data-active="i === highlightedIndex"
         class="px-md py-sm text-secondary
-               cursor-pointer border-b border-[var(--color-surface-muted)] last:border-b-0"
-        :class="[
-          i === activeIndex
-            ? 'bg-[var(--color-popover-item-active-bg)]'
-            : (activeDimKey && dimValues[activeDimKey] === v ? 'bg-[var(--color-popover-item-selected-bg)]' : ''),
-          activeDimKey && dimValues[activeDimKey] === v ? 'text-[var(--color-brand-solid)] font-semibold' : 'text-[var(--color-text-primary)]',
-        ]"
-        @mouseenter="activeIndex = i"
+               flex items-center cursor-pointer border-b border-[var(--color-surface-muted)] last:border-b-0"
+        :class="
+          i === highlightedIndex
+            ? 'bg-[var(--color-brand-solid)] text-white'
+            : (selectedDimKey && dimValues[selectedDimKey] === v
+                ? 'text-[var(--color-brand-solid)] font-semibold'
+                : 'text-[var(--color-text-primary)]')
+        "
+        @mouseenter="highlightedIndex = i"
         @click="selectVal(v)"
-      >{{ v }}</div>
+      >
+        <span class="truncate min-w-0">{{ v }}</span>
+        <span v-if="selectedDimKey && dimValues[selectedDimKey] === v" class="ml-auto flex-shrink-0">✓</span>
+      </div>
       <div
         class="px-md py-sm text-micro text-[var(--color-text-disabled)]
                border-t border-[var(--color-divider)] flex gap-md"

@@ -2,7 +2,7 @@
 use std::collections::HashMap;
 use std::fs;
 
-use tauri_app_lib::models::NewEntry;
+use tauri_app_lib::models::CreateEntryInput;
 
 fn setup(suffix: &str) -> std::path::PathBuf {
     let root = std::env::temp_dir().join(format!("logbook_int_cp_{}", suffix));
@@ -70,7 +70,7 @@ fn test_progress_aggregates_across_multiple_days() {
     tauri_app_lib::files::append_new_entry(
         &root,
         "2026-06-01",
-        &NewEntry {
+        &CreateEntryInput {
             item: "Day 1 feature".into(),
             duration: "60".into(),
             dimensions: dims_a.clone(),
@@ -81,7 +81,7 @@ fn test_progress_aggregates_across_multiple_days() {
     tauri_app_lib::files::append_new_entry(
         &root,
         "2026-06-01",
-        &NewEntry {
+        &CreateEntryInput {
             item: "Day 1 strategy".into(),
             duration: "30".into(),
             dimensions: dims_s.clone(),
@@ -92,7 +92,7 @@ fn test_progress_aggregates_across_multiple_days() {
     tauri_app_lib::files::append_new_entry(
         &root,
         "2026-06-05",
-        &NewEntry {
+        &CreateEntryInput {
             item: "Day 5 bugs".into(),
             duration: "45".into(),
             dimensions: dims_b.clone(),

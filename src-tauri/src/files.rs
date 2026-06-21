@@ -86,11 +86,11 @@ pub fn append_to_day_file(root: &Path, date: &str, entry: &Entry) -> Result<Entr
     })
 }
 
-/// Append entry from NewEntry (for integration tests and internal use).
+/// Append entry from CreateEntryInput (for integration tests and internal use).
 pub fn append_new_entry(
     root: &Path,
     date: &str,
-    new_entry: &crate::models::NewEntry,
+    new_entry: &crate::models::CreateEntryInput,
 ) -> Result<Entry, String> {
     let duration = crate::commands::parse_duration(&new_entry.duration)?;
     let config = read_config(root)?;
@@ -109,7 +109,7 @@ pub fn update_entry_in_file(
     root: &Path,
     date: &str,
     entry_id: &str,
-    update: &crate::models::UpdateEntry,
+    update: &crate::models::UpdateEntryInput,
 ) -> Result<DayFile, String> {
     let path = day_path(root, date)?;
     with_file_lock(&path, || {
@@ -370,7 +370,7 @@ mod tests {
         append_to_day_file(&tmp, "2026-06-12", &e1).unwrap();
         append_to_day_file(&tmp, "2026-06-12", &e2).unwrap();
 
-        let update = crate::models::UpdateEntry {
+        let update = crate::models::UpdateEntryInput {
             item: Some("B-modified".into()),
             duration: None,
             dimensions: None,

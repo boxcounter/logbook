@@ -19,7 +19,7 @@ function mountPop(dimValues: Record<string, string> = {}) {
 }
 
 describe("DimensionPopover", () => {
-  it("lists all dimensions with required/optional meta in dim phase", () => {
+  it("lists all dimensions with required/optional meta in dim stage", () => {
     const wrapper = mountPop();
     expect(wrapper.text()).toContain("Category");
     expect(wrapper.text()).toContain("Goal");
@@ -56,23 +56,23 @@ describe("DimensionPopover", () => {
     expect(wrapper.emitted("close")).toBeTruthy();
   });
 
-  it("back button returns from val phase to dim phase", async () => {
+  it("back button returns from val stage to dim stage", async () => {
     const wrapper = mountPop();
     await wrapper.findAll("[data-test='dim-item']")[0].trigger("click");
     await wrapper.find("[data-test='back-btn']").trigger("click");
     expect(wrapper.findAll("[data-test='dim-item']").length).toBe(3);
   });
 
-  it("Esc in dim phase emits close", async () => {
+  it("Esc in dim stage emits close", async () => {
     const wrapper = mountPop();
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
     await wrapper.vm.$nextTick();
     expect(wrapper.emitted("close")).toBeTruthy();
   });
 
-  it("Esc in val phase returns to dim phase without closing", async () => {
+  it("Esc in val stage returns to dim stage without closing", async () => {
     const wrapper = mountPop();
-    await wrapper.findAll("[data-test='dim-item']")[0].trigger("click"); // → val phase
+    await wrapper.findAll("[data-test='dim-item']")[0].trigger("click"); // → val stage
     expect(wrapper.find("[data-test='back-btn']").exists()).toBe(true);
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
     await wrapper.vm.$nextTick();
@@ -149,29 +149,29 @@ describe("DimensionPopover", () => {
     );
   }
 
-  it("Enter in dim phase enters the highlighted dimension's value menu", async () => {
+  it("Enter in dim stage enters the highlighted dimension's value menu", async () => {
     const wrapper = mountPop(); // highlight on Category (index 0)
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
     await wrapper.vm.$nextTick();
-    expect(wrapper.find("[data-test='back-btn']").exists()).toBe(true); // val phase
+    expect(wrapper.find("[data-test='back-btn']").exists()).toBe(true); // val stage
     expect(wrapper.text()).toContain("Engineering");
   });
 
-  it("val phase highlights the already-selected value", async () => {
+  it("val stage highlights the already-selected value", async () => {
     const wrapper = mountPop({ category: "PM" }); // values: Engineering, PM
-    await wrapper.findAll("[data-test='dim-item']")[0].trigger("click"); // → category val phase
+    await wrapper.findAll("[data-test='dim-item']")[0].trigger("click"); // → category val stage
     await wrapper.vm.$nextTick();
     expect(activeValIndex(wrapper)).toBe(1); // "PM"
   });
 
-  it("val phase highlights index 0 when no value selected yet", async () => {
+  it("val stage highlights index 0 when no value selected yet", async () => {
     const wrapper = mountPop();
     await wrapper.findAll("[data-test='dim-item']")[0].trigger("click");
     await wrapper.vm.$nextTick();
     expect(activeValIndex(wrapper)).toBe(0);
   });
 
-  it("Enter in val phase emits select for the highlighted value and prevents default", async () => {
+  it("Enter in val stage emits select for the highlighted value and prevents default", async () => {
     const wrapper = mountPop({ category: "PM" }); // not all required filled (goal missing)
     await wrapper.findAll("[data-test='dim-item']")[0].trigger("click"); // category val, active = PM(1)
     const ev = new KeyboardEvent("keydown", { key: "Enter", cancelable: true });
@@ -181,7 +181,7 @@ describe("DimensionPopover", () => {
     expect(ev.defaultPrevented).toBe(true);
   });
 
-  it("returning to dim phase after a select highlights the next unfilled dimension", async () => {
+  it("returning to dim stage after a select highlights the next unfilled dimension", async () => {
     // category preset; pick a category value → returns to dim (goal still missing)
     const wrapper = mountPop({ category: "PM" });
     await wrapper.findAll("[data-test='dim-item']")[0].trigger("click"); // category val
@@ -193,7 +193,7 @@ describe("DimensionPopover", () => {
 
   it("Esc back from val to dim re-highlights the first unfilled dimension", async () => {
     const wrapper = mountPop({ category: "Engineering" });
-    await wrapper.findAll("[data-test='dim-item']")[1].trigger("click"); // Goal val phase
+    await wrapper.findAll("[data-test='dim-item']")[1].trigger("click"); // Goal val stage
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
     await wrapper.vm.$nextTick();
     expect(activeDimIndex(wrapper)).toBe(1); // Goal still unfilled
@@ -206,43 +206,46 @@ describe("DimensionPopover", () => {
 
   // ---- highlight style (fill, not ring) ----
 
-  it("highlights the active item with the active background, not a ring", () => {
+  it("highlights the active item with a solid brand fill and white text", () => {
     const wrapper = mountPop(); // active = index 0 (Category)
     const item = wrapper.findAll("[data-test='dim-item']")[0];
-    expect(item.classes()).toContain("bg-[var(--color-popover-item-active-bg)]");
+    expect(item.classes()).toContain("bg-[var(--color-brand-solid)]");
+    expect(item.classes()).toContain("text-white");
     expect(item.classes()).not.toContain("ring-1");
-    expect(item.classes()).not.toContain("hover:bg-[var(--color-divider)]");
   });
 
-  it("shows the selected background on a filled, non-active dimension", async () => {
+  it("a filled, non-active dimension uses brand text + ✓ with no background fill", async () => {
     // category filled → default active is Goal (index 1); Category (0) is filled & not active
     const wrapper = mountPop({ category: "Engineering" });
-    await wrapper.vm.$nextTick(); // let onMounted set activeIndex to firstUnfilled (Goal=1)
+    await wrapper.vm.$nextTick();
     const cat = wrapper.findAll("[data-test='dim-item']")[0];
-    expect(cat.classes()).toContain("bg-[var(--color-popover-item-selected-bg)]");
-    expect(cat.classes()).not.toContain("bg-[var(--color-popover-item-active-bg)]");
     expect(cat.classes()).toContain("text-[var(--color-brand-solid)]");
+    expect(cat.classes()).toContain("font-semibold");
+    expect(cat.classes()).not.toContain("bg-[var(--color-brand-solid)]");
+    expect(cat.text()).toContain("Engineering"); // value shown on the right
+    expect(cat.text()).toContain("✓");
   });
 
-  it("stacks active background and brand text when the cursor is on a filled item", async () => {
+  it("cursor on a filled item shows the solid fill and white text (cursor wins over selected)", async () => {
     const wrapper = mountPop({ category: "Engineering" }); // active = Goal(1)
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp" })); // 1 -> 0 (Category)
     await wrapper.vm.$nextTick();
     const cat = wrapper.findAll("[data-test='dim-item']")[0];
-    expect(cat.classes()).toContain("bg-[var(--color-popover-item-active-bg)]");
-    expect(cat.classes()).not.toContain("bg-[var(--color-popover-item-selected-bg)]");
-    expect(cat.classes()).toContain("text-[var(--color-brand-solid)]");
-    expect(cat.classes()).toContain("font-semibold");
+    expect(cat.classes()).toContain("bg-[var(--color-brand-solid)]");
+    expect(cat.classes()).toContain("text-white");
+    expect(cat.classes()).not.toContain("text-[var(--color-brand-solid)]");
   });
 
-  it("val phase: active value uses active bg, the already-selected value uses selected bg", async () => {
+  it("val stage: active value uses the solid fill; the selected value uses brand text + ✓", async () => {
     const wrapper = mountPop({ category: "Engineering" }); // category values: Engineering, PM
     await wrapper.findAll("[data-test='dim-item']")[0].trigger("click"); // enter Category val; active = Engineering(0)
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown" })); // 0 -> 1 (PM)
     await wrapper.vm.$nextTick();
     const vals = wrapper.findAll("[data-test='val-item']");
-    expect(vals[1].classes()).toContain("bg-[var(--color-popover-item-active-bg)]"); // PM active
-    expect(vals[0].classes()).toContain("bg-[var(--color-popover-item-selected-bg)]"); // Engineering selected, not active
-    expect(vals[0].classes()).not.toContain("bg-[var(--color-popover-item-active-bg)]");
+    expect(vals[1].classes()).toContain("bg-[var(--color-brand-solid)]"); // PM active
+    expect(vals[1].classes()).toContain("text-white");
+    expect(vals[0].classes()).toContain("text-[var(--color-brand-solid)]"); // Engineering selected, not active
+    expect(vals[0].classes()).not.toContain("bg-[var(--color-brand-solid)]");
+    expect(vals[0].text()).toContain("✓");
   });
 });
