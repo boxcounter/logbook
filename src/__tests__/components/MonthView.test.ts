@@ -26,7 +26,6 @@ function makeStore() {
     commitments: [makeCommitment({ goals: ["Bug fixes"] })],
     commitmentProgress: [],
     today: { note: null, entries: [makeEntry({ item: "Existing", duration: 60 })] },
-    lastDimensions: {},
     currentDate: today,
     monthEntries: { [today]: [makeEntry({ item: "Existing", duration: 60 })] },
     availableMonths: null,

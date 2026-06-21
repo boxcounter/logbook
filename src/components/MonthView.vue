@@ -120,7 +120,6 @@ async function handleSubmit(item: string, durationMinutes: number, dimensions: R
   const newEntry = { item, duration: String(durationMinutes), dimensions: finalDimensions };
   try {
     const result = await invoke("append_entry", { rootPath: store.rootPath, date: store.currentDate, entry: newEntry });
-    store.lastDimensions = { ...finalDimensions };
     inputRef.value?.clearInput();
     const added = result as Entry;
     if (store.today) {
@@ -371,7 +370,6 @@ logInfo("MonthView", "mounted");
           ref="inputRef"
           :dimensions="store.config?.dimensions || []"
           :commitments="store.commitments"
-          :initial-values="store.lastDimensions"
           @submit="handleSubmit"
         />
       </div>

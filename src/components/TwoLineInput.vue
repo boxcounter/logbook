@@ -8,7 +8,6 @@ import DimensionPopover from "./DimensionPopover.vue";
 const props = defineProps<{
   dimensions: Dimension[];
   commitments: Commitment[];
-  initialValues: Record<string, string>;
 }>();
 
 const emit = defineEmits<{
@@ -18,16 +17,10 @@ const emit = defineEmits<{
 const text = ref("");
 const inputEl = ref<HTMLInputElement | null>(null);
 const popoverOpen = ref(false);
-const dimValues = ref<Record<string, string>>({ ...props.initialValues });
+const dimValues = ref<Record<string, string>>({});
 // Set true after a submit blocked by missing required dimensions, to emphasize
 // the missing chips (frontend hard-block; the backend also rejects them).
 const submitAttempted = ref(false);
-
-watch(
-  () => props.initialValues,
-  (vals) => { if (Object.keys(vals).length > 0) dimValues.value = { ...vals }; },
-  { immediate: true }
-);
 
 const parsedDuration = computed(() => {
   const t = text.value.trim();
@@ -85,12 +78,11 @@ function onKeydown(e: KeyboardEvent) {
   if (e.key === "Escape") {
     if (popoverOpen.value) return;
     const hasContent =
-      text.value.trim() !== "" ||
-      JSON.stringify(dimValues.value) !== JSON.stringify(props.initialValues);
+      text.value.trim() !== "" || Object.keys(dimValues.value).length > 0;
     if (!hasContent) return;
     e.preventDefault();
     text.value = "";
-    dimValues.value = { ...props.initialValues };
+    dimValues.value = {};
     submitAttempted.value = false;
     return;
   }
