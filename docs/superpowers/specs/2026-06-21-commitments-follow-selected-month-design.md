@@ -52,8 +52,15 @@ EntryComposer 仅在 `isSelectedToday` 渲染，selected 永远等于 current，
 | 1 | `MonthView.loadMonth`（切月主路径） | 只刷 `commitmentProgress` | 并排 `invoke("get_commitments", { rootPath, year, month })` → `store.commitments`（核心改动） |
 | 2 | `App.initApp`（`App.vue` `Ready` 分支） | 强写**当前月** commitments 到 `store.commitments` | **不再写 `store.commitments`**；启动加载交给 `MonthView.onMounted` 的 `loadMonth` 统一负责 |
 | 3 | `commitments-changed` 文件事件（`App.vue` 监听器） | 触发 `initApp` → 强读当前月 → 冲掉选中月 | 改为重读**选中月**的 commitments + progress（轻量 reload，不走整个 `initApp`） |
+| 4 | `SetupScreen.trySetRootPath`（`SetupScreen.vue` `Ready` 分支） | 写**当前月** commitments 到 `store.commitments` | **不再写 `store.commitments`**；setup 后 `MonthView.onMounted` 的 `loadMonth` 统一加载（与改动 2 同理） |
+
+> 改动 4 是范围扩展（2026-06-21 评审后追加）。它本身不触发本 bug——setup 时选中月恒等于当前月，故 SetupScreen 写的数据与 `loadMonth` 一致。删除它纯为收紧不变量（见下），代价仅是 setup 后到 `loadMonth` 完成的几帧里 commitments 短暂为空（与 `monthEntries`/`commitmentProgress` 既有的加载行为一致）。
 
 `onCommitmentsSaved`（`MonthView` 乐观回填）保持不变：它写的就是刚保存的选中月数据，语义已正确。
+
+### 不变量（修复后）
+
+`store.commitments` 只由三处写入，且全部指向**选中月**：`MonthView.loadMonth`（→`loadCommitments`）、`MonthView.onCommitmentsSaved`、`App.vue` 的 `commitments-changed` 监听器。`initApp` 与 `SetupScreen` 都不再写它——「选中月级」状态的所有权集中在 `loadMonth` 一侧。
 
 ### 改动 2/3 的职责边界
 
