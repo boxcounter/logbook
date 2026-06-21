@@ -1,0 +1,3 @@
+# 创建 worktree 时从主仓库复制进去的文件（gitignore 风格，每行一个）。
+# 主要用于带过去那些被 .gitignore 排除、但 worktree 里仍需要的本地文件。
+HANDOFF.md
