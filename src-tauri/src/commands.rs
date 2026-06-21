@@ -971,6 +971,34 @@ pub fn reveal_day_file(app: AppHandle, root_path: String, date: String) -> Resul
     result
 }
 
+/// (path, select) for revealing config: select the file if it exists, else open the root dir.
+pub fn reveal_config_target(root: &std::path::Path) -> (std::path::PathBuf, bool) {
+    let config = files::config_path(root);
+    if config.exists() {
+        (config, true)
+    } else {
+        (root.to_path_buf(), false)
+    }
+}
+
+#[tauri::command]
+pub fn reveal_config_file(app: AppHandle, root_path: String) -> Result<(), String> {
+    error_log::log_command_enter("reveal_config_file", &format!("root={}", root_path));
+    let root = std::path::Path::new(&root_path);
+    let (target, select) = reveal_config_target(root);
+    let result = if select {
+        app.opener()
+            .reveal_item_in_dir(&target)
+            .map_err(|e| format!("Failed to reveal {}: {}", target.display(), e))
+    } else {
+        app.opener()
+            .open_path(target.to_string_lossy().into_owned(), None::<String>)
+            .map_err(|e| format!("Failed to open {}: {}", target.display(), e))
+    };
+    error_log::log_command_exit("reveal_config_file", result.is_ok(), "");
+    result
+}
+
 #[tauri::command]
 pub fn create_starter_files(path: String) -> Result<(), String> {
     let root = std::path::Path::new(&path);
