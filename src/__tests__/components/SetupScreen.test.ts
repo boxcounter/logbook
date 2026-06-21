@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach} from "vitest";
 import { mount } from "@vue/test-utils";
 import { STORE_KEY } from "../../stores/useStore";
 import { createTestStore } from "../mocks/store";
-import { makeConfig } from "../mocks/fixtures";
+import { makeConfig, makeCommitment } from "../mocks/fixtures";
 import SetupScreen from "../../components/SetupScreen.vue";
 
 // ============================================================
@@ -88,7 +88,7 @@ describe("SetupScreen", () => {
         root_path: "/my/path",
         config,
         today: { note: null, entries: [] },
-        commitments: [],
+        commitments: [makeCommitment()],
       },
     });
 
@@ -98,6 +98,8 @@ describe("SetupScreen", () => {
     expect(store.status).toBe("ready");
     expect(store.rootPath).toBe("/my/path");
     expect(store.config).toEqual(config);
+    // SetupScreen no longer owns commitments — loadMonth (in MonthView) loads them.
+    expect(store.commitments).toEqual([]);
   });
 
   it("ConfigError result: updates store to error screen", async () => {

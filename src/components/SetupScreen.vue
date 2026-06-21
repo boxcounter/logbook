@@ -26,7 +26,6 @@ async function trySetRootPath(path: string) {
       store.rootPath = path;
       store.config = result.data.config;
       store.today = result.data.today;
-      store.commitments = result.data.commitments;
       store.status = "ready";
     } else if (result.status === "ConfigError") {
       store.rootPath = path;
