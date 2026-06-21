@@ -8,7 +8,6 @@ pub mod operation_log;
 pub mod scan;
 mod window_state;
 
-use config::watch_files;
 use std::path::PathBuf;
 use tauri::Manager;
 
@@ -19,6 +18,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             error_log::install_panic_hook();
+            app.manage(config::WatcherState::new());
             let app_handle = app.handle().clone();
             let app_data_dir = app
                 .path()
@@ -45,7 +45,7 @@ pub fn run() {
             if let Some(root_path) = files::read_root_path(&app_data_dir) {
                 if root_path.exists() {
                     files::cleanup_tmp_files(&root_path);
-                    watch_files(app_handle, root_path);
+                    config::ensure_watcher(&app_handle, root_path);
                 }
             }
             Ok(())
@@ -64,7 +64,7 @@ pub fn run() {
             commands::set_commitments,
             commands::get_available_months,
             commands::reveal_day_file,
-            commands::reveal_config_file,
+            commands::reveal_template_file,
             commands::create_starter_files,
             commands::log_error,
             commands::log_info,

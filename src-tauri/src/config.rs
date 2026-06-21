@@ -1,11 +1,12 @@
 use crate::files;
 use crate::models::{ConfigErrorDetail, Dimension, MonthlyFile};
 use chrono::Datelike;
-use notify::{Config as NotifyConfig, Event, EventKind, RecursiveMode, Watcher};
+use notify::{Config as NotifyConfig, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::Mutex;
 use std::time::{Duration, Instant};
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 
 fn is_valid_key(key: &str) -> bool {
     key.chars()
@@ -116,37 +117,82 @@ pub fn validate_monthly(monthly: &MonthlyFile) -> Vec<ConfigErrorDetail> {
     errors
 }
 
-pub fn watch_files(app_handle: AppHandle, root_path: PathBuf) {
-    crate::error_log::log_info("file_watcher", &format!("Watching {}", root_path.display()));
-    std::thread::spawn(move || {
-        let (tx, rx) = std::sync::mpsc::channel();
+/// Managed state holding the live file watcher. Dropping the inner watcher stops
+/// its event stream (the receiver thread exits when the channel closes).
+pub struct WatcherState {
+    inner: Mutex<Option<WatcherHandle>>,
+}
 
-        let mut watcher =
-            notify::recommended_watcher(move |res: Result<Event, notify::Error>| match res {
-                Ok(event) => {
-                    if let Err(e) = tx.send(event) {
-                        crate::error_log::log_error(
-                            "file_watcher",
-                            &format!("send error: {:?}", e),
-                        );
-                    }
-                }
-                Err(e) => {
-                    crate::error_log::log_error("file_watcher", &format!("notify error: {}", e));
-                }
-            })
-            .expect("Failed to create file watcher");
+impl WatcherState {
+    pub fn new() -> Self {
+        Self { inner: Mutex::new(None) }
+    }
+}
 
-        watcher
-            .configure(NotifyConfig::default())
-            .expect("Failed to configure watcher");
+impl Default for WatcherState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
-        // Watch root directory recursively to catch template.yaml
-        // and all _monthly.md files, including across month boundaries.
-        if let Err(e) = watcher.watch(&root_path, RecursiveMode::Recursive) {
-            crate::error_log::log_error("file_watcher", &format!("Failed to watch: {}", e));
+struct WatcherHandle {
+    path: PathBuf,
+    _watcher: RecommendedWatcher, // kept alive; drop = stop watching
+}
+
+/// Pure decision: do we need to (re)start the watcher for `requested`?
+pub fn needs_restart(current: Option<&std::path::Path>, requested: &std::path::Path) -> bool {
+    current != Some(requested)
+}
+
+/// Start (or restart) the recursive file watcher for `root_path`.
+/// Idempotent for the same path; replaces the watcher when the path changes.
+pub fn ensure_watcher(app: &AppHandle, root_path: PathBuf) {
+    let state = app.state::<WatcherState>();
+    let mut guard = state.inner.lock().expect("WatcherState lock poisoned");
+    if !needs_restart(guard.as_ref().map(|h| h.path.as_path()), &root_path) {
+        return;
+    }
+    match spawn_watcher(app.clone(), root_path.clone()) {
+        Ok(watcher) => {
+            // Assigning Some replaces (and drops) any previous handle → old watcher stops.
+            *guard = Some(WatcherHandle { path: root_path, _watcher: watcher });
         }
+        Err(e) => {
+            crate::error_log::log_error("ensure_watcher", &e);
+            *guard = None;
+        }
+    }
+}
 
+/// Build the watcher and spawn its receiver thread. Returns the watcher to be
+/// held in WatcherState; the receiver thread exits when the watcher is dropped.
+fn spawn_watcher(app_handle: AppHandle, root_path: PathBuf) -> Result<RecommendedWatcher, String> {
+    crate::error_log::log_info("file_watcher", &format!("Watching {}", root_path.display()));
+    let (tx, rx) = std::sync::mpsc::channel();
+
+    let mut watcher = notify::recommended_watcher(move |res: Result<Event, notify::Error>| match res {
+        Ok(event) => {
+            if let Err(e) = tx.send(event) {
+                crate::error_log::log_error("file_watcher", &format!("send error: {:?}", e));
+            }
+        }
+        Err(e) => {
+            crate::error_log::log_error("file_watcher", &format!("notify error: {}", e));
+        }
+    })
+    .map_err(|e| format!("Failed to create file watcher: {}", e))?;
+
+    watcher
+        .configure(NotifyConfig::default())
+        .map_err(|e| format!("Failed to configure watcher: {}", e))?;
+
+    watcher
+        .watch(&root_path, RecursiveMode::Recursive)
+        .map_err(|e| format!("Failed to watch {}: {}", root_path.display(), e))?;
+
+    let watch_root = root_path.clone();
+    std::thread::spawn(move || {
         let debounce_ms = Duration::from_millis(300);
         let mut last_event: HashMap<std::path::PathBuf, Instant> = HashMap::new();
 
@@ -157,7 +203,6 @@ pub fn watch_files(app_handle: AppHandle, root_path: PathBuf) {
             }
 
             for path in &event.paths {
-                // Debounce: skip if same path fired within 300ms
                 let now = Instant::now();
                 if let Some(last) = last_event.get(path) {
                     if now.duration_since(*last) < debounce_ms {
@@ -168,7 +213,7 @@ pub fn watch_files(app_handle: AppHandle, root_path: PathBuf) {
 
                 let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
                 if file_name == "template.yaml" {
-                    match files::read_template(&root_path) {
+                    match files::read_template(&watch_root) {
                         Ok(config) => {
                             let errors = validate_dimensions(&config.dimensions);
                             if let Err(e) = app_handle.emit("config-changed", &errors) {
@@ -194,9 +239,8 @@ pub fn watch_files(app_handle: AppHandle, root_path: PathBuf) {
                         }
                     }
                 } else if file_name == "_monthly.md" {
-                    // Re-read current month each time (handles month boundary)
                     let now = chrono::Local::now();
-                    match files::read_monthly_file(&root_path, now.year(), now.month()) {
+                    match files::read_monthly_file(&watch_root, now.year(), now.month()) {
                         Ok(monthly) => {
                             let errors = validate_monthly(&monthly);
                             if let Err(e) = app_handle.emit("commitments-changed", &errors) {
@@ -224,13 +268,30 @@ pub fn watch_files(app_handle: AppHandle, root_path: PathBuf) {
                 }
             }
         }
+        crate::error_log::log_info("file_watcher", "receiver thread exited");
     });
+
+    Ok(watcher)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::models::{Commitment, Dimension, MonthlyFile, Template};
+
+    #[test]
+    fn needs_restart_logic() {
+        use std::path::Path;
+        assert!(super::needs_restart(None, Path::new("/a")), "no watcher → start");
+        assert!(
+            !super::needs_restart(Some(Path::new("/a")), Path::new("/a")),
+            "same path → no-op"
+        );
+        assert!(
+            super::needs_restart(Some(Path::new("/a")), Path::new("/b")),
+            "different path → restart"
+        );
+    }
 
     #[test]
     fn test_dimension_required_defaults_to_false() {

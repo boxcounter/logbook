@@ -76,24 +76,24 @@ fn ready_when_everything_valid() {
     fs::remove_dir_all(&root).unwrap();
 }
 
-use tauri_app_lib::commands::reveal_config_target;
+use tauri_app_lib::commands::reveal_template_target;
 
 #[test]
-fn reveal_target_selects_config_when_present() {
+fn reveal_target_selects_template_when_present() {
     let root = temp_root();
     fs::create_dir_all(&root).unwrap();
-    fs::write(root.join("config.yaml"), VALID_CONFIG).unwrap();
-    let (path, select) = reveal_config_target(&root);
-    assert!(select, "should select the config file when it exists");
-    assert!(path.ends_with("config.yaml"));
+    fs::write(root.join("template.yaml"), VALID_CONFIG).unwrap();
+    let (path, select) = reveal_template_target(&root);
+    assert!(select, "should select the template file when it exists");
+    assert!(path.ends_with("template.yaml"));
     fs::remove_dir_all(&root).unwrap();
 }
 
 #[test]
-fn reveal_target_opens_root_when_config_absent() {
+fn reveal_target_opens_root_when_template_absent() {
     let root = temp_root();
     fs::create_dir_all(&root).unwrap();
-    let (path, select) = reveal_config_target(&root);
+    let (path, select) = reveal_template_target(&root);
     assert!(!select, "no file to select → open the dir");
     assert_eq!(path, root);
     fs::remove_dir_all(&root).unwrap();

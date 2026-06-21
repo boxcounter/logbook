@@ -251,7 +251,7 @@ pub fn init(app: AppHandle) -> InitResult {
 
     let result = load_root_state(&root_path);
     if root_path.exists() {
-        // TODO(task4): crate::config::ensure_watcher(&app, root_path.clone());
+        crate::config::ensure_watcher(&app, root_path.clone());
     }
     match &result {
         InitResult::ConfigError { errors, scan_warnings, category, .. } => {
@@ -299,7 +299,7 @@ pub fn set_root_path(app: AppHandle, path: String) -> Result<InitResult, String>
     save_root_path(&app_data_dir, root_path)?;
 
     let result = load_root_state(root_path);
-    // TODO(task4): crate::config::ensure_watcher(&app, root_path.to_path_buf());
+    crate::config::ensure_watcher(&app, root_path.to_path_buf());
     match &result {
         InitResult::ConfigError { errors, scan_warnings, category, .. } => {
             for e in errors {
@@ -971,21 +971,22 @@ pub fn reveal_day_file(app: AppHandle, root_path: String, date: String) -> Resul
     result
 }
 
-/// (path, select) for revealing config: select the file if it exists, else open the root dir.
-pub fn reveal_config_target(root: &std::path::Path) -> (std::path::PathBuf, bool) {
-    let config = files::config_path(root);
-    if config.exists() {
-        (config, true)
+/// (path, select) for revealing the template: select template.yaml if it exists,
+/// else open the root dir.
+pub fn reveal_template_target(root: &std::path::Path) -> (std::path::PathBuf, bool) {
+    let template = files::template_path(root);
+    if template.exists() {
+        (template, true)
     } else {
         (root.to_path_buf(), false)
     }
 }
 
 #[tauri::command]
-pub fn reveal_config_file(app: AppHandle, root_path: String) -> Result<(), String> {
-    error_log::log_command_enter("reveal_config_file", &format!("root={}", root_path));
+pub fn reveal_template_file(app: AppHandle, root_path: String) -> Result<(), String> {
+    error_log::log_command_enter("reveal_template_file", &format!("root={}", root_path));
     let root = std::path::Path::new(&root_path);
-    let (target, select) = reveal_config_target(root);
+    let (target, select) = reveal_template_target(root);
     let result = if select {
         app.opener()
             .reveal_item_in_dir(&target)
@@ -995,7 +996,7 @@ pub fn reveal_config_file(app: AppHandle, root_path: String) -> Result<(), Strin
             .open_path(target.to_string_lossy().into_owned(), None::<String>)
             .map_err(|e| format!("Failed to open {}: {}", target.display(), e))
     };
-    error_log::log_command_exit("reveal_config_file", result.is_ok(), "");
+    error_log::log_command_exit("reveal_template_file", result.is_ok(), "");
     result
 }
 
