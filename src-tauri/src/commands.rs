@@ -260,7 +260,7 @@ pub fn set_root_path(app: AppHandle, path: String) -> Result<InitResult, String>
 
     let config = files::read_template(root_path).map_err(|e| {
         error_log::log_error("set_root_path: read_template", &e);
-        format!("Failed to read config: {}", e)
+        format!("Failed to read template: {}", e)
     })?;
     let mut all_errors = validate_config(&config);
 
