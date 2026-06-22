@@ -18,6 +18,7 @@ const { mockInvoke, mockListen, mockGetCurrentWindow, mockLogError, mockLogInfo 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: mockInvoke }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: mockListen }));
 vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: mockGetCurrentWindow }));
+vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 vi.mock("../../utils/errorLog", () => ({ logError: mockLogError, logInfo: mockLogInfo }));
 
 // Track registered event callbacks so tests can fire them
@@ -93,10 +94,12 @@ describe("App", () => {
     expect(wrapper.findComponent({ name: "SetupScreen" }).exists()).toBe(true);
   });
 
-  it("ConfigError: shows ConfigErrorBanner and Retry button", async () => {
+  it("ConfigError (in_place): shows RecoveryScreen with error message and no Retry", async () => {
     mockInvoke.mockResolvedValue({
       status: "ConfigError",
       data: {
+        category: "in_place",
+        root_path: "/test",
         errors: [{ kind: "MissingName", message: "Dimension 0 has an empty name" }],
         scan_warnings: [],
       },
@@ -106,8 +109,10 @@ describe("App", () => {
     await nextTick();
 
     expect(store.status).toBe("error");
-    expect(wrapper.findComponent({ name: "ConfigErrorBanner" }).exists()).toBe(true);
-    expect(wrapper.text()).toContain("Retry");
+    expect(store.configCategory).toBe("in_place");
+    expect(wrapper.findComponent({ name: "RecoveryScreen" }).exists()).toBe(true);
+    expect(wrapper.text()).toContain("Dimension 0 has an empty name");
+    expect(wrapper.text()).not.toContain("Retry");
   });
 
   it("Ready: shows MonthView and populates store", async () => {
@@ -141,6 +146,8 @@ describe("App", () => {
     mockInvoke.mockResolvedValue({
       status: "ConfigError",
       data: {
+        category: "root_missing",
+        root_path: "/test",
         errors: [{ kind: "MissingName", message: "err" }],
         scan_warnings: [],
       },
@@ -155,8 +162,7 @@ describe("App", () => {
       data: { root_path: "/test", dimensions: makeDimensions(), from_template: false, today: makeDayFile(), commitments: [], scan_warnings: [] },
     });
 
-    const retryBtn = wrapper.find("button");
-    await retryBtn.trigger("click");
+    await wrapper.get('[data-testid="retry"]').trigger("click");
     await vi.runAllTimersAsync();
 
     expect(mockInvoke).toHaveBeenCalledWith("init");
@@ -215,6 +221,7 @@ describe("App", () => {
     }
 
     expect(store.status).toBe("error");
+    expect(store.configCategory).toBe("in_place");
     expect(store.configErrors).toEqual([{ kind: "MissingName", message: "Bad config" }]);
   });
 
@@ -417,6 +424,8 @@ describe("App", () => {
     mockInvoke.mockResolvedValue({
       status: "ConfigError",
       data: {
+        category: "in_place",
+        root_path: "/test",
         errors: [{ kind: "MissingName", message: "Bad config" }],
         scan_warnings: scanWarnings,
       },
@@ -427,8 +436,8 @@ describe("App", () => {
 
     // Toast should appear even in error state
     expect(wrapper.text()).toContain("data issue");
-    // Error banner should still show
-    expect(wrapper.findComponent({ name: "ConfigErrorBanner" }).exists()).toBe(true);
+    // Recovery screen should still show
+    expect(wrapper.findComponent({ name: "RecoveryScreen" }).exists()).toBe(true);
   });
 
   it("does not show scan warning toast when scan_warnings is empty", async () => {

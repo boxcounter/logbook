@@ -6,11 +6,12 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useStore } from "./stores/useStore";
 import { yearMonthFromDate } from "./utils/dates";
 import SetupScreen from "./components/SetupScreen.vue";
-import ConfigErrorBanner from "./components/ConfigErrorBanner.vue";
+import RecoveryScreen from "./components/RecoveryScreen.vue";
 import MonthView from "./components/MonthView.vue";
 import Toast from "./components/base/Toast.vue";
 import type { InitResult, ConfigErrorDetail, ScanWarning, Commitment, CommitmentProgress } from "./types";
 import { logError, logInfo } from "./utils/errorLog";
+import { applyInitResult } from "./utils/applyInitResult";
 
 const store = useStore();
 const showUndoToast = ref(false);
@@ -41,6 +42,11 @@ onMounted(async () => {
         initApp();
       } else {
         store.configErrors = event.payload;
+        // The watcher only runs on an existing, watched root and fires for
+        // template.yaml/_monthly.md edits, so a non-empty payload is always an
+        // in-place fix (root + template demonstrably exist). If the backend ever
+        // emits config-changed from a path where the tier could differ, revisit this.
+        store.configCategory = "in_place";
         store.status = "error";
       }
     });
@@ -88,34 +94,16 @@ async function initApp() {
   logInfo("App.initApp", "start");
   try {
     const result = (await invoke("init")) as InitResult;
-    switch (result.status) {
-      case "NeedsSetup":
-        store.status = "setup";
-        break;
-      case "ConfigError":
-        store.configErrors = result.data.errors;
-        store.status = "error";
-        if (result.data.scan_warnings.length > 0) {
-          scanWarnings.value = result.data.scan_warnings;
-          showScanWarning.value = true;
-        }
-        break;
-      case "Ready":
-        store.rootPath = result.data.root_path;
-        store.dimensions = result.data.dimensions;
-        store.fromTemplate = result.data.from_template;
-        store.today = result.data.today;
-        store.status = "ready";
-        if (result.data.scan_warnings.length > 0) {
-          scanWarnings.value = result.data.scan_warnings;
-          showScanWarning.value = true;
-        }
-        break;
+    const warnings = applyInitResult(store, result);
+    if (warnings.length > 0) {
+      scanWarnings.value = warnings;
+      showScanWarning.value = true;
     }
     logInfo("App.initApp", result.status);
   } catch (e) {
     logError("App.initApp", e);
     store.configErrors = [{ kind: "InitError", message: `Failed: ${e}` }];
+    store.configCategory = "root_missing";
     store.status = "error";
   }
 }
@@ -159,15 +147,7 @@ provide("focusRequestId", focusRequestId);
       Loading…
     </div>
     <SetupScreen v-else-if="store.status === 'setup'" />
-    <template v-else-if="store.status === 'error'">
-      <ConfigErrorBanner />
-      <button
-        class="mx-lg mt-lg px-lg py-sm bg-blue-600 text-white rounded-[var(--radius-form-lg)] hover:bg-blue-700 text-secondary"
-        @click="initApp"
-      >
-        Retry
-      </button>
-    </template>
+    <RecoveryScreen v-else-if="store.status === 'error'" :reload="initApp" />
     <div v-else-if="store.status === 'ready'" class="p-2xl">
       <MonthView />
     </div>

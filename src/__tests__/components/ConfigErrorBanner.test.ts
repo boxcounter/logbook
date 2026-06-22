@@ -32,7 +32,7 @@ describe("ConfigErrorBanner", () => {
       },
     });
 
-    expect(wrapper.text()).toContain("config.yaml");
+    expect(wrapper.text()).toContain("template.yaml");
   });
 
   it('shows "Configuration Errors (0)" when no errors', () => {
