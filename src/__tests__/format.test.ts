@@ -64,4 +64,6 @@ describe("formatDurationCompact", () => {
   it("5m → 0.1h", () => { expect(formatDurationCompact(5)).toBe("0.1h"); });
   it("865m → 14.4h", () => { expect(formatDurationCompact(865)).toBe("14.4h"); });
   it("870m → 14.5h", () => { expect(formatDurationCompact(870)).toBe("14.5h"); });
+  it("1m rounds to 0h", () => { expect(formatDurationCompact(1)).toBe("0h"); });
+  it("3m rounds to 0.1h", () => { expect(formatDurationCompact(3)).toBe("0.1h"); });
 });

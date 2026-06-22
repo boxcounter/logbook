@@ -11,7 +11,7 @@ export function formatDuration(minutes: number): string {
 /** Format minutes to compact hour display: 90 → "1.5h", 30 → "0.5h", 0 → "0" */
 export function formatDurationCompact(minutes: number): string {
   if (minutes === 0) return "0";
-  const hours = Math.round(minutes / 6) / 10;
+  const hours = Math.round(minutes / 60 * 10) / 10;
   const display = hours % 1 === 0 ? hours.toFixed(0) : String(hours);
   return `${display}h`;
 }
