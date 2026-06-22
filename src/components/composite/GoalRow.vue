@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { formatDuration } from "../../utils/format";
+import { formatDurationCompact } from "../../utils/format";
 import type { GoalRowModel } from "../../types";
 
 defineProps<{
@@ -26,10 +26,10 @@ defineEmits<{ remove: []; enter: [] }>();
       data-test="goal-logged"
       class="text-secondary mono whitespace-nowrap min-w-[46px] text-right"
       :class="logged > 0 ? 'text-[var(--color-text-muted)]' : 'text-[var(--color-text-disabled)]'"
-    >{{ logged > 0 ? formatDuration(logged) : "0" }}</span>
+    >{{ logged > 0 ? formatDurationCompact(logged) : "0" }}</span>
     <button
       data-test="goal-remove" :disabled="logged > 0"
-      :title="logged > 0 ? `${formatDuration(logged)} logged — rename instead` : 'Remove goal'"
+      :title="logged > 0 ? `${formatDurationCompact(logged)} logged — rename instead` : 'Remove goal'"
       class="text-body cursor-pointer px-xs transition-[color] duration-[var(--motion-fast)]
              text-[var(--color-text-disabled)] hover:text-[var(--color-danger)]
              disabled:text-[var(--color-divider)] disabled:cursor-not-allowed disabled:hover:text-[var(--color-divider)]"

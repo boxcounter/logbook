@@ -159,16 +159,16 @@ describe("CommitmentsModal — summary, progress & over-commit", () => {
   it("header shows live committed total and logged total", async () => {
     const w = mountModal(); // committed 40h, logged 870m = 14h 30m
     expect(w.find("[data-test='committed']").text()).toContain("40h");
-    expect(w.find("[data-test='logged']").text()).toContain("14h 30m");
+    expect(w.find("[data-test='logged']").text()).toContain("14.5h");
     await w.find("[data-test='alloc-inc']").trigger("click"); // 40→45
     expect(w.find("[data-test='committed']").text()).toContain("45h");
   });
   it("shows role logged and per-goal logged", () => {
     const w = mountModal();
-    expect(w.find("[data-test='role-spent']").text()).toContain("14h 30m");
+    expect(w.find("[data-test='role-spent']").text()).toContain("14.5h");
     const logged = w.findAll("[data-test='goal-logged']").map(n => n.text());
-    expect(logged.some(t => t.includes("14h 25m"))).toBe(true);
-    expect(logged.some(t => t.includes("5m"))).toBe(true);
+    expect(logged.some(t => t.includes("14.4h"))).toBe(true);
+    expect(logged.some(t => t.includes("0.1h"))).toBe(true);
   });
   it("bar fills proportionally to spent/allocation", () => {
     const w = mountModal(); // 870/2400 ≈ 36%
@@ -179,7 +179,7 @@ describe("CommitmentsModal — summary, progress & over-commit", () => {
     // Rename the first goal; its logged time (matched by origName) must persist.
     await w.findAll("[data-test='goal-name']")[0].setValue("Renamed goal");
     const logged = w.findAll("[data-test='goal-logged']").map(n => n.text());
-    expect(logged.some(t => t.includes("14h 25m"))).toBe(true);
+    expect(logged.some(t => t.includes("14.4h"))).toBe(true);
   });
   it("turns amber + 'over by' when allocation drops below logged", async () => {
     const w = mountModal();

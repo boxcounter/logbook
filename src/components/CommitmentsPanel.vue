@@ -2,7 +2,7 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import type { Commitment, CommitmentProgress } from "../types";
-import { formatDuration } from "../utils/format";
+import { formatDurationCompact } from "../utils/format";
 import CommitmentsModal from "./composite/CommitmentsModal.vue";
 
 const props = defineProps<{
@@ -54,7 +54,7 @@ function onSaved(c: Commitment[]) { modalOpen.value = false; emit("saved", c); }
           {{ s.role }} {{ collapsed[s.role] ? "▸" : "▾" }}
         </span>
         <span class="text-secondary font-semibold text-[var(--color-text-primary)]">
-          <span class="mono">{{ formatDuration(s.spent_minutes) }}</span><span class="mono font-normal text-[var(--color-text-secondary)]"> / {{ (s.allocation_minutes / 60).toFixed(0) }}h</span>
+          <span class="mono">{{ formatDurationCompact(s.spent_minutes) }}</span><span class="mono font-normal text-[var(--color-text-secondary)]"> / {{ (s.allocation_minutes / 60).toFixed(0) }}h</span>
         </span>
       </div>
       <div class="h-[4px] bg-[var(--color-divider)] rounded-[var(--radius-sm)] overflow-hidden mt-xs">
@@ -71,7 +71,7 @@ function onSaved(c: Commitment[]) { modalOpen.value = false; emit("saved", c); }
           class="flex justify-between text-secondary text-[var(--color-text-secondary)] py-xs pl-sm"
         >
           <span class="overflow-hidden text-ellipsis whitespace-nowrap max-w-[130px]" :title="g.name">{{ g.name }}</span>
-          <span v-if="g.spent_minutes > 0" class="mono font-medium text-[var(--color-text-primary)]">{{ formatDuration(g.spent_minutes) }}</span>
+          <span v-if="g.spent_minutes > 0" class="mono font-medium text-[var(--color-text-primary)]">{{ formatDurationCompact(g.spent_minutes) }}</span>
           <span v-else class="mono text-[var(--color-text-secondary)]">0</span>
         </div>
       </div>

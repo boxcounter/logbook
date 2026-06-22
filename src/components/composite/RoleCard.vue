@@ -2,7 +2,7 @@
 import { computed, ref } from "vue";
 import { VueDraggable } from "vue-draggable-plus";
 import GoalRow from "./GoalRow.vue";
-import { formatDuration } from "../../utils/format";
+import { formatDurationCompact } from "../../utils/format";
 import { goalLoggedMinutes } from "../../utils/commitments";
 import type { CommitmentProgress, RoleRowModel, GoalRowModel } from "../../types";
 
@@ -74,7 +74,7 @@ const barPct = computed(() => {
   if (a <= 0) return roleSpent.value > 0 ? 100 : 0;
   return Math.min(100, Math.round((roleSpent.value / a) * 100));
 });
-const overBy = computed(() => formatDuration(roleSpent.value - allocMinutes.value));
+const overBy = computed(() => formatDurationCompact(roleSpent.value - allocMinutes.value));
 
 const confirming = ref(false);
 const roleDeletable = computed(() => props.role.goals.every(g => goalLogged(g.origName) === 0));
@@ -161,7 +161,7 @@ function removeGoal(g: GoalRowModel) {
         data-test="role-spent" class="text-secondary whitespace-nowrap"
         :class="isOver ? 'text-[var(--color-warning)] font-semibold' : 'text-[var(--color-text-muted)]'"
       >
-        <span class="mono" :class="isOver ? '' : 'text-[var(--color-text-primary)] font-semibold'">{{ formatDuration(roleSpent) }}</span>
+        <span class="mono" :class="isOver ? '' : 'text-[var(--color-text-primary)] font-semibold'">{{ formatDurationCompact(roleSpent) }}</span>
         <template v-if="isOver"> · over by {{ overBy }}</template>
         <template v-else> logged</template>
       </span>

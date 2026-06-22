@@ -30,7 +30,7 @@ describe("CommitmentsPanel", () => {
   it("renders role name and mono spent/allocation", () => {
     const w = mountPanel();
     expect(w.text()).toContain("Developer");
-    expect(w.text()).toContain("20h 30m");
+    expect(w.text()).toContain("20.5h");
     expect(w.text()).toContain("40");
   });
   it("progress fill uses the brand gradient (single style, no status colors)", () => {

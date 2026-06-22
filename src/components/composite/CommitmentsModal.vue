@@ -4,7 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { VueDraggable } from "vue-draggable-plus";
 import RoleCard from "./RoleCard.vue";
 import type { Commitment, CommitmentProgress, RoleRowModel, GoalRowModel } from "../../types";
-import { formatDuration } from "../../utils/format";
+import { formatDurationCompact } from "../../utils/format";
 import { goalLoggedMinutes } from "../../utils/commitments";
 
 const props = defineProps<{
@@ -154,7 +154,7 @@ function onModalKeydown(e: KeyboardEvent) {
           </div>
           <div class="text-right text-secondary text-[var(--color-text-muted)]">
             <div>Committed <span data-test="committed" class="mono font-bold text-[var(--color-brand-link)]">{{ committedHours }}h</span></div>
-            <div>Logged <span data-test="logged" class="mono font-semibold text-[var(--color-text-primary)]">{{ formatDuration(loggedTotal) }}</span></div>
+            <div>Logged <span data-test="logged" class="mono font-semibold text-[var(--color-text-primary)]">{{ formatDurationCompact(loggedTotal) }}</span></div>
           </div>
         </div>
 
