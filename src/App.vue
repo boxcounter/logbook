@@ -88,6 +88,7 @@ onUnmounted(() => {
   unlistenCommitments?.();
   unlistenFocus?.();
   if (undoTimer) clearTimeout(undoTimer);
+  if (savedToastTimer) clearTimeout(savedToastTimer);
 });
 
 async function initApp() {
@@ -106,6 +107,25 @@ async function initApp() {
     store.configCategory = "root_missing";
     store.status = "error";
   }
+}
+
+// Saved toast (brief confirmation for entry update, no undo)
+const showSavedToast = ref(false);
+const savedToastMessage = ref("");
+let savedToastTimer: ReturnType<typeof setTimeout> | null = null;
+
+function triggerSavedToast(message: string) {
+  if (savedToastTimer) clearTimeout(savedToastTimer);
+  savedToastMessage.value = message;
+  showSavedToast.value = true;
+  savedToastTimer = setTimeout(() => {
+    showSavedToast.value = false;
+  }, 2000);
+}
+
+function dismissSavedToast() {
+  if (savedToastTimer) clearTimeout(savedToastTimer);
+  showSavedToast.value = false;
 }
 
 // Undo toast for delete
@@ -137,6 +157,7 @@ function dismissScanWarning() {
 
 // Provide undo trigger to descendants
 provide("triggerUndoToast", triggerUndoToast);
+provide("triggerSavedToast", triggerSavedToast);
 // #1: window focus → auto-focus input
 provide("focusRequestId", focusRequestId);
 </script>
@@ -159,6 +180,13 @@ provide("focusRequestId", focusRequestId);
       undo-label="Undo"
       @undo="handleUndo"
       @dismiss="dismissUndo"
+    />
+
+    <!-- Saved Toast -->
+    <Toast
+      :show="showSavedToast"
+      :message="savedToastMessage"
+      @dismiss="dismissSavedToast"
     />
 
     <!-- Scan Warning Toast -->

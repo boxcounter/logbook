@@ -37,6 +37,7 @@ const dayTitle = computed(() => {
 });
 
 const triggerUndoToast = inject<(undoFn: () => void) => void>("triggerUndoToast", () => {});
+const triggerSavedToast = inject<(msg: string) => void>("triggerSavedToast", () => {});
 
 // ---- Month loading ----
 async function loadMonth(year: number, month: number, defaultDay?: number) {
@@ -170,6 +171,7 @@ async function handleUpdateEntry(entryId: string, item: string, durationMinutes:
     store.today = df;
     store.monthEntries[store.currentDate] = df.entries;
     await loadCommitmentProgress(selectedYear.value, selectedMonth.value);
+    triggerSavedToast("Saved");
   } catch (e) { logError("MonthView.handleUpdateEntry", e); }
 }
 
@@ -179,6 +181,7 @@ async function handleUpdateDimensions(entryId: string, dimensions: Record<string
     store.today = df;
     store.monthEntries[store.currentDate] = df.entries;
     await loadCommitmentProgress(selectedYear.value, selectedMonth.value);
+    triggerSavedToast("Saved");
   } catch (e) { logError("MonthView.handleUpdateDimensions", e); }
 }
 
