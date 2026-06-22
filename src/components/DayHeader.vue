@@ -1,7 +1,7 @@
 <!-- src/components/DayHeader.vue -->
 <script setup lang="ts">
 import { computed } from "vue";
-import { formatDuration } from "../utils/format";
+import { formatDurationCompact } from "../utils/format";
 
 const props = defineProps<{
   title: string;
@@ -17,7 +17,7 @@ const emit = defineEmits<{
 }>();
 
 const countLabel = computed(() => (props.entryCount === 1 ? "entry" : "entries"));
-const total = computed(() => formatDuration(props.totalMinutes));
+const total = computed(() => formatDurationCompact(props.totalMinutes));
 
 function onNext() {
   if (props.canGoNext) emit("next-day");

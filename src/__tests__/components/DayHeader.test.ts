@@ -10,7 +10,7 @@ describe("DayHeader", () => {
     });
     expect(wrapper.text()).toContain("Thursday, June 19");
     expect(wrapper.text()).toContain("10");
-    expect(wrapper.text()).toContain("5h 45m");
+    expect(wrapper.text()).toContain("5.8h");
   });
 
   it("shows Today badge only when isToday is true", () => {
