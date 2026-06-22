@@ -3,6 +3,10 @@ use crate::files;
 use std::path::Path;
 
 pub fn list(root: &Path, date: &str, json: bool) {
+    if let Err(e) = crate::commands::validate_date_format(date) {
+        output::print_error(&e);
+        std::process::exit(1);
+    }
     let day_file = files::read_day_file(root, date).unwrap_or_else(|e| {
         output::print_error(&format!("Failed to read day file: {}", e));
         std::process::exit(1);

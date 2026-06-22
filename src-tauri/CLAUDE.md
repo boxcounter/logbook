@@ -17,14 +17,18 @@ Stop hook（自动）：`pnpm vue-tsc --noEmit && cd src-tauri && cargo check &&
 
 ```
 src/
-├── main.rs      // fn main()
-├── lib.rs       // plugins, setup hook, file watcher, command registration
-├── models.rs    // all structs/enums — Template, Dimension, MonthlyFile, Entry, RecoveryCategory, etc.
-├── files.rs     // path helpers, atomic I/O, root_path persistence, frontmatter parse, template/month dimensions
-├── config.rs    // validate_dimensions, validate_monthly; WatcherState + ensure_watcher (restartable notify watcher)
-├── commands.rs  // Tauri commands + load_root_state (error classification) + parse_duration + validate_date_format
-├── error_log.rs // init, log_error, log_frontend_error
-└── window_state.rs // default window geometry (90% primary monitor, centered)
+├── main.rs          // fn main()
+├── lib.rs           // plugins, setup hook, file watcher, command registration
+├── models.rs        // all structs/enums — Template, Dimension, MonthlyFile, Entry, RecoveryCategory, etc.
+├── files.rs         // path helpers, atomic I/O, root_path persistence, frontmatter parse, template/month dimensions
+├── config.rs        // validate_dimensions, validate_monthly; WatcherState + ensure_watcher (restartable notify watcher)
+├── commands.rs      // Tauri commands + load_root_state (error classification) + parse_duration + validate_date_format
+├── error_log.rs     // init, log_error, log_frontend_error
+├── operation_log.rs // 操作日志（JSONL 写入 + 回放验证）
+├── scan.rs          // 数据目录完整性扫描（挂掉的 .tmp、格式异常文件等）
+├── cli/             // CLI 子命令（mod.rs, commitments.rs, entries.rs, output.rs, root_path.rs）
+│   └── bin/logbook-cli.rs  // CLI 入口
+└── window_state.rs  // default window geometry (90% primary monitor, centered)
 ```
 
 ## 测试约定

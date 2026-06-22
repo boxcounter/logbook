@@ -27,6 +27,7 @@ pub fn resolve_root_path(flag: Option<String>) -> Option<PathBuf> {
     // Try common macOS app data dirs for root_path.txt
     let home = std::env::var("HOME").ok()?;
     let candidates = [
+        "Library/Application Support/com.boxcounter.logbook.dev/root_path.txt",
         "Library/Application Support/com.logbook/root_path.txt",
         "Library/Application Support/com.tauri.dev/root_path.txt",
     ];

@@ -16,7 +16,7 @@
 
 ## Rust 后端
 
-### 命令清单（15 个，已实现）
+### 命令清单（17 个，已实现）
 
 ```
 init(app: AppHandle) → InitResult
@@ -31,7 +31,8 @@ get_month_dimensions(root_path: String, year: i32, month: u32) → Result<MonthD
 set_commitments(root_path: String, year: i32, month: u32, commitments: Vec<Commitment>) → Result<Vec<Commitment>, String>
 get_commitment_progress(root_path: String, year: i32, month: u32) → Result<Vec<CommitmentProgress>, String>
 get_available_months(root_path: String) → Result<Vec<AvailableMonth>, String>  // 扫描有数据的年月，懒加载
-reveal_day_file(root_path: String, date: String) → Result<(), String>  // 在文件管理器中打开目录并选中日文件
+reveal_day_file(app: AppHandle, root_path: String, date: String) → Result<(), String>  // 在文件管理器中打开目录并选中日文件
+reveal_template_file(app: AppHandle, root_path: String) → Result<(), String>  // 在文件管理器中打开模板文件或数据目录
 create_starter_files(path: String) → Result<(), String>  // 空目录创建初始文件
 log_error(message: String)                              // 前端 error → error.log
 log_info(message: String)                               // 前端 info → info.log
@@ -117,11 +118,37 @@ struct ConfigErrorDetail {
                        // | "ParseError" | "ConfigReadError"
 }
 
-// Init result (serde tag = "status")
+// Recovery category — how the frontend routes the recovery screen
+enum RecoveryCategory {
+    InPlace,        // config exists but has errors → show inline fix
+    ConfigMissing,  // template.yaml is missing → offer to recreate
+    RootMissing,    // root_path.txt points to nonexistent directory → folder picker
+}
+
+// Scan warnings from data directory integrity scan
+struct ScanWarning {
+    kind: String,    // "SkippedFile" | "OrphanedTemp" | "CorruptedFile" | ...
+    path: String,    // relative path within root_path
+    message: String, // human-readable description
+}
+
+// Init result (serde tag = "status", content = "data")
 enum InitResult {
     NeedsSetup,
-    ConfigError(Vec<ConfigErrorDetail>),
-    Ready { root_path: String, dimensions: Vec<Dimension>, from_template: bool, today: DayFile, commitments: Vec<Commitment> },  // dimensions = 当前月生效维度
+    ConfigError {
+        category: RecoveryCategory,
+        root_path: String,
+        errors: Vec<ConfigErrorDetail>,
+        scan_warnings: Vec<ScanWarning>,
+    },
+    Ready {
+        root_path: String,
+        dimensions: Vec<Dimension>,   // 当前月生效维度
+        from_template: bool,
+        today: DayFile,
+        commitments: Vec<Commitment>,
+        scan_warnings: Vec<ScanWarning>,
+    },
 }
 
 // Commitment progress (computed)
@@ -182,15 +209,23 @@ Rust 端通过 Goal 维度关联：
 ```
 App.vue
 ├── SetupScreen.vue                     // 首次启动，folder picker
-├── ConfigErrorBanner.vue
-└── MonthView.vue                       // 固定月视图：左 1/3 月概览 + 右 2/3 日详情
-    ├── MonthNavigator.vue              // ← → 箭头 + 快速跳转双下拉（年/月）
+├── ConfigErrorBanner.vue               // 启动时 config 错误提示
+├── RecoveryScreen.vue                  // ConfigError/root_missing 恢复界面
+└── MonthView.vue                       // 固定月视图
+    ├── HeatmapCalendar.vue             // 月历热力图 + 切换月份
+    ├── QuickJumpPopover.vue            // 年/月快速跳转双下拉（基于 get_available_months）
     ├── CommitmentsPanel.vue            // Allocation / Spent / Balance 进度条
-    ├── DayStrip.vue                    // 横向滚动 1-31 日期条，蓝点标记有 entry 的日期
-    ├── QuickEntry.vue
-    │   ├── EntryInput.vue
-    │   └── DimensionPanel.vue
-    └── EntryList.vue → EntryItem.vue   // 始终 day 模式，底部内联合计行
+    ├── DayHeader.vue                   // 日期头部，显示当天 entry 合计
+    ├── EntryComposer.vue               // 快速录入（内嵌 DimensionPopover）
+    │   └── DimensionPopover.vue        // 维度选择 popover（dim 阶段 / val 阶段）
+    └── EntryList.vue
+        └── composite/EntryRow.vue      // 条目行（只读）
+            └── composite/EntryRowEdit.vue  // 条目编辑（复用 DimensionPopover）
+
+// base/ 基础组件：
+//   AppButton.vue, ProgressBar.vue, Toast.vue
+// composite/ 复合组件：
+//   CommitmentsModal.vue, GoalRow.vue, RoleCard.vue
 
 // Phase 3（planned）:
 // └── StatsView.vue
@@ -207,6 +242,22 @@ App.vue
 
 `reactive()` + `provide/inject`。根组件创建 reactive store，`provide()` 注入子组件树。
 
+### 前端模块
+
+| 路径 | 说明 |
+|------|------|
+| `src/types.ts` | 前端 TypeScript 类型定义（与 Rust models 对应 + UI 专用类型） |
+| `src/stores/useStore.ts` | Reactive store（`reactive()` + `provide/inject`） |
+| `src/composables/useRootFolderPicker.ts` | 文件夹选择逻辑，SetupScreen / RecoveryScreen 复用 |
+| `src/utils/dates.ts` | 日期工具函数 |
+| `src/utils/format.ts` | 格式化函数 |
+| `src/utils/commitments.ts` | Commitments 计算/聚合 |
+| `src/utils/errorLog.ts` | 前端错误日志上报 |
+| `src/utils/heatmap.ts` | 热力图数据生成 |
+| `src/utils/mentionHelpers.ts` | 维度 mention 辅助 |
+| `src/utils/applyInitResult.ts` | init 结果应用到 store 的逻辑 |
+| `src/__tests__/` | 前端单元测试（29 个 `.test.ts` 文件，vitest + jsdom） |
+
 ### 图表
 
 - **DonutChart**: Chart.js `DoughnutController` + `ArcElement`，点击扇区 emit 事件。所有维度统一使用此组件。
@@ -222,17 +273,17 @@ App.vue
 
 - **启动**: App mount → `invoke('init')`。Rust 端读 `root_path.txt`：
   - 无文件 → 返回 `NeedsSetup` → 前端弹文件夹选择器 → `set_root_path` → 重新 init
-  - config/_monthly.md 有错 → 返回 `ConfigError(errors)` → 前端显示 ErrorBanner
-  - 正常 → 返回 `Ready { dimensions, from_template, today, commitments }`（dimensions = 当前月生效维度）→ 渲染 Today
+  - config/_monthly.md 有错 → 返回 `ConfigError { category, root_path, errors, scan_warnings }` → 前端按 `category` 决定 RecoveryScreen 路由
+  - 正常 → 返回 `Ready { root_path, dimensions, from_template, today, commitments, scan_warnings }`（dimensions = 当前月生效维度）→ 渲染 Today
 - **文件监听**: Tauri `setup` hook 中启动 `notify` 线程，watch template.yaml + 当月 `_monthly.md`。变更时重新校验，emit `config-changed` 或 `commitments-changed` 事件推前端。
 - **录入**: 用户输入 → 前端扫描全文 duration（regex 求和） → 去除匹配片段得到 item → 添加继承的维度 → `invoke('append_entry', ...)` → Rust 解析 duration 字符串为 u32，写文件 → 返回 Entry → 前端 refresh 列表 + Commitments
-- **统计**: 切换月份 → `invoke('get_stats', ...)` → Rust 遍历月目录下所有 .md → 内存聚合（含 Commitments） → 返回 MonthStats → 更新图表
+- **统计** (Phase 3 planned): 切换月份 → `invoke('get_stats', ...)` → Rust 遍历月目录下所有 .md → 内存聚合（含 Commitments） → 返回 MonthStats → 更新图表。当前 MonthView 通过逐个调用 `get_entries` 加载月份数据。
 
 ## 实现阶段
 
 | Phase | 内容 |
 |-------|------|
-| 1 | 脚手架 + init/get_entries/append_entry/update_entry/delete_entry/set_day_note + Commitments 读 + Day note + Undo toast + Config 校验 + ErrorBanner + 固定月视图（MonthView/MonthNavigator/DayStrip） + 内联合计行 |
-| 2 | 快速跳转双下拉（年/月） + 懒加载 get_available_months |
+| 1 | 脚手架 + init/get_entries/append_entry/update_entry/delete_entry/set_day_note/set_root_path/reveal_day_file/reveal_template_file/create_starter_files/log_error/log_info + Commitments 读（get_commitments/get_commitment_progress） + Day note + Undo toast + Config 校验 + ErrorBanner + RecoveryScreen + 固定月视图（MonthView/HeatmapCalendar/CommitmentsPanel/DayHeader/EntryComposer/EntryList） + 内联合计行 + reactive store + 维度继承 |
+| 2 | 快速跳转双下拉 QuickJumpPopover + 懒加载 get_available_months + get_month_dimensions + 维度 popover 键盘导航 + 设计系统 consolidation |
 | 3 | get_stats + 所有图表（环形图 + 趋势 + Commitments） + 图表联动 |
 | 4 | 键盘快捷键 + 动画 + 容错 |

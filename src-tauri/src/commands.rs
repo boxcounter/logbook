@@ -765,7 +765,7 @@ fn rename_goal_in_entries(
     Ok(())
 }
 
-fn validate_date_format(date: &str) -> Result<chrono::NaiveDate, String> {
+pub fn validate_date_format(date: &str) -> Result<chrono::NaiveDate, String> {
     chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d")
         .map_err(|e| format!("Invalid date '{}': {}. Expected YYYY-MM-DD", date, e))
 }
