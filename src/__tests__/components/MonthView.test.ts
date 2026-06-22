@@ -83,6 +83,20 @@ describe("MonthView", () => {
     expect(wrapper.findComponent({ name: "EntryComposer" }).exists()).toBe(false);
   });
 
+  it("passes is-today=false to EntryList for a non-today date", () => {
+    const store = makeStore();
+    store.currentDate = "2026-06-10";
+    const wrapper = mountView(store);
+    const entryList = wrapper.findComponent({ name: "EntryList" });
+    expect(entryList.props("isToday")).toBe(false);
+  });
+
+  it("passes is-today=true to EntryList for today", () => {
+    const wrapper = mountView();
+    const entryList = wrapper.findComponent({ name: "EntryList" });
+    expect(entryList.props("isToday")).toBe(true);
+  });
+
   it("shows the default-template indicator only when fromTemplate is true", () => {
     const off = mountView();
     expect(off.text()).not.toContain("本月沿用默认模板");

@@ -385,6 +385,7 @@ logInfo("MonthView", "mounted");
       <EntryList
         :entries="dayEntries"
         :just-added-id="justAddedId"
+        :is-today="isSelectedToday"
         @update="handleUpdateEntry"
         @delete="handleDeleteEntry"
         @update-dimensions="handleUpdateDimensions"
