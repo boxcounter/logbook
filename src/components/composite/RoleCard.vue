@@ -115,7 +115,7 @@ function removeGoal(g: GoalRowModel) {
         <input
           ref="allocInput"
           :value="role.allocation" type="number" data-test="alloc"
-          class="w-[42px] text-center px-xs py-xs border border-[var(--color-border-form)] rounded-[var(--radius-form)]
+          class="w-[52px] text-center px-xs py-xs border border-[var(--color-border-form)] rounded-[var(--radius-form)]
                  text-body font-semibold text-[var(--color-text-primary)] mono
                  bg-[var(--color-surface)] outline-none focus:border-[var(--color-brand-solid)]"
           @input="onAllocInput($event)"
