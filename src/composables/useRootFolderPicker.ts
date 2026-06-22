@@ -28,5 +28,5 @@ export function useRootFolderPicker(store: AppStore) {
     }
   }
 
-  return { pick, applyRootPath };
+  return { pick };
 }
