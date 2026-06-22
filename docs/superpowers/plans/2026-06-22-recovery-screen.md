@@ -1576,3 +1576,26 @@ git commit -m "test(recovery): manual verification pass for 3-tier recovery"
 | §6.4 文案 | Task 8 |
 | §7 测试（Rust 集成 + 前端组件） | Task 2/3/4/6/7/8/9 |
 | §8 二次确认（自建轻量） | Task 8（confirmingFresh 两步） |
+
+---
+
+## 调和附录（2026-06-22）：rebase 到 template.yaml 模型
+
+实施中途 `main` 合入「monthly dimension templates」（`3e6fb70`），`config.yaml` 被 `template.yaml` 取代。本分支已 rebase 到该 main 并重对后端。**3 层可恢复性设计概念不变**；以下为变更后的事实，正文中凡与之冲突处以本附录为准。
+
+**后端（Task 1-4，已实现并全绿）：**
+- `config.yaml`→`template.yaml`；`config_path`→`template_path`；`read_config`→`read_template`(→`Template`)；`validate_config`→`validate_dimensions(&dims)`。
+- `load_root_state` 分类不变（root 不存在→RootMissing；root 在但 `template.yaml` 不存在→ConfigMissing；存在但解析/校验/月度/日错→InPlace）。错误 `kind` 字符串保留，message 改 template.yaml。
+- `InitResult::Ready` = `{ root_path, dimensions: Vec<Dimension>, from_template: bool, today, commitments, scan_warnings }`（**无 `config` 字段**）。
+- 月度 `dimensions:` 块损坏 = `MonthlyFileCorrupt` = **in_place**，无新层。
+- reveal 更名 `reveal_template_file` / `reveal_template_target`（reveal `template.yaml`）。
+- watcher 监听 `template.yaml`。
+
+**前端 Task 5-9（覆盖正文旧 `config` 写法）：**
+- **Task 5**：main 的 `types.ts` 已是新 `Ready` 形状，`store` 已有 `dimensions`/`fromTemplate`。本任务只加：`RecoveryCategory` 类型、ConfigError data 的 `category`+`root_path`、`AppStore.configCategory`(默认 null)。`types.ts` 的 `RecoveryCategory` import 不要再带 `Config`（main 已无 `Config` 类型）。
+- **Task 6 `applyInitResult`**：`Ready`→`store.dimensions=data.dimensions; store.fromTemplate=data.from_template; store.today; store.rootPath; store.configCategory=null`（**不是** `store.config`）。`ConfigError`→`configErrors+configCategory+rootPath(=data.root_path)`。
+- **Task 7**：同正文。SetupScreen 现有 `confirm("No template.yaml found…")` 字符串匹配分支删除，改走后端分类。
+- **Task 8 RecoveryScreen**：Tier 1 调 `reveal_template_file`，文案「Reveal template.yaml in Finder」；Tier 2 文案「Your template.yaml is missing」/「Recreate default template.yaml」；Recreate 调 `create_starter_files`（已写 template.yaml）。
+- **Task 9 App.vue**：error 态渲染 `<RecoveryScreen :reload="initApp" />`；`initApp` 改用 `applyInitResult`；`config-changed` errors 分支补 `store.configCategory="in_place"`。Step 2 测试表里凡 `config.yaml` 字样按 `template.yaml` 理解。
+
+**历史备注**：rebase 后中间提交 `e5918f5`(reveal) 单独不可编译（`template_path` 修正落在 `c82b956`）；合并时 squash 即可，终态全绿。
