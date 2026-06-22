@@ -15,6 +15,11 @@ describe("createStore", () => {
     expect(store.availableMonths).toBeNull();
   });
 
+  it("createStore 默认 configCategory 为 null", () => {
+    const store = createStore();
+    expect(store.configCategory).toBeNull();
+  });
+
   it("currentDate is today", () => {
     const store = createStore();
     const now = new Date();

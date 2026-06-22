@@ -80,7 +80,7 @@ export interface ScanWarning {
 
 export type InitResult =
   | { status: "NeedsSetup" }
-  | { status: "ConfigError"; data: { errors: ConfigErrorDetail[]; scan_warnings: ScanWarning[] } }
+  | { status: "ConfigError"; data: { category: RecoveryCategory; root_path: string; errors: ConfigErrorDetail[]; scan_warnings: ScanWarning[] } }
   | {
       status: "Ready";
       data: {
@@ -97,6 +97,8 @@ export interface ConfigErrorDetail {
   kind: string;
   message: string;
 }
+
+export type RecoveryCategory = "in_place" | "config_missing" | "root_missing";
 
 export type AppStatus = "loading" | "setup" | "error" | "ready";
 
