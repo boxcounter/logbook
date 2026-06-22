@@ -118,53 +118,31 @@ describe("SetupScreen", () => {
     expect(store.configErrors).toEqual(errors);
   });
 
-  it("error with 'No such file': shows confirm dialog", async () => {
+  it("folder chosen but no template: ConfigError(config_missing) routes to error, no confirm", async () => {
+    // Behavior change (Task 7): "no template.yaml" is no longer detected by
+    // string-matching a thrown error + confirm()/create_starter_files. The
+    // backend now classifies it as ConfigError(config_missing); the picker
+    // just applies the InitResult. RecoveryScreen handles it downstream.
     mockOpen.mockResolvedValue("/empty/path");
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
-    // Use mockImplementation to ensure the rejection happens
-    mockInvoke.mockImplementation(async (cmd: string) => {
-      if (cmd === "set_root_path") throw "No such file or directory";
-      return undefined;
-    });
-
-    const { wrapper } = mountSetup();
-    await wrapper.find("button").trigger("click");
-    // Need to wait for async handler chain via setTimeout
-    await new Promise(r => setTimeout(r, 50));
-
-    expect(confirmSpy).toHaveBeenCalled();
-    // User said no → screen stays loading (the catch path for 'no' doesn't set screen)
-    confirmSpy.mockRestore();
-  });
-
-  it("confirm yes to create starter files: calls create_starter_files and retries", async () => {
-    mockOpen.mockResolvedValue("/empty/path");
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
-
-    const callOrder: string[] = [];
-    mockInvoke.mockImplementation(async (cmd: string, args?: any) => {
-      callOrder.push(cmd);
-      if (cmd === "set_root_path" && callOrder.filter(c => c === "set_root_path").length === 1) {
-        // First set_root_path call fails
-        throw "No such file or directory";
-      }
-      if (cmd === "create_starter_files") return undefined;
-      if (cmd === "set_root_path" && callOrder.filter(c => c === "set_root_path").length === 2) {
-        // Second set_root_path call succeeds
-        return {
-          status: "Ready",
-          data: { root_path: args!.path, dimensions: makeDimensions(), from_template: false, today: { note: null, entries: [] }, commitments: [] },
-        };
-      }
-      return undefined;
+    const confirmSpy = vi.spyOn(window, "confirm");
+    mockInvoke.mockResolvedValue({
+      status: "ConfigError",
+      data: {
+        category: "config_missing",
+        root_path: "/empty/path",
+        errors: [{ kind: "ConfigMissing", message: "no template.yaml" }],
+        scan_warnings: [],
+      },
     });
 
     const { wrapper, store } = mountSetup();
     await wrapper.find("button").trigger("click");
-    await new Promise(r => setTimeout(r, 50));
+    await new Promise(r => setTimeout(r, 0));
 
-    expect(mockInvoke).toHaveBeenCalledWith("create_starter_files", { path: "/empty/path" });
-    expect(store.status).toBe("ready");
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(mockInvoke).not.toHaveBeenCalledWith("create_starter_files", expect.anything());
+    expect(store.status).toBe("error");
+    expect(store.configCategory).toBe("config_missing");
     confirmSpy.mockRestore();
   });
 

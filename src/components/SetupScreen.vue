@@ -1,59 +1,9 @@
 <script setup lang="ts">
-import { invoke } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-dialog";
 import { useStore } from "../stores/useStore";
-import type { InitResult } from "../types";
-import { logError } from "../utils/errorLog";
+import { useRootFolderPicker } from "../composables/useRootFolderPicker";
 
 const store = useStore();
-
-async function selectFolder() {
-  const selected = await open({
-    directory: true,
-    multiple: false,
-    title: "Select Logbook data folder",
-  });
-  if (!selected) return;
-
-  const path = selected as string;
-  await trySetRootPath(path);
-}
-
-async function trySetRootPath(path: string) {
-  try {
-    const result = (await invoke("set_root_path", { path })) as InitResult;
-    if (result.status === "Ready") {
-      store.rootPath = path;
-      store.dimensions = result.data.dimensions;
-      store.fromTemplate = result.data.from_template;
-      store.today = result.data.today;
-      store.status = "ready";
-    } else if (result.status === "ConfigError") {
-      store.rootPath = path;
-      store.configErrors = result.data.errors;
-      store.status = "error";
-    }
-  } catch (e) {
-    const msg = String(e);
-    if (msg.includes("Failed to read") || msg.includes("No such file")) {
-      const shouldCreate = confirm("No template.yaml found. Create one with default settings?");
-      if (shouldCreate) {
-        try {
-          await invoke("create_starter_files", { path });
-          await trySetRootPath(path);
-        } catch (e2) {
-          logError("SetupScreen.selectFolder", e2);
-          store.configErrors = [{ kind: "SetupError", message: `Failed: ${e2}` }];
-          store.status = "error";
-        }
-      }
-    } else {
-      logError("SetupScreen.selectFolder", e);
-      store.configErrors = [{ kind: "SetupError", message: `Failed: ${e}` }];
-      store.status = "error";
-    }
-  }
-}
+const { pick } = useRootFolderPicker(store);
 </script>
 
 <template>
@@ -65,7 +15,7 @@ async function trySetRootPath(path: string) {
     </p>
     <button
       class="px-xl py-md bg-gradient-to-br from-[var(--color-brand-gradient-from)] to-[var(--color-brand-gradient-to)] text-white rounded-full hover:-translate-y-px hover:shadow-[var(--shadow-button-hover)] transition-all duration-[var(--motion-base)] text-body font-semibold cursor-pointer shadow-[var(--shadow-button)]"
-      @click="selectFolder"
+      @click="pick"
     >
       Choose Data Folder
     </button>
