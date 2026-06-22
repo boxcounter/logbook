@@ -3,7 +3,7 @@
 import type { Entry } from "../types";
 import EntryRow from "./composite/EntryRow.vue";
 
-defineProps<{ entries: Entry[]; justAddedId?: string | null }>();
+defineProps<{ entries: Entry[]; justAddedId?: string | null; isToday?: boolean }>();
 
 const emit = defineEmits<{
   update: [entryId: string, item: string, durationMinutes: number];
@@ -15,7 +15,7 @@ const emit = defineEmits<{
 <template>
   <div class="flex-1 flex flex-col overflow-y-auto pr-xs">
     <div v-if="entries.length === 0" class="p-2xl text-center text-[var(--color-text-secondary)] text-secondary">
-      No entries yet. Log your first work item below.
+      {{ isToday ? "No entries yet. Log your first work item below." : "No entries for this day." }}
     </div>
     <EntryRow
       v-for="(entry, index) in entries"
