@@ -186,9 +186,9 @@ function save() {
         <button data-test="delete" class="text-micro font-semibold px-sm py-2xs rounded-[var(--radius-form)] text-[var(--color-text-disabled)] hover:text-[var(--color-danger)] ml-auto" @click="emit('delete')">Delete</button>
       </template>
       <template v-else>
-        <span data-test="discard-prompt" class="text-micro text-[var(--color-text-secondary)]">放弃修改？</span>
-        <button data-test="discard" class="text-micro font-semibold px-sm py-2xs rounded-[var(--radius-form)] text-[var(--color-danger)] hover:underline" @click="emit('cancel')">放弃</button>
-        <button data-test="keep-editing" class="text-micro font-semibold px-sm py-2xs rounded-[var(--radius-form)] bg-[var(--color-brand-solid)] text-white hover:bg-[var(--color-brand-link)]" @click="confirming = false">继续编辑</button>
+        <span data-test="discard-prompt" class="text-micro text-[var(--color-text-secondary)]">Discard changes?</span>
+        <button data-test="discard" class="text-micro font-semibold px-sm py-2xs rounded-[var(--radius-form)] text-[var(--color-danger)] hover:underline" @click="emit('cancel')">Discard</button>
+        <button data-test="keep-editing" class="text-micro font-semibold px-sm py-2xs rounded-[var(--radius-form)] bg-[var(--color-brand-solid)] text-white hover:bg-[var(--color-brand-link)]" @click="confirming = false">Keep editing</button>
       </template>
     </div>
 

@@ -2,6 +2,7 @@
 <script setup lang="ts">
 import { inject, computed, watch, ref, onMounted, onUnmounted, nextTick } from "vue";
 import { invoke } from "@tauri-apps/api/core";
+import { getVersion } from "@tauri-apps/api/app";
 import { useStore } from "../stores/useStore";
 import HeatmapCalendar from "./HeatmapCalendar.vue";
 import CommitmentsPanel from "./CommitmentsPanel.vue";
@@ -18,6 +19,8 @@ const inputRef = ref<InstanceType<typeof EntryComposer> | null>(null);
 // Newly-added entry highlight (spec §5.2 step 7): mark the id, clear after 1.5s.
 const justAddedId = ref<string | null>(null);
 let highlightTimer: ReturnType<typeof setTimeout> | null = null;
+
+const appVersion = ref("");
 
 const selectedYear = computed(() => yearMonthFromDate(store.currentDate).year);
 const selectedMonth = computed(() => yearMonthFromDate(store.currentDate).month);
@@ -315,6 +318,7 @@ function onGlobalKeydown(e: KeyboardEvent) {
 
 onMounted(async () => {
   window.addEventListener("keydown", onGlobalKeydown);
+  getVersion().then(v => { appVersion.value = v; }).catch(() => {});
   if (store.rootPath) {
     const { year, month } = yearMonthFromDate(store.currentDate);
     await loadMonth(year, month);
@@ -382,7 +386,7 @@ logInfo("MonthView", "mounted");
       </div>
 
       <p v-if="store.fromTemplate" class="mb-sm text-micro text-[var(--color-text-disabled)]">
-        本月沿用默认模板（尚未自定义维度）
+        Using default template (no custom dimensions this month)
       </p>
 
       <EntryList
@@ -402,7 +406,8 @@ logInfo("MonthView", "mounted");
         />
       </div>
 
-      <div v-if="store.rootPath" class="mt-sm text-right">
+      <div v-if="store.rootPath" class="mt-sm text-right flex justify-end items-baseline gap-md">
+        <span v-if="appVersion" class="text-micro text-[var(--color-text-disabled)]">v{{ appVersion }}</span>
         <button
           class="text-micro text-[var(--color-text-disabled)] hover:text-[var(--color-text-secondary)] cursor-pointer"
           :title="store.rootPath + '/' + dayFilePath"

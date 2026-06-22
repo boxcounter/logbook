@@ -85,12 +85,23 @@ describe("MonthView", () => {
 
   it("shows the default-template indicator only when fromTemplate is true", () => {
     const off = mountView();
-    expect(off.text()).not.toContain("本月沿用默认模板");
+    expect(off.text()).not.toContain("Using default template");
 
     const store = makeStore();
     store.fromTemplate = true;
     const on = mountView(store);
-    expect(on.text()).toContain("本月沿用默认模板");
+    expect(on.text()).toContain("Using default template");
+  });
+
+  it("renders the day note above the entry list", () => {
+    const wrapper = mountView();
+    const html = wrapper.html();
+    const noteIdx = html.indexOf('contenteditable');
+    const listIdx = html.indexOf('No entries'); // empty-state marker, or fall back below
+    const listAnchor = listIdx !== -1 ? listIdx : html.indexOf('overflow-y-auto');
+    expect(noteIdx).toBeGreaterThan(-1);
+    expect(listAnchor).toBeGreaterThan(-1);
+    expect(noteIdx).toBeLessThan(listAnchor);
   });
 
   it("renders the day note above the entry list", () => {
