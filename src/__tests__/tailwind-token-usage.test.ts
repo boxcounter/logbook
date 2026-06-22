@@ -17,6 +17,25 @@ const SPACE_PREFIXES =
   "p|px|py|pt|pb|pl|pr|m|mx|my|mt|mb|ml|mr|gap|gap-x|gap-y|space-x|space-y";
 // Named scale (documentation): 2xs|xs|sm|md|lg|xl|2xl
 
+// Sizing utilities (width/height/basis) whose t-shirt sizes silently mis-resolve.
+// This project defines a named --spacing-* scale but NO --container-* scale, so
+// Tailwind v4 resolves `max-w-md` against --spacing-md (=12px), not the 28rem you
+// expect — collapsing centered columns to one-word/one-char-per-line. Other t-shirt
+// sizes (3xl…7xl) emit no rule at all. Sizing is exempt from the spacing-token rule
+// (root CLAUDE.md), so the fix is an explicit value: max-w-[28rem], w-[300px], etc.
+// Regression guard for docs/bugs/2026-06-22-recovery-screen-layout-collapse.md.
+const SIZE_PREFIXES = "max-w|min-w|w|max-h|min-h|h|size|basis";
+const TSHIRT = "3xs|2xs|xs|sm|md|lg|xl|2xl|3xl|4xl|5xl|6xl|7xl";
+
+function sizingTshirtViolations(src: string): string[] {
+  const out: string[] = [];
+  const re = new RegExp(`\\b(${SIZE_PREFIXES})-(${TSHIRT})\\b`, "g");
+  for (const m of src.matchAll(re)) {
+    out.push(`${m[0]} → use an explicit value (e.g. ${m[1]}-[28rem]); t-shirt sizes resolve to --spacing-* (tiny) because no --container-* scale is defined`);
+  }
+  return out;
+}
+
 // Map a px number to the suggested spacing suffix (canonical table in the plan).
 function spacingSuffix(px: number): string {
   if (px <= 2) return "2xs";
@@ -109,6 +128,15 @@ describe("Tailwind token usage", () => {
     for (const [path, src] of Object.entries(allFiles)) {
       if (ALLOWLIST.has(path)) continue;
       const v = spacingViolations(src);
+      if (v.length) offenders.push(`${path}:\n  ${v.join("\n  ")}`);
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it("never uses t-shirt sizes on width/height utilities (they mis-resolve to --spacing-*)", () => {
+    const offenders: string[] = [];
+    for (const [path, src] of Object.entries(allFiles)) {
+      const v = sizingTshirtViolations(src);
       if (v.length) offenders.push(`${path}:\n  ${v.join("\n  ")}`);
     }
     expect(offenders).toEqual([]);

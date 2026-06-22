@@ -35,7 +35,7 @@ async function revealTemplate() {
 
 <template>
   <div class="min-h-screen p-2xl">
-    <div class="mx-auto max-w-md text-center">
+    <div class="mx-auto max-w-[28rem] text-center">
       <!-- Tier 1: in_place -->
       <template v-if="store.configCategory === 'in_place'">
         <ConfigErrorBanner />

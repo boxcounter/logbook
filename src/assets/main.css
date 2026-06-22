@@ -3,6 +3,7 @@
 
 @source not "../../docs";
 @source not "../../.superpowers";
+@source not "../__tests__";
 
 @theme {
   --text-*: initial;
