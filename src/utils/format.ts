@@ -8,6 +8,14 @@ export function formatDuration(minutes: number): string {
   return `${minutes}m`;
 }
 
+/** Format minutes to compact hour display: 90 → "1.5h", 30 → "0.5h", 0 → "0" */
+export function formatDurationCompact(minutes: number): string {
+  if (minutes === 0) return "0";
+  const hours = Math.round(minutes / 6) / 10;
+  const display = hours % 1 === 0 ? hours.toFixed(0) : String(hours);
+  return `${display}h`;
+}
+
 const DURATION_RE = /(\d+(?:\.\d+)?)\s*(h|m)?/gi;
 
 /** Parse duration from text. Accumulates as float, rounds once at end (matches Rust). */

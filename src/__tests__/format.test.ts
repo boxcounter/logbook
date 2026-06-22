@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatDuration, parseDurationFromText, stripDurations, resolveDelta } from "../utils/format";
+import { formatDuration, formatDurationCompact, parseDurationFromText, stripDurations, resolveDelta } from "../utils/format";
 
 describe("formatDuration", () => {
   it("formats under 60m", () => { expect(formatDuration(45)).toBe("45m"); });
@@ -51,4 +51,17 @@ describe("resolveDelta", () => {
   it("falls back to current on invalid expression", () => { expect(resolveDelta("abc", 60)).toBe(60); });
   it("clamps negative expression result to zero", () => { expect(resolveDelta("5-100", 0)).toBe(0); });
   it("handles whitespace in expression", () => { expect(resolveDelta(" 5 + 60 ", 0)).toBe(65); });
+});
+
+describe("formatDurationCompact", () => {
+  it("zero", () => { expect(formatDurationCompact(0)).toBe("0"); });
+  it("30m → 0.5h", () => { expect(formatDurationCompact(30)).toBe("0.5h"); });
+  it("45m → 0.8h (rounded)", () => { expect(formatDurationCompact(45)).toBe("0.8h"); });
+  it("60m → 1h", () => { expect(formatDurationCompact(60)).toBe("1h"); });
+  it("90m → 1.5h", () => { expect(formatDurationCompact(90)).toBe("1.5h"); });
+  it("120m → 2h", () => { expect(formatDurationCompact(120)).toBe("2h"); });
+  it("150m → 2.5h", () => { expect(formatDurationCompact(150)).toBe("2.5h"); });
+  it("5m → 0.1h", () => { expect(formatDurationCompact(5)).toBe("0.1h"); });
+  it("865m → 14.4h", () => { expect(formatDurationCompact(865)).toBe("14.4h"); });
+  it("870m → 14.5h", () => { expect(formatDurationCompact(870)).toBe("14.5h"); });
 });
