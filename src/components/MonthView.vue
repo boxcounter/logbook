@@ -336,7 +336,7 @@ logInfo("MonthView", "mounted");
 <template>
   <div class="flex min-h-[calc(100vh-64px)] bg-[var(--color-surface)] border border-[var(--color-border-form)] rounded-[var(--radius-lg)] overflow-hidden">
     <!-- Sidebar -->
-    <aside class="w-[220px] flex-shrink-0 flex flex-col gap-0 bg-[var(--color-surface-muted)] border-r border-[var(--color-divider)] px-lg py-xl">
+    <aside class="w-[280px] flex-shrink-0 flex flex-col gap-0 bg-[var(--color-surface-muted)] border-r border-[var(--color-divider)] px-lg py-xl">
       <HeatmapCalendar
         :year="selectedYear"
         :month="selectedMonth"
@@ -392,6 +392,7 @@ logInfo("MonthView", "mounted");
       <EntryList
         :entries="dayEntries"
         :just-added-id="justAddedId"
+        :is-today="isSelectedToday"
         @update="handleUpdateEntry"
         @delete="handleDeleteEntry"
         @update-dimensions="handleUpdateDimensions"

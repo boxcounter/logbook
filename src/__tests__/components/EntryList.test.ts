@@ -22,7 +22,23 @@ describe("EntryList", () => {
 
   it("shows an empty state when there are no entries", () => {
     const wrapper = mountList([]);
-    expect(wrapper.text()).toContain("No entries");
+    expect(wrapper.text()).toContain("No entries for this day.");
+  });
+
+  it("shows a different empty state for non-today days", () => {
+    const wrapper = mountList([]);
+    // mountList doesn't pass isToday, so it defaults to undefined/false → non-today message
+    expect(wrapper.text()).toContain("No entries for this day.");
+    expect(wrapper.text()).not.toContain("Log your first work item below");
+  });
+
+  it("shows the full CTA message when isToday is true", () => {
+    const store = reactive({ dimensions: makeDimensions(), fromTemplate: false, commitments: [makeCommitment()] });
+    const wrapper = mount(EntryList, {
+      props: { entries: [], isToday: true },
+      global: { provide: { [STORE_KEY as symbol]: store } },
+    });
+    expect(wrapper.text()).toContain("No entries yet. Log your first work item below.");
   });
 
   it("re-emits update from a row", async () => {
