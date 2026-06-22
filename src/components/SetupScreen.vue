@@ -9,7 +9,7 @@ const { pick } = useRootFolderPicker(store);
 <template>
   <div class="flex flex-col items-center justify-center min-h-screen p-2xl">
     <h1 class="text-title font-bold mb-lg text-[var(--color-text-primary)]">Welcome to Logbook</h1>
-    <p class="text-[var(--color-text-secondary)] mb-xl text-center max-w-md">
+    <p class="text-[var(--color-text-secondary)] mb-xl text-center max-w-[28rem]">
       Logbook stores work records as Markdown files with YAML frontmatter.
       Choose a folder to store your data.
     </p>
