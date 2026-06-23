@@ -16,6 +16,18 @@ const emit = defineEmits<{
 
 const store = useStore();
 const editing = ref(false);
+const focusTarget = ref<'item' | 'duration'>('item');
+
+function onDblClick(e: MouseEvent) {
+  const target = (e.target as HTMLElement).closest('[data-edit-target]') as HTMLElement | null;
+  focusTarget.value = (target?.dataset.editTarget as 'item' | 'duration') || 'item';
+  editing.value = true;
+}
+
+function onEditTrigger() {
+  focusTarget.value = 'item';
+  editing.value = true;
+}
 
 const dimensions = computed(() => store.dimensions);
 const filledDims = computed(() => dimensions.value.filter(d => props.entry.dimensions[d.key]));
@@ -46,6 +58,7 @@ function onSave(item: string, durationMinutes: number, dims: Record<string, stri
     :entry="entry"
     :dimensions="dimensions"
     :commitments="store.commitments"
+    :focus-target="focusTarget"
     @save="onSave"
     @cancel="editing = false"
     @delete="emit('delete', entry.id); editing = false"
@@ -56,10 +69,11 @@ function onSave(item: string, durationMinutes: number, dims: Record<string, stri
     class="group flex justify-between items-start gap-sm px-md py-sm
            hover:bg-[var(--color-surface-muted)] transition-colors"
     :class="[{ 'just-added': justAdded }, index > 0 ? 'border-t border-[var(--color-divider)]' : '']"
-    @dblclick="editing = true"
+    @dblclick="onDblClick"
   >
-    <div class="flex-1 min-w-0">
+    <div class="flex-1 min-w-0" data-edit-target="item">
       <div
+        data-test="item-display"
         class="text-body font-medium text-[var(--color-text-primary)] break-words overflow-hidden [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical]"
         :title="entry.item"
       >{{ entry.item }}</div>
@@ -72,14 +86,18 @@ function onSave(item: string, durationMinutes: number, dims: Record<string, stri
         >{{ entry.dimensions[d.key] }}</span>
       </div>
     </div>
-    <span class="mono text-secondary text-[var(--color-text-primary)] flex-shrink-0 ml-lg pt-2xs">
+    <span
+      data-test="duration-display"
+      data-edit-target="duration"
+      class="mono text-secondary text-[var(--color-text-primary)] flex-shrink-0 ml-lg pt-2xs"
+    >
       {{ entry.duration > 0 ? formatDuration(entry.duration) : "—" }}
     </span>
     <span
       data-test="edit-trigger"
       class="text-[var(--color-text-secondary)] hover:text-[var(--color-brand-solid)] text-body leading-none flex-shrink-0 ml-sm px-2xs cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
       title="Edit"
-      @click="editing = true"
+      @click="onEditTrigger"
     >⋯</span>
   </div>
 </template>
