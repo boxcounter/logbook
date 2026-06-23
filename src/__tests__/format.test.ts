@@ -8,11 +8,14 @@ describe("formatDuration", () => {
 });
 
 describe("parseDurationFromText", () => {
-  it("plain number", () => { expect(parseDurationFromText("90")).toBe(90); });
+  it("plain number returns null (no unit)", () => { expect(parseDurationFromText("90")).toBeNull(); });
+  it("plain number 520 returns null", () => { expect(parseDurationFromText("520")).toBeNull(); });
   it("hours", () => { expect(parseDurationFromText("1.5h")).toBe(90); });
   it("minutes", () => { expect(parseDurationFromText("30m")).toBe(30); });
   it("compound", () => { expect(parseDurationFromText("1h 30m")).toBe(90); });
+  it("compound with h", () => { expect(parseDurationFromText("2h 15m")).toBe(135); });
   it("Chinese text", () => { expect(parseDurationFromText("准备会议（15m），面聊（45m）")).toBe(60); });
+  it("text with plain number not extracted", () => { expect(parseDurationFromText("Code review 45")).toBeNull(); });
   it("empty", () => { expect(parseDurationFromText("")).toBeNull(); });
   it("no duration", () => { expect(parseDurationFromText("nothing")).toBeNull(); });
 });
@@ -43,9 +46,25 @@ describe("resolveDelta", () => {
   it("evaluates float expression", () => { expect(resolveDelta("1.5*60", 0)).toBe(90); });
   it("rounds expression result", () => { expect(resolveDelta("10/3", 0)).toBe(3); });
 
+  // Expressions with duration unit suffixes
+  it("expr: 52+15m", () => { expect(resolveDelta("52+15m", 0)).toBe(67); });
+  it("expr: 52+1h", () => { expect(resolveDelta("52+1h", 0)).toBe(112); });
+  it("expr: 52+1.5h", () => { expect(resolveDelta("52+1.5h", 0)).toBe(142); });
+  it("expr: 1h+30m", () => { expect(resolveDelta("1h+30m", 0)).toBe(90); });
+  it("expr: 52+1h+15m", () => { expect(resolveDelta("52+1h+15m", 0)).toBe(127); });
+
   // Delta with expression: +N still means add-to-current
   it("delta add still works", () => { expect(resolveDelta("+30", 60)).toBe(90); });
   it("delta subtract still works", () => { expect(resolveDelta("-15", 60)).toBe(45); });
+
+  // Delta with unit suffix
+  it("delta +1h adds 60 min", () => { expect(resolveDelta("+1h", 20)).toBe(80); });
+  it("delta +1.5h adds 90 min", () => { expect(resolveDelta("+1.5h", 20)).toBe(110); });
+  it("delta -1h subtracts 60 min", () => { expect(resolveDelta("-1h", 90)).toBe(30); });
+  it("delta +0.5h adds 30 min", () => { expect(resolveDelta("+0.5h", 30)).toBe(60); });
+  it("delta +60m adds 60 min", () => { expect(resolveDelta("+60m", 20)).toBe(80); });
+  it("delta -30m subtracts 30 min", () => { expect(resolveDelta("-30m", 60)).toBe(30); });
+  it("delta with h suffix clamps zero", () => { expect(resolveDelta("-2h", 60)).toBe(0); });
 
   // Edge cases
   it("falls back to current on invalid expression", () => { expect(resolveDelta("abc", 60)).toBe(60); });

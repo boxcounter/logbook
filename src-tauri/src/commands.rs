@@ -10,7 +10,7 @@ use tauri::{AppHandle, Manager};
 use tauri_plugin_opener::OpenerExt;
 
 static DURATION_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(\d+(?:\.\d+)?)\s*(h|m|H|M)?").unwrap());
+    LazyLock::new(|| Regex::new(r"(\d+(?:\.\d+)?)\s*(h|m|H|M)").unwrap());
 
 /// Read a day file, distinguishing "file not found" from "file found but corrupt".
 fn read_day_file_safe(root: &std::path::Path, date: &str) -> Result<DayFile, String> {
@@ -100,7 +100,7 @@ pub fn parse_duration(input: &str) -> Result<u32, String> {
                 total += value * 60.0;
                 matched = true;
             }
-            "m" | "" => {
+            "m" => {
                 total += value;
                 matched = true;
             }
@@ -110,7 +110,7 @@ pub fn parse_duration(input: &str) -> Result<u32, String> {
 
     if !matched {
         return Err(format!(
-            "Could not parse duration from '{}'. Examples: 1.5h, 30m, 45",
+            "Could not parse duration from '{}'. Examples: 1.5h, 30m, 2h 15m",
             input
         ));
     }

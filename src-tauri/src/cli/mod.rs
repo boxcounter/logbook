@@ -7,7 +7,7 @@ use clap::{Parser, Subcommand};
 use root_path::resolve_root_path;
 
 #[derive(Parser)]
-#[command(name = "logbook-cli", about = "Logbook CLI — read/write time tracking data")]
+#[command(name = "logbook-cli", version, about = "Logbook CLI — read/write time tracking data")]
 pub struct Cli {
     /// Data root directory (default: read from GUI config)
     #[arg(short = 'r', long)]
