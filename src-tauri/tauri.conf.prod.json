@@ -3,7 +3,7 @@
   "identifier": "com.boxcounter.logbook",
   "bundle": {
     "resources": {
-      "../target/release/logbook-cli": "logbook-cli"
+      "target/release/logbook-cli": "logbook-cli"
     }
   }
 }
