@@ -4,14 +4,15 @@ use std::path::PathBuf;
 ///
 /// Priority:
 /// 1. `flag` (--root-path / -r)
-/// 2. `root_path.txt` in macOS app local data dir
+/// 2. `root_path.txt` in the bundle-specific macOS app data dir
 /// 3. None → caller prints error and exits
 ///
-/// macOS app data dir:
-///   dev:  ~/Library/Application Support/com.boxcounter.logbook.dev/
-///   prod: ~/Library/Application Support/com.boxcounter.logbook/
+/// Bundle ID is injected at compile time via `LOGBOOK_CLI_BUNDLE_ID`,
+/// matching the Tauri config selection:
+///   debug   → com.boxcounter.logbook.dev
+///   release → com.boxcounter.logbook
 ///
-/// Bundle IDs come from tauri.conf.json (dev) and tauri.conf.prod.json (prod).
+/// macOS app data dir: ~/Library/Application Support/<bundle_id>/root_path.txt
 pub fn resolve_root_path(flag: Option<String>) -> Option<PathBuf> {
     if let Some(ref p) = flag {
         let path = PathBuf::from(p);
@@ -25,27 +26,33 @@ pub fn resolve_root_path(flag: Option<String>) -> Option<PathBuf> {
         return None;
     }
 
-    // Try common macOS app data dirs for root_path.txt
+    let bundle_id = env!("LOGBOOK_CLI_BUNDLE_ID");
     let home = std::env::var("HOME").ok()?;
-    let candidates = [
-        // tauri.conf.json (dev)
-        "Library/Application Support/com.boxcounter.logbook.dev/root_path.txt",
-        // tauri.conf.prod.json (production)
-        "Library/Application Support/com.boxcounter.logbook/root_path.txt",
-    ];
+    let root_path_txt = PathBuf::from(&home)
+        .join("Library/Application Support")
+        .join(bundle_id)
+        .join("root_path.txt");
 
-    for candidate in &candidates {
-        let p = PathBuf::from(&home).join(candidate);
-        if p.exists() {
-            if let Ok(content) = std::fs::read_to_string(&p) {
-                let trimmed = content.trim();
-                let path = PathBuf::from(trimmed);
-                if path.exists() && path.is_dir() {
-                    return Some(path);
-                }
+    if root_path_txt.exists() {
+        if let Ok(content) = std::fs::read_to_string(&root_path_txt) {
+            let trimmed = content.trim();
+            let path = PathBuf::from(trimmed);
+            if path.exists() && path.is_dir() {
+                return Some(path);
             }
+            eprintln!(
+                "Warning: root_path.txt points to '{}', which does not exist or is not a directory",
+                trimmed
+            );
+            return None;
         }
     }
 
+    eprintln!(
+        "Info: No root_path.txt found for {bundle_id}.\n\
+         Run the {app} GUI once to initialize, or use --root-path to specify manually.",
+        bundle_id = bundle_id,
+        app = if bundle_id.ends_with(".dev") { "Logbook (dev)" } else { "Logbook" }
+    );
     None
 }

@@ -71,6 +71,8 @@ pub fn run() {
         std::process::exit(1);
     });
 
+    eprintln!("Using data root: {}", root.display());
+
     match cli.command {
         Commands::Commitments { action } => match action {
             CommitmentAction::List { year, month } => {
