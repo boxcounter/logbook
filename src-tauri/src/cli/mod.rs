@@ -1,5 +1,6 @@
 pub mod commitments;
 mod entries;
+pub mod install;
 pub mod output;
 pub mod root_path;
 

@@ -1,4 +1,9 @@
 {
   "productName": "Logbook",
-  "identifier": "com.boxcounter.logbook"
+  "identifier": "com.boxcounter.logbook",
+  "bundle": {
+    "resources": {
+      "../target/release/logbook-cli": "logbook-cli"
+    }
+  }
 }

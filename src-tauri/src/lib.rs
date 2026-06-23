@@ -9,7 +9,9 @@ pub mod scan;
 mod window_state;
 
 use std::path::PathBuf;
+use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 use tauri::Manager;
+use tauri_plugin_dialog::DialogExt;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -48,6 +50,74 @@ pub fn run() {
                     config::ensure_watcher(&app_handle, root_path);
                 }
             }
+
+            // ── Menu ──────────────────────────────────────────────
+            let install_cli_item = MenuItemBuilder::new("Install Command Line Tool…")
+                .id("install-cli")
+                .build(app)?;
+
+            let app_menu = SubmenuBuilder::new(app, "Logbook")
+                .about(Some(Default::default()))
+                .separator()
+                .item(&install_cli_item)
+                .separator()
+                .services()
+                .separator()
+                .hide()
+                .hide_others()
+                .show_all()
+                .separator()
+                .quit()
+                .build()?;
+
+            let edit_menu = SubmenuBuilder::new(app, "Edit")
+                .undo()
+                .redo()
+                .separator()
+                .cut()
+                .copy()
+                .paste()
+                .select_all()
+                .build()?;
+
+            let window_menu = SubmenuBuilder::new(app, "Window")
+                .minimize()
+                .fullscreen()
+                .build()?;
+
+            let menu = MenuBuilder::new(app)
+                .item(&app_menu)
+                .item(&edit_menu)
+                .item(&window_menu)
+                .build()?;
+
+            app.set_menu(menu)?;
+
+            app.on_menu_event(|app_handle, event| {
+                if event.id().0 == "install-cli" {
+                    let resource_dir = app_handle.path().resource_dir().ok();
+                    match crate::cli::install::install_cli(resource_dir) {
+                        Ok(msg) => {
+                            let _ = app_handle
+                                .dialog()
+                                .message(msg)
+                                .title("Logbook")
+                                .kind(tauri_plugin_dialog::MessageDialogKind::Info)
+                                .show(|_| {});
+                        }
+                        Err(e) => {
+                            let _ = app_handle
+                                .dialog()
+                                .message(e)
+                                .title("Logbook — Install CLI Failed")
+                                .kind(tauri_plugin_dialog::MessageDialogKind::Error)
+                                .show(|_| {});
+                        }
+                    }
+                }
+            });
+            // ────────────────────────────────────────────────────
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
