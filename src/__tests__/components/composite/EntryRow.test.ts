@@ -87,4 +87,33 @@ describe("EntryRow", () => {
     await wrapper.vm.$nextTick();
     expect(wrapper.emitted("delete")?.[0]).toEqual([wrapper.props("entry").id]);
   });
+
+  it("passes focusTarget='item' when double-clicking the item text", async () => {
+    const wrapper = mountRow();
+    await wrapper.find("[data-test='item-display']").trigger("dblclick");
+    const editor = wrapper.findComponent({ name: "EntryRowEdit" });
+    expect(editor.props("focusTarget")).toBe("item");
+  });
+
+  it("passes focusTarget='duration' when double-clicking the duration", async () => {
+    const wrapper = mountRow();
+    await wrapper.find("[data-test='duration-display']").trigger("dblclick");
+    const editor = wrapper.findComponent({ name: "EntryRowEdit" });
+    expect(editor.props("focusTarget")).toBe("duration");
+  });
+
+  it("passes focusTarget='item' when double-clicking a dimension chip (closest traversal)", async () => {
+    const wrapper = mountRow();
+    const chip = wrapper.find(".text-micro");
+    await chip.trigger("dblclick");
+    const editor = wrapper.findComponent({ name: "EntryRowEdit" });
+    expect(editor.props("focusTarget")).toBe("item");
+  });
+
+  it("passes focusTarget='item' when clicking the … trigger", async () => {
+    const wrapper = mountRow();
+    await wrapper.find("[data-test='edit-trigger']").trigger("click");
+    const editor = wrapper.findComponent({ name: "EntryRowEdit" });
+    expect(editor.props("focusTarget")).toBe("item");
+  });
 });

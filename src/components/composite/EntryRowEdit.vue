@@ -1,6 +1,6 @@
 <!-- src/components/composite/EntryRowEdit.vue -->
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from "vue";
+import { ref, computed, onMounted, onUnmounted, nextTick } from "vue";
 import type { Entry, Dimension, Commitment } from "../../types";
 import { resolveDelta } from "../../utils/format";
 import DimensionPopover from "../DimensionPopover.vue";
@@ -9,6 +9,7 @@ const props = defineProps<{
   entry: Entry;
   dimensions: Dimension[];
   commitments: Commitment[];
+  focusTarget?: 'item' | 'duration';
 }>();
 
 const emit = defineEmits<{
@@ -23,6 +24,8 @@ const dimValues = ref<Record<string, string>>({ ...props.entry.dimensions });
 const popoverOpen = ref(false);
 const submitAttempted = ref(false);
 const rootEl = ref<HTMLElement>();
+const itemInputEl = ref<HTMLInputElement>();
+const durInputEl = ref<HTMLInputElement>();
 const popoverUp = ref(false);
 const confirming = ref(false);
 
@@ -71,10 +74,17 @@ function onDocKeydown(e: KeyboardEvent) {
   if (rootEl.value?.contains(document.activeElement)) return; // focus inside → root handler owns it
   dismissFromOutside();
 }
-onMounted(() => {
+onMounted(async () => {
   document.addEventListener("mousedown", onDocMousedown, true);
   document.addEventListener("focusin", onDocFocusin, true);
   document.addEventListener("keydown", onDocKeydown);
+
+  await nextTick();
+  const target = props.focusTarget === 'duration' ? durInputEl.value : itemInputEl.value;
+  target?.focus();
+  if (target) {
+    target.setSelectionRange(target.value.length, target.value.length);
+  }
 });
 onUnmounted(() => {
   document.removeEventListener("mousedown", onDocMousedown, true);
@@ -140,12 +150,14 @@ function save() {
   >
     <div class="flex gap-sm items-center">
       <input
+        ref="itemInputEl"
         v-model="item"
         class="flex-1 text-body font-medium text-[var(--color-text-primary)] border-none outline-none bg-transparent py-2xs"
         @keydown.enter.prevent="onEnter"
         @input="confirming = false"
       />
       <input
+        ref="durInputEl"
         v-model="durText"
         class="mono w-[56px] text-right text-secondary text-[var(--color-text-primary)]
                border border-[var(--color-border-form)] rounded-[var(--radius-form)] px-sm py-2xs

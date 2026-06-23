@@ -1,6 +1,7 @@
 // src/__tests__/components/composite/EntryRowEdit.test.ts
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { mount, enableAutoUnmount } from "@vue/test-utils";
+import { nextTick } from "vue";
 import EntryRowEdit from "../../../components/composite/EntryRowEdit.vue";
 import { makeEntry, makeDimension, makeCommitment } from "../../mocks/fixtures";
 
@@ -19,6 +20,14 @@ const fullDims = { category: "Engineering", goal: "Bug fixes", "business-line": 
 function mountEdit(entryOverrides = {}) {
   const entry = makeEntry({ item: "Old item", duration: 45, dimensions: { ...fullDims }, ...entryOverrides });
   return mount(EntryRowEdit, { props: { entry, dimensions, commitments } });
+}
+
+function mountEditWithFocus(focusTarget: 'item' | 'duration' = 'item') {
+  const entry = makeEntry({ item: "Old item", duration: 45, dimensions: { ...fullDims } });
+  return mount(EntryRowEdit, {
+    props: { entry, dimensions, commitments, focusTarget },
+    attachTo: document.body,
+  });
 }
 
 describe("EntryRowEdit", () => {
@@ -211,5 +220,44 @@ describe("EntryRowEdit", () => {
     await wrapper.trigger("keydown", { key: "Escape" });
     expect(wrapper.find("[data-test='discard-prompt']").exists()).toBe(true);
     expect(wrapper.emitted("cancel")).toBeFalsy();
+  });
+
+  it("focuses the item input on mount when focusTarget is 'item'", async () => {
+    const wrapper = mountEditWithFocus('item');
+    await nextTick();
+    const inputs = wrapper.findAll("input");
+    expect(document.activeElement).toBe(inputs[0].element);
+  });
+
+  it("focuses the duration input on mount when focusTarget is 'duration'", async () => {
+    const wrapper = mountEditWithFocus('duration');
+    await nextTick();
+    const inputs = wrapper.findAll("input");
+    expect(document.activeElement).toBe(inputs[1].element);
+  });
+
+  it("defaults to focusing the item input when focusTarget is omitted", async () => {
+    const entry = makeEntry({ item: "Old item", duration: 45, dimensions: { ...fullDims } });
+    const wrapper = mount(EntryRowEdit, {
+      props: { entry, dimensions, commitments },
+      attachTo: document.body,
+    });
+    await nextTick();
+    const inputs = wrapper.findAll("input");
+    expect(document.activeElement).toBe(inputs[0].element);
+  });
+
+  it("places the cursor at the end of the existing text", async () => {
+    const spy = vi.spyOn(HTMLInputElement.prototype, 'setSelectionRange');
+    const entry = makeEntry({ item: "Review PR", duration: 45, dimensions: { ...fullDims } });
+    const wrapper = mount(EntryRowEdit, {
+      props: { entry, dimensions, commitments, focusTarget: 'item' },
+      attachTo: document.body,
+    });
+    await nextTick();
+    // setSelectionRange should be called with (len, len) to place cursor at end
+    const itemInput = wrapper.findAll("input")[0].element as HTMLInputElement;
+    expect(spy).toHaveBeenCalledWith(itemInput.value.length, itemInput.value.length);
+    spy.mockRestore();
   });
 });
