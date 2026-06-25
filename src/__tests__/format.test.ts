@@ -35,16 +35,10 @@ describe("resolveDelta", () => {
   it("absolute", () => { expect(resolveDelta("90", 60)).toBe(90); });
   it("clamps zero", () => { expect(resolveDelta("-100", 60)).toBe(0); });
 
-  // Arithmetic expressions
+  // Arithmetic expressions (addition / subtraction only)
   it("evaluates addition expression", () => { expect(resolveDelta("5+60", 0)).toBe(65); });
   it("evaluates subtraction expression", () => { expect(resolveDelta("100-30", 0)).toBe(70); });
-  it("evaluates multiplication expression", () => { expect(resolveDelta("5*60", 0)).toBe(300); });
-  it("evaluates division expression", () => { expect(resolveDelta("120/2", 0)).toBe(60); });
-  it("evaluates parenthesized expression", () => { expect(resolveDelta("(5+60)", 0)).toBe(65); });
-  it("evaluates expression ignoring current", () => { expect(resolveDelta("(5+60)", 99)).toBe(65); });
-  it("evaluates complex expression", () => { expect(resolveDelta("(30+20)*3", 0)).toBe(150); });
-  it("evaluates float expression", () => { expect(resolveDelta("1.5*60", 0)).toBe(90); });
-  it("rounds expression result", () => { expect(resolveDelta("10/3", 0)).toBe(3); });
+  it("evaluates expression ignoring current", () => { expect(resolveDelta("5+60", 99)).toBe(65); });
 
   // Expressions with duration unit suffixes
   it("expr: 52+15m", () => { expect(resolveDelta("52+15m", 0)).toBe(67); });

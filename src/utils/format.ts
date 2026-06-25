@@ -45,8 +45,27 @@ export function stripDurations(text: string): string {
   return cleaned || text.trim();
 }
 
+// ── Safe addition/subtraction evaluator ────────────────────────────────────
+// Regex-based evaluator for expressions like "52+60+15". No eval(),
+// no new Function(), CSP-compatible. Only + and - are supported
+// (the user's main use case: "30+55m", "20+1.5h").
+// h/m unit preprocessing happens before this is called.
+
+function evalAddSub(expr: string): number {
+  let total = 0;
+  const re = /([+-]?)\s*(\d+(?:\.\d+)?)/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(expr)) !== null) {
+    const sign = m[1] === "-" ? -1 : 1;
+    total += sign * parseFloat(m[2]);
+  }
+  return total;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+
 /** Parse delta input: "+45" → adds to current, "-30" → subtracts, "150" → absolute.
- *  Also evaluates arithmetic expressions: "5+60" → 65, "(30+20)*3" → 150. */
+ *  Also evaluates addition/subtraction: "30+55m" → 85, "20+1.5h" → 110. */
 export function resolveDelta(input: string, currentMinutes: number): number {
   const trimmed = input.trim();
 
@@ -62,9 +81,9 @@ export function resolveDelta(input: string, currentMinutes: number): number {
     return Math.max(0, Math.round(result));
   }
 
-  // Expression mode: detect arithmetic operators, evaluate safely.
-  // Pre-process duration units: "52+1h+15m" → "52+60+15" before sanitization.
-  if (/[+\-*/]/.test(trimmed)) {
+  // Expression mode: detect + or - operator, evaluate as addition/subtraction.
+  // Pre-process duration units: "30+55m" → "30+55", "20+1.5h" → "20+90".
+  if (/[+\-]/.test(trimmed)) {
     try {
       let expr = trimmed.replace(
         /(\d+(?:\.\d+)?)\s*h/gi,
@@ -73,16 +92,17 @@ export function resolveDelta(input: string, currentMinutes: number): number {
         /(\d+(?:\.\d+)?)\s*m/gi,
         (_, n) => String(parseFloat(n))
       );
-      // Sanitize: only allow digits, operators, parens, decimal point, whitespace
-      const sanitized = expr.replace(/[^0-9+\-*/().%\s]/g, "");
+      // Sanitize: only allow digits, +, -, decimal point, whitespace
+      const sanitized = expr.replace(/[^0-9+\-.\s]/g, "");
       if (sanitized.length > 0) {
-        const result = new Function(`return (${sanitized})`)();
+        const result = evalAddSub(sanitized);
         if (typeof result === "number" && isFinite(result)) {
           return Math.max(0, Math.round(result));
         }
       }
-    } catch {
+    } catch (e) {
       // Expression evaluation failed, fall through to absolute parsing
+      console.error("[resolveDelta] expression eval failed:", { input: trimmed, error: e });
     }
   }
 
