@@ -5,6 +5,7 @@ import { VueDraggable } from "vue-draggable-plus";
 import RoleCard from "./RoleCard.vue";
 import type { Commitment, CommitmentProgress, RoleRowModel, GoalRowModel } from "../../types";
 import { formatDurationCompact } from "../../utils/format";
+import { logError } from "../../utils/errorLog";
 import { goalLoggedMinutes } from "../../utils/commitments";
 
 const props = defineProps<{
@@ -119,6 +120,7 @@ async function save() {
     emit("saved", saved);
     emit("close");
   } catch (e) {
+    logError("CommitmentsModal.save", e);
     error.value = typeof e === "string" ? e : String(e);
   } finally {
     saving.value = false;
