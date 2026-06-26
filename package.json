@@ -9,7 +9,7 @@
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "tauri:prod": "tauri build --config src-tauri/tauri.conf.prod.json",
+    "tauri:prod": "node scripts/ensure-version-bumped.mjs && tauri build --config src-tauri/tauri.conf.prod.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "verify": "vitest run && vue-tsc --noEmit && vite build",
