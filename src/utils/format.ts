@@ -1,3 +1,5 @@
+import { logError } from "./errorLog";
+
 /** Format minutes to human-readable: 90 → "1h 30m", 45 → "45m", 120 → "2h" */
 export function formatDuration(minutes: number): string {
   if (minutes >= 60) {
@@ -102,7 +104,7 @@ export function resolveDelta(input: string, currentMinutes: number): number {
       }
     } catch (e) {
       // Expression evaluation failed, fall through to absolute parsing
-      console.error("[resolveDelta] expression eval failed:", { input: trimmed, error: e });
+      logError("resolveDelta", e);
     }
   }
 
