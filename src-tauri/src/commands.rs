@@ -90,7 +90,15 @@ pub fn parse_duration(input: &str) -> Result<u32, String> {
     let mut matched = false;
 
     for cap in re.captures_iter(input) {
-        let value: f64 = cap[1].parse().unwrap_or(0.0);
+        let value: f64 = cap[1]
+            .parse()
+            .unwrap_or_else(|e| {
+                error_log::log_error(
+                    "parse_duration",
+                    &format!("Failed to parse captured number '{}': {:?}", &cap[1], e),
+                );
+                0.0
+            });
         let unit = cap
             .get(2)
             .map(|m| m.as_str().to_lowercase())
@@ -104,7 +112,12 @@ pub fn parse_duration(input: &str) -> Result<u32, String> {
                 total += value;
                 matched = true;
             }
-            _ => {}
+            _ => {
+                error_log::log_error(
+                    "parse_duration",
+                    &format!("Unknown duration unit '{}' in input '{}'", unit, input),
+                );
+            }
         }
     }
 
@@ -528,7 +541,13 @@ pub fn get_month_dimensions(
     // A month is "instantiated" iff its _monthly.md has a non-empty dimensions block.
     let from_template = match files::read_monthly_file(root, year, month) {
         Ok(m) => m.dimensions.is_empty(),
-        Err(_) => true,
+        Err(e) => {
+            error_log::log_error(
+                "get_month_dimensions",
+                &format!("Failed to read _monthly.md for {}-{:02}: {:?}", year, month, e),
+            );
+            true
+        }
     };
     let dimensions = files::resolve_month_dimensions(root, year, month);
     error_log::log_command_exit(
@@ -551,11 +570,16 @@ pub fn get_commitment_progress(
     let root = std::path::Path::new(&root_path);
 
     // 1. Read _monthly.md
-    let monthly =
-        crate::files::read_monthly_file(root, year, month).unwrap_or_else(|_| MonthlyFile {
+    let monthly = crate::files::read_monthly_file(root, year, month).unwrap_or_else(|e| {
+        error_log::log_error(
+            "get_commitment_progress",
+            &format!("Failed to read _monthly.md for {}-{:02}: {:?}", year, month, e),
+        );
+        MonthlyFile {
             dimensions: vec![],
             commitments: vec![],
-        });
+        }
+    });
 
     let commitments = monthly.commitments;
 
@@ -581,29 +605,53 @@ pub fn get_commitment_progress(
     let month_dir = root.join(year.to_string()).join(format!("{:02}", month));
 
     if month_dir.exists() {
-        if let Ok(entries) = std::fs::read_dir(&month_dir) {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+        match std::fs::read_dir(&month_dir) {
+            Ok(entries) => {
+                for entry in entries {
+                    let entry = match entry {
+                        Ok(e) => e,
+                        Err(e) => {
+                            error_log::log_error(
+                                "get_commitment_progress",
+                                &format!("Failed to read directory entry in {}-{:02}: {:?}", year, month, e),
+                            );
+                            continue;
+                        }
+                    };
+                    let path = entry.path();
+                    let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
-                // Skip _monthly.md and non-.md files
-                if file_name == "_monthly.md" || !file_name.ends_with(".md") {
-                    continue;
-                }
+                    // Skip _monthly.md and non-.md files
+                    if file_name == "_monthly.md" || !file_name.ends_with(".md") {
+                        continue;
+                    }
 
-                // Read the day file
-                if let Ok(day_file) =
-                    crate::files::read_day_file(root, file_name.trim_end_matches(".md"))
-                {
-                    for e in &day_file.entries {
-                        if let Some(goal) = e.dimensions.get("goal") {
-                            if let Some((role, goal_name)) = goal_to_role.get(goal) {
-                                *role_spent.entry(role.clone()).or_insert(0) += e.duration;
-                                *goal_spent.entry(goal_name.clone()).or_insert(0) += e.duration;
+                    // Read the day file
+                    match crate::files::read_day_file(root, file_name.trim_end_matches(".md")) {
+                        Ok(day_file) => {
+                            for e in &day_file.entries {
+                                if let Some(goal) = e.dimensions.get("goal") {
+                                    if let Some((role, goal_name)) = goal_to_role.get(goal) {
+                                        *role_spent.entry(role.clone()).or_insert(0) += e.duration;
+                                        *goal_spent.entry(goal_name.clone()).or_insert(0) += e.duration;
+                                    }
+                                }
                             }
+                        }
+                        Err(e) => {
+                            error_log::log_error(
+                                "get_commitment_progress",
+                                &format!("Failed to read day file {} in {}-{:02}: {}", file_name, year, month, e),
+                            );
                         }
                     }
                 }
+            }
+            Err(e) => {
+                error_log::log_error(
+                    "get_commitment_progress",
+                    &format!("Failed to read month dir {}-{:02}: {:?}", year, month, e),
+                );
             }
         }
     }
@@ -702,19 +750,37 @@ fn count_entries_with_goal(
         Err(e) => return Err(format!("Failed to read month dir: {}", e)),
     };
 
-    for entry in entries.flatten() {
+    for entry in entries {
+        let entry = match entry {
+            Ok(e) => e,
+            Err(e) => {
+                error_log::log_error(
+                    "count_entries_with_goal",
+                    &format!("Failed to read dir entry in {}-{:02}: {:?}", year, month, e),
+                );
+                continue;
+            }
+        };
         let path = entry.path();
         let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
         if file_name == "_monthly.md" || !file_name.ends_with(".md") {
             continue;
         }
         let date = file_name.trim_end_matches(".md");
-        if let Ok(day_file) = files::read_day_file(root, date) {
-            count += day_file
-                .entries
-                .iter()
-                .filter(|e| e.dimensions.get("goal").map(|g| g == goal_name).unwrap_or(false))
-                .count();
+        match files::read_day_file(root, date) {
+            Ok(day_file) => {
+                count += day_file
+                    .entries
+                    .iter()
+                    .filter(|e| e.dimensions.get("goal").map(|g| g == goal_name).unwrap_or(false))
+                    .count();
+            }
+            Err(e) => {
+                error_log::log_error(
+                    "count_entries_with_goal",
+                    &format!("Failed to read day file {}: {}", date, e),
+                );
+            }
         }
     }
     Ok(count)
@@ -741,7 +807,17 @@ fn rename_goal_in_entries(
         Err(e) => return Err(format!("Failed to read month dir: {}", e)),
     };
 
-    for entry in entries.flatten() {
+    for entry in entries {
+        let entry = match entry {
+            Ok(e) => e,
+            Err(e) => {
+                error_log::log_error(
+                    "rename_goal_in_entries",
+                    &format!("Failed to read dir entry in {}-{:02}: {:?}", year, month, e),
+                );
+                continue;
+            }
+        };
         let path = entry.path();
         let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
         if file_name == "_monthly.md" || !file_name.ends_with(".md") {
@@ -869,8 +945,28 @@ pub fn get_available_months(root_path: String) -> Result<Vec<AvailableMonth>, St
     let year_entries = std::fs::read_dir(root)
         .map_err(|e| format!("Failed to read root dir: {}", e))?;
 
-    for year_entry in year_entries.flatten() {
-        if !year_entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+    for year_entry in year_entries {
+        let year_entry = match year_entry {
+            Ok(e) => e,
+            Err(e) => {
+                error_log::log_error(
+                    "get_available_months",
+                    &format!("Failed to read year entry: {:?}", e),
+                );
+                continue;
+            }
+        };
+        let is_dir = match year_entry.file_type() {
+            Ok(t) => t.is_dir(),
+            Err(e) => {
+                error_log::log_error(
+                    "get_available_months",
+                    &format!("Failed to stat year entry {}: {:?}", year_entry.file_name().to_string_lossy(), e),
+                );
+                false
+            }
+        };
+        if !is_dir {
             continue;
         }
         let year_name = year_entry.file_name();
@@ -882,11 +978,37 @@ pub fn get_available_months(root_path: String) -> Result<Vec<AvailableMonth>, St
 
         let month_entries = match std::fs::read_dir(year_entry.path()) {
             Ok(entries) => entries,
-            Err(_) => continue,
+            Err(e) => {
+                error_log::log_error(
+                    "get_available_months",
+                    &format!("Failed to read month dir for year {}: {:?}", year, e),
+                );
+                continue;
+            }
         };
 
-        for month_entry in month_entries.flatten() {
-            if !month_entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+        for month_entry in month_entries {
+            let month_entry = match month_entry {
+                Ok(e) => e,
+                Err(e) => {
+                    error_log::log_error(
+                        "get_available_months",
+                        &format!("Failed to read month entry in year {}: {:?}", year, e),
+                    );
+                    continue;
+                }
+            };
+            let is_dir = match month_entry.file_type() {
+                Ok(t) => t.is_dir(),
+                Err(e) => {
+                    error_log::log_error(
+                        "get_available_months",
+                        &format!("Failed to stat month entry {}: {:?}", month_entry.file_name().to_string_lossy(), e),
+                    );
+                    false
+                }
+            };
+            if !is_dir {
                 continue;
             }
             let month_name = month_entry.file_name();
@@ -899,12 +1021,34 @@ pub fn get_available_months(root_path: String) -> Result<Vec<AvailableMonth>, St
             // Check if this month directory contains at least one .md file
             // (skip _monthly.md — it is metadata, not day-entry data)
             let has_md = match std::fs::read_dir(month_entry.path()) {
-                Ok(entries) => entries.flatten().any(|e| {
-                    let name = e.file_name();
-                    let name_str = name.to_string_lossy();
-                    name_str.ends_with(".md") && name_str != "_monthly.md"
-                }),
-                Err(_) => false,
+                Ok(entries) => {
+                    let mut found = false;
+                    for e in entries {
+                        match e {
+                            Ok(entry) => {
+                                let name_str = entry.file_name().to_string_lossy().into_owned();
+                                if name_str.ends_with(".md") && name_str != "_monthly.md" {
+                                    found = true;
+                                    break;
+                                }
+                            }
+                            Err(e) => {
+                                error_log::log_error(
+                                    "get_available_months",
+                                    &format!("Failed to read entry in month dir {}-{:02}: {:?}", year, month, e),
+                                );
+                            }
+                        }
+                    }
+                    found
+                }
+                Err(e) => {
+                    error_log::log_error(
+                        "get_available_months",
+                        &format!("Failed to read month contents for {}-{:02}: {:?}", year, month, e),
+                    );
+                    false
+                }
             };
 
             if has_md {

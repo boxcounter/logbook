@@ -199,7 +199,15 @@ pub fn verify_op_log(root_path: &str) -> Result<(), Vec<OpLogMismatch>> {
                 let params = &log_line["params"];
                 let duration_str = params["duration"].as_str().unwrap_or("0");
                 let duration =
-                    crate::commands::parse_duration(duration_str).unwrap_or(0);
+                    crate::commands::parse_duration(duration_str).unwrap_or_else(
+                        |_| {
+                            crate::error_log::log_error(
+                                "oplog_replay",
+                                &format!("Failed to parse duration '{}' in log entry, defaulting to 0", duration_str),
+                            );
+                            0
+                        },
+                    );
                 let item = params["item"].as_str().unwrap_or("").to_string();
                 let dimensions = params["dimensions"]
                     .as_object()
@@ -291,10 +299,24 @@ pub fn verify_op_log(root_path: &str) -> Result<(), Vec<OpLogMismatch>> {
                 description: "File exists in original but not in replay".to_string(),
             });
         } else {
-            let orig_content =
-                fs::read_to_string(&orig_path).unwrap_or_default();
-            let replay_content =
-                fs::read_to_string(&replay_path).unwrap_or_default();
+            let orig_content = fs::read_to_string(&orig_path).unwrap_or_else(
+                |e| {
+                    crate::error_log::log_error(
+                        "oplog_verify",
+                        &format!("Failed to read original file {}: {:?}", rel_path, e),
+                    );
+                    String::new()
+                },
+            );
+            let replay_content = fs::read_to_string(&replay_path).unwrap_or_else(
+                |e| {
+                    crate::error_log::log_error(
+                        "oplog_verify",
+                        &format!("Failed to read replay file {}: {:?}", rel_path, e),
+                    );
+                    String::new()
+                },
+            );
             if orig_content.trim() != replay_content.trim() {
                 mismatches.push(OpLogMismatch {
                     date: rel_path.clone(),
@@ -317,7 +339,12 @@ pub fn verify_op_log(root_path: &str) -> Result<(), Vec<OpLogMismatch>> {
     }
 
     // Cleanup
-    let _ = fs::remove_dir_all(&replay_root);
+    if let Err(e) = fs::remove_dir_all(&replay_root) {
+        crate::error_log::log_error(
+            "oplog_verify",
+            &format!("Failed to remove replay temp dir: {:?}", e),
+        );
+    }
 
     if mismatches.is_empty() {
         Ok(())
@@ -355,6 +382,11 @@ fn collect_log_entries(
                 {
                     let ts = val["ts"].as_str().unwrap_or("").to_string();
                     entries.push((ts, val));
+                } else {
+                    crate::error_log::log_error(
+                        "oplog_collect",
+                        &format!("Skipping invalid JSON line in {}: {}", path.display(), &line[..line.len().min(200)]),
+                    );
                 }
             }
         }
@@ -413,7 +445,13 @@ fn collect_md_files_recursive(
                 .map_err(|e| format!("strip_prefix: {}", e))?
                 .to_string_lossy()
                 .to_string();
-            let content = fs::read_to_string(&path).unwrap_or_default();
+            let content = fs::read_to_string(&path).unwrap_or_else(|e| {
+                crate::error_log::log_error(
+                    "oplog_verify",
+                    &format!("Failed to read original file during collection {}: {:?}", path.display(), e),
+                );
+                String::new()
+            });
             files.insert(rel_path, content);
         }
     }

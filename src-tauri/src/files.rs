@@ -234,7 +234,13 @@ pub fn resolve_month_dimensions(root: &Path, year: i32, month: u32) -> Vec<Dimen
     }
     match read_template(root) {
         Ok(t) => t.dimensions,
-        Err(_) => vec![],
+        Err(e) => {
+            crate::error_log::log_error(
+                "resolve_month_dimensions",
+                &format!("Failed to read template, returning empty dimensions: {}", e),
+            );
+            vec![]
+        }
     }
 }
 
@@ -248,7 +254,13 @@ pub fn ensure_month_instantiated(root: &Path, year: i32, month: u32) -> Result<(
     }
     let template_dims = match read_template(root) {
         Ok(t) => t.dimensions,
-        Err(_) => vec![],
+        Err(e) => {
+            crate::error_log::log_error(
+                "ensure_month_instantiated",
+                &format!("Failed to read template, using empty dimensions: {}", e),
+            );
+            vec![]
+        }
     };
     if template_dims.is_empty() {
         return Ok(());
@@ -260,15 +272,37 @@ pub fn ensure_month_instantiated(root: &Path, year: i32, month: u32) -> Result<(
 /// Remove orphaned .tmp files from the data tree (crashed mid-write).
 pub fn cleanup_tmp_files(root: &Path) {
     fn recurse(dir: &Path) {
-        let Ok(entries) = std::fs::read_dir(dir) else {
-            return;
+        let entries = match std::fs::read_dir(dir) {
+            Ok(e) => e,
+            Err(e) => {
+                crate::error_log::log_error(
+                    "cleanup_tmp_files",
+                    &format!("Failed to read directory {}: {}", dir.display(), e),
+                );
+                return;
+            }
         };
-        for entry in entries.filter_map(|e| e.ok()) {
+        for entry in entries {
+            let entry = match entry {
+                Ok(e) => e,
+                Err(e) => {
+                    crate::error_log::log_error(
+                        "cleanup_tmp_files",
+                        &format!("Failed to read dir entry in {}: {:?}", dir.display(), e),
+                    );
+                    continue;
+                }
+            };
             let path = entry.path();
             if path.is_dir() {
                 recurse(&path);
             } else if path.extension().map_or(false, |ext| ext == "tmp") {
-                let _ = std::fs::remove_file(&path);
+                if let Err(e) = std::fs::remove_file(&path) {
+                    crate::error_log::log_error(
+                        "cleanup_tmp_files",
+                        &format!("Failed to remove orphaned tmp file {}: {}", path.display(), e),
+                    );
+                }
             }
         }
     }
@@ -288,9 +322,16 @@ pub fn save_root_path(app_data_dir: &Path, root_path: &Path) -> Result<(), Strin
 pub fn read_root_path(app_data_dir: &Path) -> Option<PathBuf> {
     let path = app_data_dir.join("root_path.txt");
     if path.exists() {
-        fs::read_to_string(&path)
-            .ok()
-            .map(|s| PathBuf::from(s.trim()))
+        match fs::read_to_string(&path) {
+            Ok(s) => Some(PathBuf::from(s.trim())),
+            Err(e) => {
+                crate::error_log::log_error(
+                    "read_root_path",
+                    &format!("Failed to read root_path.txt: {}", e),
+                );
+                None
+            }
+        }
     } else {
         None
     }

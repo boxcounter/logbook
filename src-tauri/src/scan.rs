@@ -9,7 +9,7 @@ use crate::models::ScanWarning;
 /// - `.md` files (except `_monthly.md`): validate date stem and frontmatter.
 /// - `.tmp` files: report as orphaned temp files.
 /// - Non-`.md`, non-`.tmp` files: silently skipped.
-/// - Directories that cannot be read are skipped without error.
+/// - Directories that cannot be read are reported as warnings.
 pub fn scan_data_dir(root: &Path) -> Vec<ScanWarning> {
     let mut warnings = Vec::new();
     scan_dir(root, root, &mut warnings);
@@ -19,13 +19,27 @@ pub fn scan_data_dir(root: &Path) -> Vec<ScanWarning> {
 fn scan_dir(root: &Path, dir: &Path, warnings: &mut Vec<ScanWarning>) {
     let entries = match fs::read_dir(dir) {
         Ok(entries) => entries,
-        Err(_) => return,
+        Err(e) => {
+            warnings.push(ScanWarning {
+                kind: "UnreadableDir".to_string(),
+                path: relative_path(root, dir),
+                message: format!("Cannot read directory: {}", e),
+            });
+            return;
+        }
     };
 
     for entry in entries {
         let entry = match entry {
             Ok(e) => e,
-            Err(_) => continue,
+            Err(e) => {
+                warnings.push(ScanWarning {
+                    kind: "UnreadableEntry".to_string(),
+                    path: relative_path(root, dir),
+                    message: format!("Cannot read directory entry: {}", e),
+                });
+                continue;
+            }
         };
 
         let path = entry.path();
@@ -135,17 +149,13 @@ mod tests {
     // ---------------------------------------------------------------------------
 
     #[test]
-    fn test_nonexistent_dir_no_warnings() {
+    fn test_nonexistent_dir_reports_unreadable() {
         let root = temp_root();
         // Do NOT create the directory
 
         let warnings = scan_data_dir(&root);
-        assert!(
-            warnings.is_empty(),
-            "expected no warnings for nonexistent dir, got {:?}",
-            warnings
-        );
-        // nothing to clean up — dir was never created
+        assert_eq!(warnings.len(), 1, "expected 1 warning for nonexistent dir, got {:?}", warnings);
+        assert_eq!(warnings[0].kind, "UnreadableDir");
     }
 
     // ---------------------------------------------------------------------------
