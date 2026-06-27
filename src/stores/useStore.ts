@@ -1,4 +1,4 @@
-import { reactive, inject, provide, type InjectionKey } from "vue";
+import { reactive, inject, type InjectionKey } from "vue";
 import type { Dimension, DayFile, Commitment, CommitmentProgress, ConfigErrorDetail, AppStatus, Entry, RecoveryCategory } from "../types";
 
 // 单个有记录的月份；数组见 AppStore.availableMonths。命名审查 2026-06-21 确认无需改名。
@@ -42,10 +42,6 @@ export function createStore(): AppStore {
     monthEntries: {},
     availableMonths: null,
   });
-}
-
-export function provideStore(store: AppStore): void {
-  provide(STORE_KEY, store);
 }
 
 export function useStore(): AppStore {
