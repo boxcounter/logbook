@@ -4,7 +4,7 @@
 /// dispatches to real Rust functions, and asserts results against expectations.
 
 use serde::Deserialize;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -223,7 +223,7 @@ fn dispatch_command(
                     .map(|obj| {
                         obj.iter()
                             .map(|(k, v)| (k.clone(), v.as_str().unwrap().to_string()))
-                            .collect::<HashMap<_, _>>()
+                            .collect::<BTreeMap<_, _>>()
                     })
                     .unwrap_or_default(),
             };
@@ -243,7 +243,7 @@ fn dispatch_command(
                         .map(|obj| {
                             obj.iter()
                                 .map(|(k, v)| (k.clone(), v.as_str().unwrap().to_string()))
-                                .collect::<std::collections::HashMap<_, _>>()
+                                .collect::<std::collections::BTreeMap<_, _>>()
                         })
                         .unwrap_or_default()
                 }),

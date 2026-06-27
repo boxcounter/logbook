@@ -4,7 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useStore } from "./stores/useStore";
-import { yearMonthFromDate } from "./utils/dates";
+import { yearMonthFromDate, rolloverDecision } from "./utils/dates";
 import SetupScreen from "./components/SetupScreen.vue";
 import RecoveryScreen from "./components/RecoveryScreen.vue";
 import MonthView from "./components/MonthView.vue";
@@ -14,6 +14,13 @@ import { logError, logInfo } from "./utils/errorLog";
 import { applyInitResult } from "./utils/applyInitResult";
 
 const store = useStore();
+
+// Periodic midnight check. Default on in production; tests pass 0 to opt out so
+// a recurring timer never traps their vi.runAllTimersAsync() flush loops.
+const props = withDefaults(defineProps<{ rolloverIntervalMs?: number }>(), {
+  rolloverIntervalMs: 60000,
+});
+
 const showUndoToast = ref(false);
 const undoAction = ref<(() => void) | null>(null);
 let undoTimer: ReturnType<typeof setTimeout> | null = null;
@@ -29,6 +36,23 @@ function todayStr(): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
 let lastKnownToday = todayStr();
+let rolloverTimer: ReturnType<typeof setInterval> | null = null;
+
+// Advance the view if the calendar day changed while we were following "today".
+// Shared by the focus handler and the periodic timer so both behave identically.
+function maybeRollover() {
+  const { rollover, date } = rolloverDecision(
+    store.currentDate,
+    lastKnownToday,
+    todayStr(),
+    store.status === "ready",
+  );
+  lastKnownToday = todayStr();
+  if (rollover) {
+    store.currentDate = date;
+    initApp();
+  }
+}
 
 // Store listener handles for cleanup (prevents HMR duplication)
 let unlistenConfig: (() => void) | null = null;
@@ -67,17 +91,14 @@ onMounted(async () => {
     unlistenFocus = await getCurrentWindow().onFocusChanged(({ payload: focused }) => {
       if (!focused) return;
       focusRequestId.value++;
-      const newToday = todayStr();
-      if (newToday === lastKnownToday) return; // same calendar day: leave the view alone
-      // Midnight crossed since we were last focused.
-      if (store.currentDate === lastKnownToday && store.status === "ready") {
-        store.currentDate = newToday; // we were following "today" → follow to the new today
-        initApp();
-      }
-      lastKnownToday = newToday;
+      maybeRollover();
     });
   } catch (e) {
     logError("App.onMounted", e);
+  }
+
+  if (props.rolloverIntervalMs > 0) {
+    rolloverTimer = setInterval(maybeRollover, props.rolloverIntervalMs);
   }
 
   initApp();
@@ -89,6 +110,7 @@ onUnmounted(() => {
   unlistenFocus?.();
   if (undoTimer) clearTimeout(undoTimer);
   if (savedToastTimer) clearTimeout(savedToastTimer);
+  if (rolloverTimer) clearInterval(rolloverTimer);
 });
 
 async function initApp() {

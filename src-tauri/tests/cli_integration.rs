@@ -67,7 +67,47 @@ fn run_with_stdin(args: &[&str], stdin: &str) -> std::process::Output {
     child.wait_with_output().expect("Failed to wait on CLI binary")
 }
 
+/// Run with LOGBOOK_LOG_DIR pointed at a temp dir so the test exercises real
+/// logging without writing to the developer's actual ~/Library product log.
+fn run_with_log_dir(args: &[&str], log_dir: &Path) -> std::process::Output {
+    Command::new(cli_binary())
+        .args(args)
+        .env("LOGBOOK_LOG_DIR", log_dir)
+        .output()
+        .expect("Failed to execute CLI binary")
+}
+
 // ---- Tests ----
+
+#[test]
+fn test_cli_writes_log_file() {
+    let tmp = std::env::temp_dir().join("logbook_cli_test_logging");
+    let _ = fs::remove_dir_all(&tmp);
+    setup_fixture(&tmp);
+    let log_dir = std::env::temp_dir().join("logbook_cli_test_logdir");
+    let _ = fs::remove_dir_all(&log_dir);
+    fs::create_dir_all(&log_dir).unwrap();
+
+    let output = run_with_log_dir(
+        &[
+            "--root-path", tmp.to_str().unwrap(),
+            "--json",
+            "commitments", "list", "--year", "2026", "--month", "6",
+        ],
+        &log_dir,
+    );
+    assert!(output.status.success(), "stderr: {}", String::from_utf8_lossy(&output.stderr));
+
+    // The CLI must now leave a persistent diagnostic trail (it left none before).
+    let log_path = log_dir.join("logbook.log");
+    assert!(log_path.exists(), "CLI did not create logbook.log");
+    let content = fs::read_to_string(&log_path).unwrap();
+    assert!(content.contains("START"), "missing START marker: {}", content);
+    assert!(content.contains("invoked"), "missing invocation trace: {}", content);
+
+    let _ = fs::remove_dir_all(&tmp);
+    let _ = fs::remove_dir_all(&log_dir);
+}
 
 #[test]
 fn test_help() {

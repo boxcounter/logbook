@@ -130,6 +130,16 @@
   --shadow-button: 0 2px 12px rgba(99,102,241,0.25);
   --shadow-button-hover: 0 4px 20px rgba(99,102,241,0.35);
 
+  /* === Toast === */
+  /* A snackbar stays dark-surfaced in BOTH themes (light text on dark bg), so
+     these are deliberately NOT derived from the flipping text/surface tokens —
+     reusing --color-text-primary as a bg inverts contrast in dark mode. */
+  --color-toast-bg: #1e293b;
+  --color-toast-text: #f8fafc;
+  --color-toast-text-muted: #cbd5e1;
+  --color-toast-action: #a5b4fc;
+  --color-toast-action-hover: #c7d2fe;
+
 }
 
 /* Dark mode — minimal override (brand, chip, radius, shadow tokens unchanged) */

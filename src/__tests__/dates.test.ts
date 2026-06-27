@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatDate, datesInMonth, parseDate, addDays } from "../utils/dates";
+import { formatDate, datesInMonth, parseDate, addDays, rolloverDecision } from "../utils/dates";
 
 describe("formatDate", () => {
   it("formats correctly", () => {
@@ -47,5 +47,29 @@ describe("addDays", () => {
   });
   it("handles leap-year February", () => {
     expect(addDays("2028-02-28", 1)).toBe("2028-02-29");
+  });
+});
+
+describe("rolloverDecision", () => {
+  it("does not roll over when the calendar day is unchanged", () => {
+    const r = rolloverDecision("2026-06-26", "2026-06-26", "2026-06-26", true);
+    expect(r).toEqual({ rollover: false, date: "2026-06-26" });
+  });
+
+  it("rolls the view forward when parked on today and midnight crosses", () => {
+    // Was following today (currentDate === lastKnownToday), now it is tomorrow.
+    const r = rolloverDecision("2026-06-26", "2026-06-26", "2026-06-27", true);
+    expect(r).toEqual({ rollover: true, date: "2026-06-27" });
+  });
+
+  it("does NOT yank the user when they are viewing another day", () => {
+    // User navigated to a past day; a midnight crossing must leave them put.
+    const r = rolloverDecision("2026-06-10", "2026-06-26", "2026-06-27", true);
+    expect(r).toEqual({ rollover: false, date: "2026-06-10" });
+  });
+
+  it("does not roll over while the app is not ready", () => {
+    const r = rolloverDecision("2026-06-26", "2026-06-26", "2026-06-27", false);
+    expect(r).toEqual({ rollover: false, date: "2026-06-26" });
   });
 });

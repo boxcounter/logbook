@@ -7,6 +7,15 @@ pub mod root_path;
 use clap::{Parser, Subcommand};
 use root_path::resolve_root_path;
 
+/// Where the CLI writes logbook.log. Honours `LOGBOOK_LOG_DIR` (used by tests to
+/// avoid polluting the real product log), else the shared GUI app-data dir.
+fn log_dir() -> Option<std::path::PathBuf> {
+    if let Ok(dir) = std::env::var("LOGBOOK_LOG_DIR") {
+        return Some(std::path::PathBuf::from(dir));
+    }
+    root_path::app_data_dir()
+}
+
 #[derive(Parser)]
 #[command(name = "logbook-cli", version, about = "Logbook CLI — read/write time tracking data")]
 pub struct Cli {
@@ -63,8 +72,19 @@ pub enum CommitmentAction {
 }
 
 pub fn run() {
+    // Diagnostics: a panic backtrace lands on disk, and the shared command
+    // functions' log_command_enter/exit calls become live (they no-op until
+    // error_log is initialized). Without this the CLI mutated data with zero
+    // persistent diagnostic trail.
+    crate::error_log::install_panic_hook();
+    if let Some(dir) = log_dir() {
+        crate::error_log::init(&dir);
+    }
+
     let cli = Cli::parse();
+    crate::error_log::log_info("cli", &format!("invoked: {:?}", std::env::args().collect::<Vec<_>>()));
     let root = resolve_root_path(cli.root_path).unwrap_or_else(|| {
+        crate::error_log::log_error("cli", "could not determine data root path");
         eprintln!(
             "Error: Could not determine data root path.\n\
              Use --root-path to specify, or start the Logbook GUI once to initialize."

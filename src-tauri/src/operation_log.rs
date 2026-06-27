@@ -45,17 +45,17 @@ struct LogLine {
 
 /// Log file path: {root_path}/.logbook/operations/{year}/{month:02}/{date}.jsonl
 fn log_path(root: &Path, date: &str) -> Result<std::path::PathBuf, String> {
-    chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d")
+    use chrono::Datelike;
+    // Derive from the parsed date so a lenient input ("2026-6-5") still maps to
+    // the canonical zero-padded path (consistent with files::day_path).
+    let d = chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d")
         .map_err(|e| format!("Invalid date '{}': {}", date, e))?;
-    let parts: Vec<&str> = date.split('-').collect();
-    let year = parts[0];
-    let month = parts[1];
     Ok(root
         .join(".logbook")
         .join("operations")
-        .join(year)
-        .join(month)
-        .join(format!("{}.jsonl", date)))
+        .join(format!("{:04}", d.year()))
+        .join(format!("{:02}", d.month()))
+        .join(format!("{:04}-{:02}-{:02}.jsonl", d.year(), d.month(), d.day())))
 }
 
 /// Append an operation to the log file.
@@ -216,7 +216,7 @@ pub fn verify_op_log(root_path: &str) -> Result<(), Vec<OpLogMismatch>> {
                             .map(|(k, v)| {
                                 (k.clone(), v.as_str().unwrap_or("").to_string())
                             })
-                            .collect::<std::collections::HashMap<_, _>>()
+                            .collect::<std::collections::BTreeMap<_, _>>()
                     })
                     .unwrap_or_default();
                 let entry = crate::models::Entry {
@@ -239,7 +239,7 @@ pub fn verify_op_log(root_path: &str) -> Result<(), Vec<OpLogMismatch>> {
                             .map(|(k, v)| {
                                 (k.clone(), v.as_str().unwrap_or("").to_string())
                             })
-                            .collect::<std::collections::HashMap<_, _>>()
+                            .collect::<std::collections::BTreeMap<_, _>>()
                     }),
                 };
                 crate::files::update_entry_in_file(
@@ -462,7 +462,7 @@ fn collect_md_files_recursive(
 mod tests {
     use super::*;
     use crate::models::Entry;
-    use std::collections::HashMap;
+    use std::collections::BTreeMap;
     use std::fs;
 
     fn test_root(suffix: &str) -> std::path::PathBuf {
@@ -474,7 +474,7 @@ mod tests {
             id: "test-id-123".to_string(),
             item: "Test entry".to_string(),
             duration: 30,
-            dimensions: HashMap::new(),
+            dimensions: BTreeMap::new(),
         }
     }
 
@@ -491,6 +491,16 @@ mod tests {
     #[test]
     fn test_log_path_invalid_date() {
         assert!(log_path(std::path::Path::new("/data"), "bad-date").is_err());
+    }
+
+    #[test]
+    fn test_log_path_normalizes_unpadded_date() {
+        // Lenient "2026-6-5" must map to the canonical zero-padded path.
+        let p = log_path(std::path::Path::new("/data"), "2026-6-5").unwrap();
+        assert_eq!(
+            p,
+            std::path::PathBuf::from("/data/.logbook/operations/2026/06/2026-06-05.jsonl")
+        );
     }
 
     #[test]
@@ -708,7 +718,7 @@ mod tests {
             &crate::models::CreateEntryInput {
                 item: "test entry".into(),
                 duration: "30".into(),
-                dimensions: std::collections::HashMap::new(),
+                dimensions: std::collections::BTreeMap::new(),
             },
         ).unwrap();
 

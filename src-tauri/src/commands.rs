@@ -139,7 +139,7 @@ pub fn parse_duration(input: &str) -> Result<u32, String> {
 /// Returns Ok(()) or Err with a human-readable message naming the first missing required dimension.
 pub fn validate_required_dimensions(
     dimensions: &[Dimension],
-    entry_dimensions: &std::collections::HashMap<String, String>,
+    entry_dimensions: &std::collections::BTreeMap<String, String>,
 ) -> Result<(), String> {
     for dim in dimensions {
         if dim.required && !entry_dimensions.contains_key(&dim.key) {
@@ -364,7 +364,7 @@ pub fn append_entry(root_path: String, date: String, entry: CreateEntryInput) ->
     let duration = parse_duration(&entry.duration)?;
     let (year, month) = files::year_month_from_date(&date)?;
     files::ensure_month_instantiated(root, year, month)?;
-    let dims = files::resolve_month_dimensions(root, year, month);
+    let dims = files::resolve_month_dimensions(root, year, month)?;
     validate_required_dimensions(&dims, &entry.dimensions)?;
 
     let entry_id = uuid::Uuid::new_v4().to_string();
@@ -412,7 +412,7 @@ pub fn update_entry(
         parse_duration(dur_str)?;
     }
     if let Some(ref dims) = update.dimensions {
-        let effective = files::resolve_month_dimensions(root, year, month);
+        let effective = files::resolve_month_dimensions(root, year, month)?;
         validate_required_dimensions(&effective, dims)?;
     }
 
@@ -549,13 +549,23 @@ pub fn get_month_dimensions(
             true
         }
     };
-    let dimensions = files::resolve_month_dimensions(root, year, month);
+    let dimensions = files::resolve_month_dimensions(root, year, month)?;
     error_log::log_command_exit(
         "get_month_dimensions",
         true,
         &format!("{} dims, from_template={}", dimensions.len(), from_template),
     );
     Ok(MonthDimensions { dimensions, from_template })
+}
+
+/// The dimension key used to tag a commitment goal for this month. Conventionally
+/// "goal", but validate_dimensions only requires source=="monthly" (the key is
+/// free), so resolve it dynamically and fall back to "goal" when none/unreadable.
+fn monthly_dim_key(root: &std::path::Path, year: i32, month: u32) -> String {
+    files::resolve_month_dimensions(root, year, month)
+        .ok()
+        .and_then(|dims| dims.into_iter().find(|d| d.source == "monthly").map(|d| d.key))
+        .unwrap_or_else(|| "goal".to_string())
 }
 
 #[tauri::command]
@@ -602,6 +612,7 @@ pub fn get_commitment_progress(
     }
 
     // 4. Scan day files in the month directory
+    let goal_key = monthly_dim_key(root, year, month);
     let month_dir = root.join(year.to_string()).join(format!("{:02}", month));
 
     if month_dir.exists() {
@@ -630,7 +641,7 @@ pub fn get_commitment_progress(
                     match crate::files::read_day_file(root, file_name.trim_end_matches(".md")) {
                         Ok(day_file) => {
                             for e in &day_file.entries {
-                                if let Some(goal) = e.dimensions.get("goal") {
+                                if let Some(goal) = e.dimensions.get(&goal_key) {
                                     if let Some((role, goal_name)) = goal_to_role.get(goal) {
                                         *role_spent.entry(role.clone()).or_insert(0) += e.duration;
                                         *goal_spent.entry(goal_name.clone()).or_insert(0) += e.duration;
@@ -745,6 +756,7 @@ fn count_entries_with_goal(
     }
 
     let mut count = 0;
+    let goal_key = monthly_dim_key(root, year, month);
     let entries = match std::fs::read_dir(&month_dir) {
         Ok(e) => e,
         Err(e) => return Err(format!("Failed to read month dir: {}", e)),
@@ -772,7 +784,7 @@ fn count_entries_with_goal(
                 count += day_file
                     .entries
                     .iter()
-                    .filter(|e| e.dimensions.get("goal").map(|g| g == goal_name).unwrap_or(false))
+                    .filter(|e| e.dimensions.get(&goal_key).map(|g| g == goal_name).unwrap_or(false))
                     .count();
             }
             Err(e) => {
@@ -807,6 +819,12 @@ fn rename_goal_in_entries(
         Err(e) => return Err(format!("Failed to read month dir: {}", e)),
     };
 
+    let goal_key = monthly_dim_key(root, year, month);
+
+    // Phase 1: read + transform every affected day file in memory. A stray
+    // non-date .md is skipped (tolerant); a valid-date file that fails to read
+    // aborts here, BEFORE any write, so we never leave a partial rename.
+    let mut pending: Vec<(String, crate::models::DayFile)> = Vec::new();
     for entry in entries {
         let entry = match entry {
             Ok(e) => e,
@@ -824,19 +842,28 @@ fn rename_goal_in_entries(
             continue;
         }
         let date = file_name.trim_end_matches(".md");
+        // Skip files whose name is not a valid date (user scratch files etc.).
+        if validate_date_format(date).is_err() {
+            continue;
+        }
         let mut day_file = files::read_day_file(root, date)?;
         let mut changed = false;
         for e in &mut day_file.entries {
-            if let Some(goal) = e.dimensions.get("goal") {
+            if let Some(goal) = e.dimensions.get(&goal_key) {
                 if goal == old_name {
-                    e.dimensions.insert("goal".to_string(), new_name.to_string());
+                    e.dimensions.insert(goal_key.clone(), new_name.to_string());
                     changed = true;
                 }
             }
         }
         if changed {
-            files::write_day_file(root, date, &day_file)?;
+            pending.push((date.to_string(), day_file));
         }
+    }
+
+    // Phase 2: all reads succeeded — now commit the writes.
+    for (date, day_file) in &pending {
+        files::write_day_file(root, date, day_file)?;
     }
     Ok(())
 }
@@ -1267,7 +1294,7 @@ mod tests {
     // --- validate_required_dimensions tests ---
 
     use crate::models::{Dimension, Template};
-    use std::collections::HashMap;
+    use std::collections::BTreeMap;
 
     fn make_config(required_keys: &[&str]) -> Template {
         Template {
@@ -1300,7 +1327,7 @@ mod tests {
     #[test]
     fn test_validate_required_all_present() {
         let config = make_config(&["biz"]);
-        let mut dims = HashMap::new();
+        let mut dims = BTreeMap::new();
         dims.insert("biz".to_string(), "A".to_string());
         assert!(validate_required_dimensions(&config.dimensions, &dims).is_ok());
     }
@@ -1308,7 +1335,7 @@ mod tests {
     #[test]
     fn test_validate_required_missing_one() {
         let config = make_config(&["biz", "cat"]);
-        let mut dims = HashMap::new();
+        let mut dims = BTreeMap::new();
         dims.insert("biz".to_string(), "A".to_string());
         // cat is missing
         let err = validate_required_dimensions(&config.dimensions, &dims).unwrap_err();
@@ -1323,14 +1350,14 @@ mod tests {
     #[test]
     fn test_validate_required_none_required() {
         let config = make_config(&[]);
-        let dims = HashMap::new(); // empty is fine — nothing required
+        let dims = BTreeMap::new(); // empty is fine — nothing required
         assert!(validate_required_dimensions(&config.dimensions, &dims).is_ok());
     }
 
     #[test]
     fn test_validate_required_empty_dimensions() {
         let config = make_config(&["biz"]);
-        let dims = HashMap::new();
+        let dims = BTreeMap::new();
         let err = validate_required_dimensions(&config.dimensions, &dims).unwrap_err();
         assert!(err.contains("Biz"));
     }

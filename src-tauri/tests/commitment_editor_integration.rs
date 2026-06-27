@@ -1,5 +1,5 @@
 /// Integration tests for set_commitments command.
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fs;
 
 use tauri_app_lib::models::{Commitment, CreateEntryInput};
@@ -122,7 +122,7 @@ fn test_set_commitments_goal_rename_syncs_entries() {
     let root = setup("rename_sync");
 
     // Add entries with the old goal name
-    let mut dims = HashMap::new();
+    let mut dims = BTreeMap::new();
     dims.insert("goal".to_string(), "Feature A".to_string());
 
     tauri_app_lib::files::append_new_entry(
@@ -173,7 +173,7 @@ fn test_set_commitments_goal_rename_syncs_entries() {
 fn test_set_commitments_delete_goal_rejected_when_entries_exist() {
     let root = setup("del_reject");
 
-    let mut dims = HashMap::new();
+    let mut dims = BTreeMap::new();
     dims.insert("goal".to_string(), "Code review".to_string());
 
     tauri_app_lib::files::append_new_entry(
@@ -214,6 +214,77 @@ fn test_set_commitments_delete_goal_allowed_when_no_entries() {
 
     assert_eq!(result.len(), 1);
     assert_eq!(result[0].goals, vec!["Feature A"]);
+
+    teardown(&root);
+}
+
+// F3: a stray non-date .md (or corrupt file) in the month dir must NOT abort the
+// whole rename. Mirrors the tolerant scan in count_entries_with_goal.
+#[test]
+fn test_set_commitments_rename_tolerates_stray_md_file() {
+    let root = setup("rename_stray");
+
+    let mut dims = BTreeMap::new();
+    dims.insert("goal".to_string(), "Feature A".to_string());
+    tauri_app_lib::files::append_new_entry(
+        &root,
+        "2026-06-01",
+        &CreateEntryInput { item: "Coding".into(), duration: "60".into(), dimensions: dims },
+    )
+    .unwrap();
+
+    // A user-placed, non-date markdown file sits in the month directory.
+    fs::write(root.join("2026/06/notes.md"), "# scratch notes\n").unwrap();
+
+    // Rename "Feature A" → "Feature X": must succeed despite the stray file.
+    let new = make_commitments(vec![
+        ("Developer", 40, vec!["Feature X", "Code review"]),
+        ("VP", 10, vec!["Strategy"]),
+    ]);
+    let result =
+        tauri_app_lib::commands::set_commitments(root.to_string_lossy().into_owned(), 2026, 6, new)
+            .expect("rename must not abort on a stray non-date .md file");
+    assert_eq!(result[0].goals, vec!["Feature X", "Code review"]);
+
+    let day1 = tauri_app_lib::files::read_day_file(&root, "2026-06-01").unwrap();
+    assert_eq!(day1.entries[0].dimensions.get("goal").unwrap(), "Feature X");
+
+    teardown(&root);
+}
+
+// F1: a corrupt valid-date day file must abort the rename BEFORE any write, so
+// no day file is left half-renamed (read-all → then write-all).
+#[test]
+fn test_set_commitments_rename_aborts_before_write_on_corrupt_file() {
+    let root = setup("rename_atomic");
+
+    let mut dims = BTreeMap::new();
+    dims.insert("goal".to_string(), "Feature A".to_string());
+    for date in ["2026-06-01", "2026-06-02"] {
+        tauri_app_lib::files::append_new_entry(
+            &root,
+            date,
+            &CreateEntryInput { item: "Coding".into(), duration: "60".into(), dimensions: dims.clone() },
+        )
+        .unwrap();
+    }
+
+    // A corrupt file with a VALID date name (not a stray non-date file).
+    fs::write(root.join("2026/06/2026-06-03.md"), "this is not valid frontmatter\n").unwrap();
+
+    let new = make_commitments(vec![
+        ("Developer", 40, vec!["Feature X", "Code review"]),
+        ("VP", 10, vec!["Strategy"]),
+    ]);
+    let err = tauri_app_lib::commands::set_commitments(root.to_string_lossy().into_owned(), 2026, 6, new)
+        .expect_err("a corrupt valid-date file must abort the rename");
+    assert!(err.contains("parse") || err.contains("frontmatter") || err.contains("2026-06-03"), "unexpected error: {}", err);
+
+    // No partial rename: both good files still hold the OLD goal name.
+    for date in ["2026-06-01", "2026-06-02"] {
+        let df = tauri_app_lib::files::read_day_file(&root, date).unwrap();
+        assert_eq!(df.entries[0].dimensions.get("goal").unwrap(), "Feature A", "{} was partially renamed", date);
+    }
 
     teardown(&root);
 }

@@ -194,14 +194,19 @@ async function handleDeleteEntry(entryId: string) {
   if (!entries) return;
   const idx = entries.findIndex(e => e.id === entryId);
   if (idx === -1) return;
+  // Snapshot the date NOW: the timer fires in 5s, by which point the user may
+  // have navigated to another day, so reading store.currentDate at fire time
+  // would delete from the wrong day (F5).
+  const date = store.currentDate;
+  const { year, month } = yearMonthFromDate(date);
   const [removed] = entries.splice(idx, 1);
   let cancelled = false;
   pendingDeleteTimer = setTimeout(async () => {
     if (cancelled) return;
     try {
-      await invoke("delete_entry", { rootPath: store.rootPath, date: store.currentDate, entryId });
-      store.monthEntries[store.currentDate] = [...entries];
-      await loadCommitmentProgress(selectedYear.value, selectedMonth.value);
+      await invoke("delete_entry", { rootPath: store.rootPath, date, entryId });
+      store.monthEntries[date] = [...entries];
+      await loadCommitmentProgress(year, month);
     } catch (e) {
       logError("MonthView.handleDeleteEntry", e);
       if (entries.findIndex(e => e.id === entryId) === -1) entries.splice(idx, 0, removed);

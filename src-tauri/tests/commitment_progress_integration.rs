@@ -1,5 +1,5 @@
 /// Integration tests for get_commitment_progress command.
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fs;
 
 use tauri_app_lib::models::CreateEntryInput;
@@ -58,13 +58,13 @@ fn test_progress_aggregates_across_multiple_days() {
     let root = setup("multi_day");
 
     // Add entries across multiple days
-    let mut dims_a = HashMap::new();
+    let mut dims_a = BTreeMap::new();
     dims_a.insert("goal".to_string(), "Feature A".to_string());
 
-    let mut dims_b = HashMap::new();
+    let mut dims_b = BTreeMap::new();
     dims_b.insert("goal".to_string(), "Bug fixes".to_string());
 
-    let mut dims_s = HashMap::new();
+    let mut dims_s = BTreeMap::new();
     dims_s.insert("goal".to_string(), "Strategy".to_string());
 
     tauri_app_lib::files::append_new_entry(
@@ -137,4 +137,51 @@ fn test_progress_no_monthly_file_returns_empty() {
     assert!(progress.is_empty());
 
     teardown(&tmp);
+}
+
+// F4: the monthly dimension key need not be the literal "goal". validate_dimensions
+// only requires source=="monthly" (key is free). If progress aggregation hardcodes
+// "goal", a template using e.g. key "objective" silently reports zero spent.
+#[test]
+fn test_progress_with_non_goal_monthly_key() {
+    let root = std::env::temp_dir().join("logbook_int_cp_objective");
+    let _ = fs::remove_dir_all(&root);
+    fs::create_dir_all(&root).unwrap();
+
+    // Monthly dimension key is "objective", not "goal".
+    fs::write(
+        root.join("template.yaml"),
+        "dimensions:\n  - name: Objective\n    key: objective\n    source: monthly\n",
+    )
+    .unwrap();
+    let monthly_dir = root.join("2026/06");
+    fs::create_dir_all(&monthly_dir).unwrap();
+    fs::write(
+        monthly_dir.join("_monthly.md"),
+        "---\ncommitments:\n  - role: Developer\n    allocation: 30\n    goals:\n      - Feature A\n---\n",
+    )
+    .unwrap();
+
+    // Entry tags its goal under the "objective" key.
+    let mut dims = BTreeMap::new();
+    dims.insert("objective".to_string(), "Feature A".to_string());
+    tauri_app_lib::files::append_new_entry(
+        &root,
+        "2026-06-01",
+        &CreateEntryInput { item: "work".into(), duration: "90".into(), dimensions: dims },
+    )
+    .unwrap();
+
+    let progress = tauri_app_lib::commands::get_commitment_progress(
+        root.to_string_lossy().into_owned(),
+        2026,
+        6,
+    )
+    .unwrap();
+
+    // Must aggregate the 90 minutes, not silently report zero.
+    assert_eq!(progress[0].role, "Developer");
+    assert_eq!(progress[0].spent_minutes, 90, "non-'goal' monthly key was not aggregated");
+
+    let _ = fs::remove_dir_all(&root);
 }

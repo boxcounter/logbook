@@ -1,5 +1,5 @@
 // src/__tests__/components/MonthView.test.ts
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 import { reactive } from "vue";
 import MonthView from "../../components/MonthView.vue";
@@ -222,5 +222,126 @@ describe("MonthView", () => {
     await flushPromises(); // belt-and-suspenders: chained async loads must settle before asserting
 
     expect(store.commitments).toEqual([]); // 跟随目标月：空，而非停留在当前月数据
+  });
+});
+
+// ---- Delete entry: optimistic delete + 5s timer + undo + failure rollback ----
+// (F2: this whole chain was previously untested; F5: the timer read currentDate
+//  at fire time, so navigating within the 5s window deleted the wrong day.)
+describe("MonthView delete entry", () => {
+  const DEL_ID = "del-1";
+
+  // Seed get_entries so loadMonth rebuilds store.today with a known entry, then
+  // mount and let loadMonth settle — mirroring real usage where the month load
+  // completes before the user deletes. Without settling, the unawaited
+  // loadMonth races the delete timer and swaps store.today out from under it.
+  async function mountWithUndo() {
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === "delete_entry") return null;
+      if (cmd === "get_commitment_progress") return [];
+      if (cmd === "get_commitments") return [];
+      if (cmd === "get_entries") return { note: null, entries: [makeEntry({ id: DEL_ID, item: "Doomed", duration: 60 })] };
+      return { note: null, entries: [] };
+    });
+    const store = makeStore();
+    let undoFn: (() => void) | null = null;
+    const wrapper = mount(MonthView, {
+      global: {
+        provide: {
+          [STORE_KEY as symbol]: store,
+          focusRequestId: { value: 0 },
+          triggerUndoToast: (fn: () => void) => { undoFn = fn; },
+        },
+      },
+    });
+    await flushPromises(); // loadMonth done → store.today holds DEL_ID, stable
+    return { wrapper, store, getUndo: () => undoFn };
+  }
+
+  function emitDelete(wrapper: ReturnType<typeof mount>, id: string) {
+    wrapper.findComponent({ name: "EntryList" }).vm.$emit("delete", id);
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("optimistically removes the entry, then calls delete_entry after 5s", async () => {
+    const { wrapper, store } = await mountWithUndo();
+    const date = store.currentDate;
+
+    emitDelete(wrapper, DEL_ID);
+    await wrapper.vm.$nextTick();
+    // Removed from the list immediately (optimistic), backend not called yet.
+    expect(store.today.entries.find(e => e.id === DEL_ID)).toBeUndefined();
+    expect(invokeMock).not.toHaveBeenCalledWith("delete_entry", expect.anything());
+
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(invokeMock).toHaveBeenCalledWith(
+      "delete_entry",
+      expect.objectContaining({ rootPath: "/root", date, entryId: DEL_ID }),
+    );
+  });
+
+  it("F5: deletes the day the entry was on, not the day navigated to within the 5s window", async () => {
+    const { wrapper, store } = await mountWithUndo();
+    const originalDate = store.currentDate;
+
+    emitDelete(wrapper, DEL_ID);
+    await wrapper.vm.$nextTick();
+
+    // User navigates to a different day before the timer fires.
+    store.currentDate = "2026-06-10";
+
+    await vi.advanceTimersByTimeAsync(5000);
+
+    // The delete must target the day the entry actually lived on.
+    expect(invokeMock).toHaveBeenCalledWith(
+      "delete_entry",
+      expect.objectContaining({ date: originalDate, entryId: DEL_ID }),
+    );
+    expect(invokeMock).not.toHaveBeenCalledWith(
+      "delete_entry",
+      expect.objectContaining({ date: "2026-06-10" }),
+    );
+  });
+
+  it("undo before the timer restores the entry and never calls delete_entry", async () => {
+    const { wrapper, store, getUndo } = await mountWithUndo();
+
+    emitDelete(wrapper, DEL_ID);
+    await wrapper.vm.$nextTick();
+    expect(store.today.entries.find(e => e.id === DEL_ID)).toBeUndefined();
+
+    // User clicks Undo.
+    getUndo()!();
+    await wrapper.vm.$nextTick();
+    expect(store.today.entries.find(e => e.id === DEL_ID)).toBeDefined();
+
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(invokeMock).not.toHaveBeenCalledWith("delete_entry", expect.anything());
+  });
+
+  it("re-inserts the entry when the backend delete fails", async () => {
+    const { wrapper, store } = await mountWithUndo();
+    // Now make the backend reject the delete (mount/load already settled).
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === "delete_entry") throw new Error("backend rejected");
+      if (cmd === "get_commitment_progress") return [];
+      return { note: null, entries: [] };
+    });
+
+    emitDelete(wrapper, DEL_ID);
+    await wrapper.vm.$nextTick();
+    expect(store.today.entries.find(e => e.id === DEL_ID)).toBeUndefined();
+
+    await vi.advanceTimersByTimeAsync(5000);
+    await flushPromises();
+
+    // Failed delete must restore the entry rather than silently drop it.
+    expect(store.today.entries.find(e => e.id === DEL_ID)).toBeDefined();
   });
 });

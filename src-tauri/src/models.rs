@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 // --- Template ---
 
@@ -72,7 +72,7 @@ pub struct Entry {
     pub item: String,
     pub duration: u32, // minutes
     #[serde(default)]
-    pub dimensions: HashMap<String, String>,
+    pub dimensions: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -80,7 +80,7 @@ pub struct CreateEntryInput {
     pub item: String,
     pub duration: String, // pre-parsed total by frontend, e.g. "60"
     #[serde(default)]
-    pub dimensions: HashMap<String, String>,
+    pub dimensions: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -90,7 +90,7 @@ pub struct UpdateEntryInput {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub duration: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub dimensions: Option<HashMap<String, String>>,
+    pub dimensions: Option<BTreeMap<String, String>>,
 }
 
 // --- Init result ---

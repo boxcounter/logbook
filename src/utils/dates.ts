@@ -31,3 +31,26 @@ export function addDays(dateStr: string, n: number): string {
   d.setDate(d.getDate() + n);
   return formatDate(d);
 }
+
+/**
+ * Decide whether a calendar-day rollover should advance the viewed date.
+ *
+ * The view follows "today" only when the user is currently parked on what was
+ * today (currentDate === lastKnownToday) and the app is ready. If they have
+ * navigated to another day, a midnight crossing must NOT yank them to the new
+ * today. Pure so it can be driven from both the focus handler and a timer.
+ *
+ * @returns `rollover: true` with the new date when the view should advance.
+ */
+export function rolloverDecision(
+  currentDate: string,
+  lastKnownToday: string,
+  newToday: string,
+  statusReady: boolean,
+): { rollover: boolean; date: string } {
+  if (newToday === lastKnownToday) return { rollover: false, date: currentDate };
+  if (statusReady && currentDate === lastKnownToday) {
+    return { rollover: true, date: newToday };
+  }
+  return { rollover: false, date: currentDate };
+}

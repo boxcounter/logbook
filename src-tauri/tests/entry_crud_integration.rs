@@ -1,5 +1,5 @@
 /// Integration test: append → read → update → delete entry roundtrip.
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fs;
 
 use tauri_app_lib::models::{CreateEntryInput, UpdateEntryInput};
@@ -40,7 +40,7 @@ fn test_append_read_update_delete_roundtrip() {
     let date = "2026-06-12";
 
     // Append entry
-    let mut dims = HashMap::new();
+    let mut dims = BTreeMap::new();
     dims.insert("goal".to_string(), "Ship it".to_string());
 
     let new_entry = CreateEntryInput {
@@ -135,7 +135,7 @@ fn test_parse_duration_via_append() {
         let new_entry = CreateEntryInput {
             item: format!("Test {}", input),
             duration: input.to_string(),
-            dimensions: HashMap::new(),
+            dimensions: BTreeMap::new(),
         };
         let entry = tauri_app_lib::files::append_new_entry(&root, date, &new_entry)
             .expect(&format!("append failed for '{}'", input));
@@ -170,7 +170,7 @@ fn test_append_entry_rejects_missing_required_dimension() {
     let new_entry = CreateEntryInput {
         item: "Missing required dim".to_string(),
         duration: "30".to_string(),
-        dimensions: HashMap::new(), // biz is required but missing
+        dimensions: BTreeMap::new(), // biz is required but missing
     };
 
     let result = tauri_app_lib::files::append_new_entry(&root, date, &new_entry);
@@ -201,7 +201,7 @@ fn test_append_entry_accepts_when_required_dimensions_present() {
     .unwrap();
 
     let date = "2026-06-12";
-    let mut dims = HashMap::new();
+    let mut dims = BTreeMap::new();
     dims.insert("biz".to_string(), "A".to_string());
 
     let new_entry = CreateEntryInput {
@@ -237,7 +237,7 @@ fn test_update_entry_rejects_clearing_required_dimension() {
     .unwrap();
 
     let date = "2026-06-12";
-    let mut dims = HashMap::new();
+    let mut dims = BTreeMap::new();
     dims.insert("biz".to_string(), "A".to_string());
 
     let entry = tauri_app_lib::files::append_new_entry(
@@ -255,7 +255,7 @@ fn test_update_entry_rejects_clearing_required_dimension() {
     let update = UpdateEntryInput {
         item: None,
         duration: None,
-        dimensions: Some(HashMap::new()), // clears biz
+        dimensions: Some(BTreeMap::new()), // clears biz
     };
 
     let result = tauri_app_lib::files::update_entry_in_file(&root, date, &entry.id, &update);

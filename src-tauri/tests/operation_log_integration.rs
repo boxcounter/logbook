@@ -1,6 +1,6 @@
 /// Integration test: verify operation_log module works through its public API,
 /// including real file I/O on temp directories.
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fs;
 
 use tauri_app_lib::models::Entry;
@@ -30,7 +30,7 @@ fn sample_entry(id: &str, item: &str, duration: u32) -> Entry {
         id: id.to_string(),
         item: item.to_string(),
         duration,
-        dimensions: HashMap::new(),
+        dimensions: BTreeMap::new(),
     }
 }
 

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::PathBuf;
 use tauri_app_lib::files;
@@ -24,13 +24,33 @@ fn fresh_month_reads_template_without_writing() {
     let root = fresh_root("logbook_md_fresh_read");
     write_template(&root, TPL_BIZ_GOAL);
 
-    let dims = files::resolve_month_dimensions(&root, 2026, 7);
+    let dims = files::resolve_month_dimensions(&root, 2026, 7).unwrap();
     assert_eq!(dims.len(), 2);
     assert_eq!(dims[0].key, "biz");
 
     // resolve must NOT have created _monthly.md
     let monthly = files::monthly_path(&root, 2026, 7);
     assert!(!monthly.exists(), "resolve must not write _monthly.md");
+
+    let _ = fs::remove_dir_all(&root);
+}
+
+// 1b. A template.yaml saved with a leading UTF-8 BOM (external editors do this)
+// must still parse, and validation must see its dimensions. Otherwise the
+// failure is swallowed into empty dimensions and required-dimension validation
+// is silently bypassed.
+#[test]
+fn template_with_utf8_bom_still_parses() {
+    let root = fresh_root("logbook_md_bom_template");
+    write_template(&root, &format!("\u{feff}{}", TPL_BIZ_GOAL));
+
+    let tpl = files::read_template(&root).expect("read_template must tolerate a leading BOM");
+    assert_eq!(tpl.dimensions.len(), 2);
+    assert_eq!(tpl.dimensions[0].key, "biz");
+
+    // The BOM month must resolve real dims, not the empty-fallback.
+    let dims = files::resolve_month_dimensions(&root, 2026, 7).unwrap();
+    assert_eq!(dims.len(), 2, "BOM template must not collapse to empty dims");
 
     let _ = fs::remove_dir_all(&root);
 }
@@ -44,7 +64,7 @@ fn first_append_snapshots_template() {
     let input = CreateEntryInput {
         item: "task".into(),
         duration: "30".into(),
-        dimensions: HashMap::new(),
+        dimensions: BTreeMap::new(),
     };
     files::append_new_entry(&root, "2026-07-15", &input).unwrap();
 
@@ -57,7 +77,7 @@ fn first_append_snapshots_template() {
         &root,
         "dimensions:\n  - name: Other\n    key: other\n    source: static\n    values: [x]\n",
     );
-    let dims = files::resolve_month_dimensions(&root, 2026, 7);
+    let dims = files::resolve_month_dimensions(&root, 2026, 7).unwrap();
     assert_eq!(dims.len(), 2, "snapshot must not follow template changes");
     assert_eq!(dims[0].key, "biz");
 
@@ -77,7 +97,7 @@ fn month_block_overrides_template() {
     )
     .unwrap();
 
-    let dims = files::resolve_month_dimensions(&root, 2026, 8);
+    let dims = files::resolve_month_dimensions(&root, 2026, 8).unwrap();
     assert_eq!(dims.len(), 1);
     assert_eq!(dims[0].key, "client");
 
@@ -186,9 +206,46 @@ fn set_day_note_does_not_instantiate() {
 fn missing_template_is_lenient() {
     let root = fresh_root("logbook_md_notpl");
     // no template.yaml written
-    let dims = files::resolve_month_dimensions(&root, 2026, 7);
+    let dims = files::resolve_month_dimensions(&root, 2026, 7).unwrap();
     assert!(dims.is_empty());
     files::ensure_month_instantiated(&root, 2026, 7).unwrap(); // no panic, no-op
     assert!(!files::monthly_path(&root, 2026, 7).exists());
     let _ = fs::remove_dir_all(&root);
 }
+
+// 5b. A MALFORMED template (exists but unparseable) must NOT be swallowed into
+// empty dimensions: that would silently bypass required-dimension validation
+// and let entries through with missing required dims. Contrast with case 5: a
+// MISSING template is tolerated, a BROKEN one is surfaced.
+#[test]
+fn malformed_template_surfaces_error_not_empty() {
+    let root = fresh_root("logbook_md_badtpl");
+    // `dimensions` as a scalar string fails to deserialize into Vec<Dimension>.
+    write_template(&root, "dimensions: not-a-list\n");
+
+    // resolve must surface the parse error, not return empty dims.
+    let resolved = files::resolve_month_dimensions(&root, 2026, 7);
+    assert!(
+        resolved.is_err(),
+        "malformed template must surface an error, got empty-fallback: {:?}",
+        resolved
+    );
+
+    // ensure_month_instantiated must also surface it rather than no-op.
+    assert!(files::ensure_month_instantiated(&root, 2026, 7).is_err());
+
+    // The amplifier: appending an entry must be rejected, not silently accepted
+    // with validation bypassed.
+    let input = CreateEntryInput {
+        item: "leak".to_string(),
+        duration: "30m".to_string(),
+        dimensions: BTreeMap::new(),
+    };
+    assert!(
+        files::append_new_entry(&root, "2026-07-15", &input).is_err(),
+        "append must fail when the template is unparseable, not bypass validation"
+    );
+
+    let _ = fs::remove_dir_all(&root);
+}
+

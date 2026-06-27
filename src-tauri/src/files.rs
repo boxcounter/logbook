@@ -24,12 +24,17 @@ fn with_file_lock<T, F: FnOnce() -> Result<T, String>>(path: &Path, f: F) -> Res
 /// Validates date format before constructing path.
 /// date format: "2026-06-12". Date is canonical from filename, not stored in frontmatter.
 pub fn day_path(root: &Path, date: &str) -> Result<PathBuf, String> {
-    chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d")
+    use chrono::Datelike;
+    let d = chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d")
         .map_err(|e| format!("Invalid date '{}': {}", date, e))?;
-    let parts: Vec<&str> = date.split('-').collect();
-    let year = parts[0];
-    let month = parts[1];
-    Ok(root.join(year).join(month).join(format!("{}.md", date)))
+    // Derive the path from the parsed date so a lenient input like "2026-6-5"
+    // still lands in the canonical zero-padded /YYYY/MM/YYYY-MM-DD.md that
+    // monthly_path and every month scan use. Otherwise the file would be
+    // written to /2026/6/ and silently missed by aggregation.
+    Ok(root
+        .join(format!("{:04}", d.year()))
+        .join(format!("{:02}", d.month()))
+        .join(format!("{:04}-{:02}-{:02}.md", d.year(), d.month(), d.day())))
 }
 
 /// Monthly file path: {root}/{year}/{month:02}/_monthly.md
@@ -95,7 +100,7 @@ pub fn append_new_entry(
     let duration = crate::commands::parse_duration(&new_entry.duration)?;
     let (year, month) = year_month_from_date(date)?;
     ensure_month_instantiated(root, year, month)?;
-    let dims = resolve_month_dimensions(root, year, month);
+    let dims = resolve_month_dimensions(root, year, month)?;
     crate::commands::validate_required_dimensions(&dims, &new_entry.dimensions)?;
     let entry = Entry {
         id: uuid::Uuid::new_v4().to_string(),
@@ -131,7 +136,7 @@ pub fn update_entry_in_file(
         }
         if let Some(ref dims) = update.dimensions {
             let (year, month) = year_month_from_date(date)?;
-            let effective = resolve_month_dimensions(root, year, month);
+            let effective = resolve_month_dimensions(root, year, month)?;
             crate::commands::validate_required_dimensions(&effective, dims)?;
             entry.dimensions = dims.clone();
         }
@@ -211,7 +216,10 @@ pub fn read_template(root: &Path) -> Result<Template, String> {
     let path = template_path(root);
     let content = fs::read_to_string(&path)
         .map_err(|e| format!("Failed to read {}: {}", path.display(), e))?;
-    yaml_serde::from_str::<Template>(&content)
+    // Strip a leading UTF-8 BOM so a template.yaml saved by an external editor
+    // that prepends one still parses (yaml_serde treats the BOM as content).
+    let content = content.trim_start_matches('\u{feff}');
+    yaml_serde::from_str::<Template>(content)
         .map_err(|e| format!("Failed to parse {}: {}", path.display(), e))
 }
 
@@ -224,24 +232,26 @@ pub fn year_month_from_date(date: &str) -> Result<(i32, u32), String> {
 }
 
 /// Effective dimensions for a month: the month's own `dimensions` block if
-/// non-empty, otherwise the template's. Tolerant of missing files (returns
-/// empty vec) so replay and uninstantiated months never error.
-pub fn resolve_month_dimensions(root: &Path, year: i32, month: u32) -> Vec<Dimension> {
-    if let Ok(monthly) = read_monthly_file(root, year, month) {
-        if !monthly.dimensions.is_empty() {
-            return monthly.dimensions;
-        }
+/// non-empty, otherwise the template's. A *missing* template/monthly file is
+/// tolerated (returns empty vec) so replay and uninstantiated months never
+/// error. A file that EXISTS but fails to parse surfaces the error, rather than
+/// collapsing to empty dims — empty dims silently bypass required-dimension
+/// validation, so a malformed template must not be swallowed.
+pub fn resolve_month_dimensions(
+    root: &Path,
+    year: i32,
+    month: u32,
+) -> Result<Vec<Dimension>, String> {
+    let monthly = read_monthly_file(root, year, month)?;
+    if !monthly.dimensions.is_empty() {
+        return Ok(monthly.dimensions);
     }
-    match read_template(root) {
-        Ok(t) => t.dimensions,
-        Err(e) => {
-            crate::error_log::log_error(
-                "resolve_month_dimensions",
-                &format!("Failed to read template, returning empty dimensions: {}", e),
-            );
-            vec![]
-        }
+    // No month-level block: fall back to the template. Tolerate a *missing*
+    // template (fresh/uninstantiated data dir), but surface a parse error.
+    if !template_path(root).exists() {
+        return Ok(vec![]);
     }
+    Ok(read_template(root)?.dimensions)
 }
 
 /// Snapshot the template into a month's `_monthly.md` if it has no dimensions
@@ -252,16 +262,12 @@ pub fn ensure_month_instantiated(root: &Path, year: i32, month: u32) -> Result<(
     if !monthly.dimensions.is_empty() {
         return Ok(());
     }
-    let template_dims = match read_template(root) {
-        Ok(t) => t.dimensions,
-        Err(e) => {
-            crate::error_log::log_error(
-                "ensure_month_instantiated",
-                &format!("Failed to read template, using empty dimensions: {}", e),
-            );
-            vec![]
-        }
-    };
+    // Tolerate a missing template (nothing to snapshot yet), but surface a
+    // parse error instead of silently snapshotting empty dims.
+    if !template_path(root).exists() {
+        return Ok(());
+    }
+    let template_dims = read_template(root)?.dimensions;
     if template_dims.is_empty() {
         return Ok(());
     }
@@ -341,7 +347,10 @@ pub fn read_root_path(app_data_dir: &Path) -> Option<PathBuf> {
 /// Second `---` must appear at line start (or end of file) to avoid
 /// matching horizontal rules in Markdown body.
 fn parse_frontmatter<T: serde::de::DeserializeOwned>(content: &str) -> Result<T, String> {
-    let content = content.trim();
+    // Strip a leading UTF-8 BOM (U+FEFF) before trimming: `str::trim()` does not
+    // treat the BOM as whitespace, so external editors that prepend one would
+    // otherwise make `starts_with("---")` fail and silently drop the frontmatter.
+    let content = content.trim_start_matches('\u{feff}').trim();
     if !content.starts_with("---") {
         return Err("No frontmatter found".to_string());
     }
@@ -365,7 +374,7 @@ fn parse_frontmatter<T: serde::de::DeserializeOwned>(content: &str) -> Result<T,
 mod tests {
     use super::*;
     use crate::models::Entry;
-    use std::collections::HashMap;
+    use std::collections::BTreeMap;
 
     #[test]
     fn test_parse_frontmatter_basic() {
@@ -376,6 +385,35 @@ mod tests {
     }
 
     #[test]
+    fn test_entry_dimensions_serialize_deterministically() {
+        // Entry.dimensions is a BTreeMap, so serialization is key-sorted and
+        // independent of insertion order. This prevents spurious file diffs and
+        // false verify_op_log content-mismatches on multi-dimension entries.
+        let keys = ["goal", "business-line", "category", "importance-urgency"];
+        let mk = |order: &[usize]| {
+            let mut d = BTreeMap::new();
+            for &i in order {
+                d.insert(keys[i].to_string(), "v".to_string());
+            }
+            yaml_serde::to_string(&Entry {
+                id: "x".into(),
+                item: "i".into(),
+                duration: 30,
+                dimensions: d,
+            })
+            .unwrap()
+        };
+        // Same keys inserted in different orders must serialize identically.
+        let a = mk(&[0, 1, 2, 3]);
+        let b = mk(&[3, 2, 1, 0]);
+        let c = mk(&[2, 0, 3, 1]);
+        assert_eq!(a, b);
+        assert_eq!(a, c);
+        // And the order is the sorted one.
+        assert!(a.find("business-line").unwrap() < a.find("goal").unwrap());
+    }
+
+    #[test]
     fn test_parse_frontmatter_with_note() {
         let input = "---\nnote: \"test note\"\nentries: []\n---\n";
         let df: DayFile = parse_frontmatter(input).unwrap();
@@ -383,10 +421,31 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_frontmatter_with_utf8_bom() {
+        // External editors (Windows Notepad, some macOS editors) save UTF-8 with a
+        // leading BOM (U+FEFF). `str::trim()` does NOT treat it as whitespace, so
+        // without explicit stripping `starts_with("---")` fails and the frontmatter
+        // is silently lost. The app's whole premise is plain-text external editing,
+        // so this must round-trip.
+        let input = "\u{feff}---\nnote: \"bom note\"\nentries: []\n---\n";
+        let df: DayFile = parse_frontmatter(input).unwrap();
+        assert_eq!(df.note, Some("bom note".to_string()));
+    }
+
+    #[test]
     fn test_day_path() {
         let root = Path::new("/data");
         let p = day_path(root, "2026-06-12").unwrap();
         assert_eq!(p, PathBuf::from("/data/2026/06/2026-06-12.md"));
+    }
+
+    #[test]
+    fn test_day_path_normalizes_unpadded_date() {
+        // chrono accepts "2026-6-5"; the path must still be the canonical padded
+        // form so it lands in the same /2026/06/ dir that month scans look in.
+        let root = Path::new("/data");
+        let p = day_path(root, "2026-6-5").unwrap();
+        assert_eq!(p, PathBuf::from("/data/2026/06/2026-06-05.md"));
     }
 
     #[test]
@@ -436,7 +495,7 @@ mod tests {
             id: uuid::Uuid::new_v4().to_string(),
             item: "Test".to_string(),
             duration: 30,
-            dimensions: HashMap::new(),
+            dimensions: BTreeMap::new(),
         };
         append_to_day_file(&tmp, "2026-06-12", &entry).unwrap();
 
@@ -456,13 +515,13 @@ mod tests {
             id: "id-a".into(),
             item: "A".into(),
             duration: 10,
-            dimensions: HashMap::new(),
+            dimensions: BTreeMap::new(),
         };
         let e2 = Entry {
             id: "id-b".into(),
             item: "B".into(),
             duration: 20,
-            dimensions: HashMap::new(),
+            dimensions: BTreeMap::new(),
         };
         append_to_day_file(&tmp, "2026-06-12", &e1).unwrap();
         append_to_day_file(&tmp, "2026-06-12", &e2).unwrap();
@@ -488,13 +547,13 @@ mod tests {
             id: "id-a".into(),
             item: "A".into(),
             duration: 10,
-            dimensions: HashMap::new(),
+            dimensions: BTreeMap::new(),
         };
         let e2 = Entry {
             id: "id-b".into(),
             item: "B".into(),
             duration: 20,
-            dimensions: HashMap::new(),
+            dimensions: BTreeMap::new(),
         };
         append_to_day_file(&tmp, "2026-06-12", &e1).unwrap();
         append_to_day_file(&tmp, "2026-06-12", &e2).unwrap();

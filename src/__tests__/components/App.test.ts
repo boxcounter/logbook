@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { mount } from "@vue/test-utils";
+import { mount, flushPromises } from "@vue/test-utils";
 import { nextTick } from "vue";
 import { STORE_KEY } from "../../stores/useStore";
 import { createTestStore } from "../mocks/store";
 import { makeDimensions, makeDayFile, makeCommitment } from "../mocks/fixtures";
 import App from "../../App.vue";
+import Toast from "../../components/base/Toast.vue";
 
 // Hoisted mocks for Tauri APIs
 const { mockInvoke, mockListen, mockGetCurrentWindow, mockLogError, mockLogInfo } = vi.hoisted(() => ({
@@ -26,16 +27,27 @@ let configChangedCallback: ((event: { payload: unknown }) => void) | null = null
 let commitmentsChangedCallback: (() => void) | null = null;
 let focusChangedCallback: (({ payload }: { payload: boolean }) => void) | null = null;
 
-function mountApp() {
+function mountApp(extraStubs: Record<string, unknown> = {}) {
   const store = createTestStore();
   const wrapper = mount(App, {
+    // rolloverIntervalMs: 0 → no recurring timer, so vi.runAllTimersAsync()
+    // flush loops in these tests never trap on it.
+    props: { rolloverIntervalMs: 0 },
     global: {
       provide: { [STORE_KEY as symbol]: store },
-      stubs: { transition: true, Teleport: true },
+      stubs: { transition: true, Teleport: true, ...extraStubs },
     },
   });
   return { wrapper, store };
 }
+
+// Options-API probe that captures App's provided functions so tests can drive
+// the real provide/inject wiring (the production consumer is MonthView).
+const InjectProbe = {
+  name: "InjectProbe",
+  inject: ["triggerUndoToast", "triggerSavedToast"],
+  template: "<div />",
+};
 
 // ============================================================
 
@@ -180,16 +192,31 @@ describe("App", () => {
     expect(mockListen).toHaveBeenCalledWith("commitments-changed", expect.any(Function));
   });
 
-  it("calls unlisten on unmount", () => {
-    const unlistenSpy = vi.fn();
-    mockListen.mockResolvedValue(unlistenSpy);
+  it("calls unlisten on unmount", async () => {
+    // Distinct spies for each listener so we can assert each is cleaned up.
+    const unlistenConfig = vi.fn();
+    const unlistenCommitments = vi.fn();
+    const unlistenFocus = vi.fn();
+    mockListen.mockImplementation(async (event: string) => {
+      if (event === "config-changed") return unlistenConfig;
+      if (event === "commitments-changed") return unlistenCommitments;
+      return vi.fn();
+    });
+    mockGetCurrentWindow.mockReturnValue({
+      onFocusChanged: vi.fn().mockResolvedValue(unlistenFocus),
+    });
 
     const { wrapper } = mountApp();
+    // Let onMounted finish so the unlisten handles are actually assigned
+    // (they're awaited; before resolution they're still null).
+    await vi.runAllTimersAsync();
+    await nextTick();
+
     wrapper.unmount();
 
-    // The stored unlisten would be called in onUnmounted
-    // Just verify the component unmounts cleanly
-    expect(true).toBe(true); // unmount completed without error
+    expect(unlistenConfig).toHaveBeenCalledTimes(1);
+    expect(unlistenCommitments).toHaveBeenCalledTimes(1);
+    expect(unlistenFocus).toHaveBeenCalledTimes(1);
   });
 
   it("config-changed event with no errors calls initApp", async () => {
@@ -363,30 +390,92 @@ describe("App", () => {
     expect(mockInvoke).not.toHaveBeenCalledWith("init");
   });
 
-  // ---- Undo toast ----
-
-  it("triggerUndoToast: shows undo toast with Undo and Dismiss buttons", async () => {
-    // To test undo toast, we need to trigger it via the provided function
-    // The provide is done in App.vue, available to child components
+  it("F6: periodic timer rolls the view over at midnight WITHOUT a focus event", async () => {
+    // The bug: a window focused across midnight never fires onFocusChanged, so
+    // the view stayed on yesterday. The interval must advance it on its own.
+    vi.setSystemTime(new Date(2026, 5, 20, 23, 59, 0));
     mockInvoke.mockResolvedValue({
       status: "Ready",
       data: { root_path: "/test", dimensions: makeDimensions(), from_template: false, today: makeDayFile(), commitments: [], scan_warnings: [] },
     });
-    const { wrapper } = mountApp();
+    const store = createTestStore();
+    const wrapper = mount(App, {
+      props: { rolloverIntervalMs: 1000 }, // live timer for this test only
+      global: {
+        provide: { [STORE_KEY as symbol]: store },
+        stubs: { transition: true, Teleport: true },
+      },
+    });
+    await flushPromises();
+    await nextTick();
+
+    expect(store.currentDate).toBe(ymd(new Date(2026, 5, 20)));
+    store.status = "ready";
+    vi.clearAllMocks();
+
+    // Cross midnight with NO focus event — only the interval drives the change.
+    vi.setSystemTime(new Date(2026, 5, 21, 0, 0, 30));
+    await vi.advanceTimersByTimeAsync(1000);
+    await flushPromises();
+
+    expect(store.currentDate).toBe(ymd(new Date(2026, 5, 21)));
+    expect(mockInvoke).toHaveBeenCalledWith("init");
+
+    wrapper.unmount();
+  });
+
+  it("triggerUndoToast: shows undo toast with Undo and Dismiss buttons", async () => {
+    mockInvoke.mockResolvedValue({
+      status: "Ready",
+      data: { root_path: "/test", dimensions: makeDimensions(), from_template: false, today: makeDayFile(), commitments: [], scan_warnings: [] },
+    });
+    // Replace MonthView with a probe that captures App's provided triggerUndoToast.
+    const { wrapper } = mountApp({ MonthView: InjectProbe });
     await vi.runAllTimersAsync();
     await nextTick();
 
-    // MonthView is rendered; undo functionality is tested in MonthView test
-    // Here we just verify the toast is initially hidden
-    // We can't easily trigger it without the full flow, but we can verify
-    // the toast component exists and is initially hidden
+    const probe = wrapper.findComponent(InjectProbe);
+    const trigger = probe.vm.triggerUndoToast as (fn: () => void) => void;
+    expect(typeof trigger).toBe("function");
+
+    // Initially hidden
     expect(wrapper.text()).not.toContain("Entry deleted");
+
+    trigger(() => {});
+    await nextTick();
+
+    // Toast now visible with both the message and Undo/Dismiss buttons.
+    const undoToast = wrapper
+      .findAllComponents(Toast)
+      .find((t) => t.props("message") === "Entry deleted");
+    expect(undoToast?.props("show")).toBe(true);
+    expect(undoToast?.props("undoLabel")).toBe("Undo");
+    expect(wrapper.text()).toContain("Entry deleted");
+    expect(wrapper.text()).toContain("Undo");
   });
 
-  it("undo toast: auto-dismisses after 5 seconds", () => {
-    // The undo toast uses a 5-second timer
-    // This is tested via MonthView's delete flow
-    expect(true).toBe(true);
+  it("undo toast: auto-dismisses after 5 seconds", async () => {
+    mockInvoke.mockResolvedValue({
+      status: "Ready",
+      data: { root_path: "/test", dimensions: makeDimensions(), from_template: false, today: makeDayFile(), commitments: [], scan_warnings: [] },
+    });
+    const { wrapper } = mountApp({ MonthView: InjectProbe });
+    await vi.runAllTimersAsync();
+    await nextTick();
+
+    const probe = wrapper.findComponent(InjectProbe);
+    (probe.vm.triggerUndoToast as (fn: () => void) => void)(() => {});
+    await nextTick();
+
+    const undoToast = () =>
+      wrapper.findAllComponents(Toast).find((t) => t.props("message") === "Entry deleted");
+    expect(undoToast()?.props("show")).toBe(true);
+
+    // Advance past the 5s undo window.
+    vi.advanceTimersByTime(5000);
+    await nextTick();
+
+    expect(undoToast()?.props("show")).toBe(false);
   });
 
   // ---- Scan warning toast ----
@@ -481,13 +570,17 @@ describe("App", () => {
     // Toast should be visible
     expect(wrapper.text()).toContain("data issue");
 
-    // Find the scan warning toast and click its dismiss button
-    const scanToast = wrapper.find('[class*="scan-warning"], [data-testid="scan-warning-toast"]');
-    if (scanToast.exists()) {
-      const dismissBtn = scanToast.find("button");
-      await dismissBtn.trigger("click");
-      await nextTick();
-      expect(wrapper.text()).not.toContain("data issue");
-    }
+    // Find the scan-warning Toast by its message (the only one mentioning
+    // "data issue") and emit its dismiss event.
+    const scanToast = wrapper
+      .findAllComponents(Toast)
+      .find((t) => String(t.props("message")).includes("data issue"));
+    expect(scanToast?.props("show")).toBe(true);
+
+    scanToast!.vm.$emit("dismiss");
+    await nextTick();
+
+    expect(scanToast!.props("show")).toBe(false);
+    expect(wrapper.text()).not.toContain("data issue");
   });
 });

@@ -1,6 +1,5 @@
 use crate::files;
 use crate::models::{ConfigErrorDetail, Dimension, MonthlyFile};
-use chrono::Datelike;
 use notify::{Config as NotifyConfig, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -8,9 +7,48 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager};
 
+/// Debounce decision for the file watcher, with bounded memory.
+///
+/// Returns true if the event for `path` should be processed (no recent prior
+/// event within `window`), false to skip. On a process decision it records
+/// `now` for `path` and prunes every entry older than `window` — those can
+/// never cause a future skip, so dropping them keeps `last_event` bounded to
+/// paths touched within the window instead of growing unbounded forever.
+fn debounce_and_record(
+    last_event: &mut HashMap<std::path::PathBuf, Instant>,
+    path: &std::path::Path,
+    now: Instant,
+    window: Duration,
+) -> bool {
+    if let Some(last) = last_event.get(path) {
+        if now.duration_since(*last) < window {
+            return false;
+        }
+    }
+    last_event.retain(|_, &mut t| now.duration_since(t) < window);
+    last_event.insert(path.to_path_buf(), now);
+    true
+}
+
 fn is_valid_key(key: &str) -> bool {
     key.chars()
         .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+}
+
+/// Extract (year, month) from a `_monthly.md` path laid out as
+/// `{root}/{year}/{month:02}/_monthly.md`. Returns None if the parent
+/// directories aren't numeric year/month — the watcher must reflect the month
+/// of the file that actually changed, not the current wall-clock month.
+fn month_from_monthly_path(path: &std::path::Path) -> Option<(i32, u32)> {
+    let mut comps = path.components().rev();
+    comps.next()?; // _monthly.md
+    let month: u32 = comps.next()?.as_os_str().to_str()?.parse().ok()?;
+    let year: i32 = comps.next()?.as_os_str().to_str()?.parse().ok()?;
+    if (1..=12).contains(&month) {
+        Some((year, month))
+    } else {
+        None
+    }
 }
 
 pub fn validate_dimensions(dimensions: &[Dimension]) -> Vec<ConfigErrorDetail> {
@@ -204,12 +242,9 @@ fn spawn_watcher(app_handle: AppHandle, root_path: PathBuf) -> Result<Recommende
 
             for path in &event.paths {
                 let now = Instant::now();
-                if let Some(last) = last_event.get(path) {
-                    if now.duration_since(*last) < debounce_ms {
-                        continue;
-                    }
+                if !debounce_and_record(&mut last_event, path, now, debounce_ms) {
+                    continue;
                 }
-                last_event.insert(path.clone(), now);
 
                 let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
                 if file_name == "template.yaml" {
@@ -239,8 +274,20 @@ fn spawn_watcher(app_handle: AppHandle, root_path: PathBuf) -> Result<Recommende
                         }
                     }
                 } else if file_name == "_monthly.md" {
-                    let now = chrono::Local::now();
-                    match files::read_monthly_file(&watch_root, now.year(), now.month()) {
+                    // Reflect the month of the file that actually changed, not the
+                    // current wall-clock month — editing a past month's _monthly.md
+                    // must not broadcast the current month's data.
+                    let (year, month) = match month_from_monthly_path(path) {
+                        Some(ym) => ym,
+                        None => {
+                            crate::error_log::log_error(
+                                "file_watcher",
+                                &format!("could not parse month from _monthly.md path: {}", path.display()),
+                            );
+                            continue;
+                        }
+                    };
+                    match files::read_monthly_file(&watch_root, year, month) {
                         Ok(monthly) => {
                             let errors = validate_monthly(&monthly);
                             if let Err(e) = app_handle.emit("commitments-changed", &errors) {
@@ -482,5 +529,62 @@ mod tests {
         let errors = validate_monthly(&monthly);
         assert_eq!(errors.len(), 1);
         assert_eq!(errors[0].kind, "DuplicateGoal");
+    }
+
+    #[test]
+    fn test_month_from_monthly_path_extracts_changed_month() {
+        let p = std::path::Path::new("/data/2026/05/_monthly.md");
+        assert_eq!(month_from_monthly_path(p), Some((2026, 5)));
+    }
+
+    #[test]
+    fn test_month_from_monthly_path_rejects_non_numeric_and_bad_month() {
+        assert_eq!(
+            month_from_monthly_path(std::path::Path::new("/data/abc/05/_monthly.md")),
+            None
+        );
+        assert_eq!(
+            month_from_monthly_path(std::path::Path::new("/data/2026/13/_monthly.md")),
+            None
+        );
+        assert_eq!(
+            month_from_monthly_path(std::path::Path::new("/_monthly.md")),
+            None
+        );
+    }
+
+    #[test]
+    fn test_debounce_skips_within_window_and_bounds_map() {
+        let mut m: HashMap<std::path::PathBuf, Instant> = HashMap::new();
+        let window = Duration::from_millis(300);
+        let t0 = Instant::now();
+        let p = std::path::Path::new("/data/2026/06/_monthly.md");
+
+        // First event for the path → process.
+        assert!(debounce_and_record(&mut m, p, t0, window));
+        // A second event 100ms later → skipped (within window).
+        assert!(!debounce_and_record(&mut m, p, t0 + Duration::from_millis(100), window));
+        // After the window → processed again.
+        assert!(debounce_and_record(&mut m, p, t0 + Duration::from_millis(400), window));
+    }
+
+    #[test]
+    fn test_debounce_prunes_stale_entries() {
+        let mut m: HashMap<std::path::PathBuf, Instant> = HashMap::new();
+        let window = Duration::from_millis(300);
+        let t0 = Instant::now();
+
+        // Touch 5 distinct one-shot paths at t0.
+        for i in 0..5 {
+            let p = std::path::PathBuf::from(format!("/data/2026/06/{}.md", i));
+            assert!(debounce_and_record(&mut m, &p, t0, window));
+        }
+        assert_eq!(m.len(), 5);
+
+        // A later event well past the window prunes all the stale ones, leaving
+        // only the just-recorded path — the map cannot grow unbounded.
+        let later = std::path::Path::new("/data/2026/06/new.md");
+        assert!(debounce_and_record(&mut m, later, t0 + Duration::from_millis(500), window));
+        assert_eq!(m.len(), 1, "stale entries must be pruned");
     }
 }

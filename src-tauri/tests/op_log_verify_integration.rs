@@ -1,5 +1,5 @@
 /// Integration tests for verify_op_log.
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fs;
 
 use tauri_app_lib::models::CreateEntryInput;
@@ -32,7 +32,7 @@ fn test_verify_consistent_after_append() {
         &CreateEntryInput {
             item: "test entry".to_string(),
             duration: "30".to_string(),
-            dimensions: HashMap::new(),
+            dimensions: BTreeMap::new(),
         },
     )
     .unwrap();
