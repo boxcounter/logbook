@@ -19,7 +19,7 @@
 | 编辑目标 | 当前月（写入 `_monthly.md`）；另有「保存为模板」操作 | 先试用再推广；避免月/模板切换的认知负担 |
 | Key | 创建时指定，创建后锁定 | 避免改名时的数据迁移 |
 | Source（`static` / `monthly`） | 创建时选定，创建后锁定 | 防止多月度源冲突 |
-| 删除维度 | 从配置中移除；已有 entry 保留其维度数据（孤立 chip） | 无静默数据丢失；旧条目仍可读 |
+| 删除维度 | 软删除：标记 `deleted: true`；历史 entry 保留原始颜色和标签 | 可撤销、历史可读、无数据丢失 |
 | 排序 | 左栏维度列表拖拽排序 | 控制 popover 显示顺序 |
 | CLI | `dimensions get/set` | 对齐 `commitments set` 模式 |
 | 种子数据 | 默认 template 包含 Goal 维度（`source: monthly`） | 新用户无需文档即可自然发现维度概念 |
@@ -97,6 +97,7 @@
 - 选中行：`bg-[var(--color-brand-soft-bg)]`、`rounded-[var(--radius-form-lg)]`（8px）
 - 拖拽排序：每行有拖拽手柄（⠿ 字符），使用 `vue-draggable-plus`（与 CommitmentsModal 一致）
 - 底部：「+ Add dimension」按钮，样式对齐 CommitmentsModal 的「+ Add Role」——无背景、无边框、`text-secondary font-semibold text-[var(--color-brand-link)]`
+- 「Show deleted」开关（仅当存在已删除维度时显示）：`text-micro text-[var(--color-text-muted)]`，默认关闭。开启后已删除维度以 `opacity-40` 显示在列表末尾（不参与拖拽），选中后右栏显示只读详情 +「Restore」按钮
 
 #### 右栏（flex-1）
 
@@ -112,8 +113,10 @@
 - **monthly 维度说明**（仅 `source: monthly` 时显示，替代 Values 区域）：
   - 信息卡：`bg-[var(--color-page-bg)]`、`rounded-[var(--radius-form-lg)]`，内容为「Values are derived from commitment goals. Edit commitments to change available values.」
 - **删除维度按钮**：底部、左侧，危险样式（`text-[var(--color-danger)]`、`border-[#fecaca]`、`rounded-[var(--radius-form)]`）
-  - 若无 entry 使用此维度：直接删除
-  - 若有 entry 使用：弹出提示「此维度被 N 条 entry 使用。删除将从配置中移除，但已有 entry 保留其值。」+「Delete anyway」和「Cancel」
+  - 点击后将维度标记为 `deleted: true`，按钮变为「Undo delete」
+  - 已删除维度在左栏列表中降低透明度（`opacity-40`），不在 DimensionPopover 的可选维度中显示
+  - 若该维度已被 entry 使用：Toast 提示「Biz deleted — N entries keep their values」（复用已有 Toast + Undo 模式）
+  - Undo 后恢复为正常状态，无需重新填写任何字段
 
 #### Footer
 
@@ -234,13 +237,16 @@ CLI get ←── resolve_month_dimensions() ←── _monthly.md 或 template.
 - 保存的维度成为该月的快照
 - 后续模板变更不影响该月
 
-### 孤立维度值
+### 软删除的维度
 
-当维度从配置中删除：
-- Entry 的 `dimensions` map 保留该 key-value
-- `EntryRow.vue` 已有的渲染逻辑会为 entry 数据中存在的任何 key 渲染 chip，无论该 key 是否在当前配置中
-- 孤立 chip 使用中性灰色样式（无维度调色板映射）
-- `DimensionPopover` 不再列出已删除的维度
+`Dimension` 结构体新增 `#[serde(default)] deleted: bool` 字段。已有文件中缺失该字段的维度自动视为 `deleted: false`（向后兼容）。
+
+当维度被标记为 `deleted: true`：
+- **新 entry 不可选**：`DimensionPopover` 过滤掉已删除维度
+- **历史 entry 保持原样**：`EntryRow.vue` 正常渲染 chip，颜色和标签均保留（因为该维度 key 仍在配置中，只是 `deleted: true`）
+- **左栏可见可恢复**：编辑器左栏底部「Show deleted」开关（默认关闭）。开启后已删除维度以 `opacity-40` 显示，选中后右侧显示只读详情 +「Restore」按钮
+- **排序**：已删除维度排在列表末尾，不参与拖拽排序
+- **模板推广**：软删除状态随「Save as template」写入 `template.yaml`
 
 ## 校验规则（复用 `config.rs::validate_dimensions`）
 
@@ -251,19 +257,20 @@ CLI get ←── resolve_month_dimensions() ←── _monthly.md 或 template.
 - 最多一个维度 `source: "monthly"`
 
 GUI 层额外校验：
-- 无重复 key
+- key 在**非已删除**维度中唯一（软删除的 key 可被新维度复用）
 - 同一维度内无重复 value 名称
 
 ## 边界情况
 
 | 场景 | 处理 |
 |------|------|
-| 删除 source=monthly 的维度 | 与其他维度删除一致——从配置中移除，entry 保留数据。`monthly_dim_key` 回退到 `"goal"` 仍可用于承诺进度统计 |
+| 软删除 source=monthly 的维度 | 软删除后 popover 不显示该维度，`monthly_dim_key` 仍能解析到它（deleted 不影响 resolution），commitment progress 正常。Restore 后恢复 |
 | 重命名某个已被 entry 使用的 value | 旧 entry 保留旧值字符串，不迁移。用户可通过 CLI 或手改文件进行查找替换 |
 | 保存为模板时模板文件缺失 | 创建 `template.yaml` 写入维度（「Save as template」为幂等创建或更新） |
 | 月份未实例化时保存维度 | 先实例化月份 + 保存维度 |
 | 编辑器打开期间其他进程修改 `_monthly.md` | 文件监听器触发 `commitments-changed`。Modal 显示「文件已在外部变更」提示并禁用保存直到重新加载。复杂度高则 v1 跳过——文件监听器为亚秒级，单用户桌面场景竞争窗口极小 |
-| 创建时 key 重复 | 失焦时内联校验错误：「Key 'biz' already exists.」 |
+| 创建时 key 与已删除维度重复 | 允许创建——软删除的 key 可被新维度复用。新维度创建后，历史 entry 中该 key 的值会关联到新维度（key 相同），颜色和标签采用新维度定义 |
+| 创建时 key 与活跃维度重复 | 失焦时内联校验错误：「Key 'biz' already exists.」 |
 | static 维度的 values 列表为空 | 保存时校验错误：「Dimension 'Biz' has no values.」 |
 
 ## 不纳入范围
