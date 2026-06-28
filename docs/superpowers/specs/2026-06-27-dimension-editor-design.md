@@ -215,13 +215,14 @@ logbook-cli dimensions set [--year Y] [--month M] [--template]
 ## 数据流
 
 ```
+GUI 打开编辑器 ──→ resolve_month_dimensions() ──→ 读取 _monthly.md 或 template.yaml
 GUI Save ──→ _monthly.md（当前月）
 GUI "Save as template" ──→ template.yaml
 CLI set ──→ _monthly.md 或 template.yaml
 CLI get ←── resolve_month_dimensions() ←── _monthly.md 或 template.yaml
 
 文件监听器（已有）：
-  template.yaml 变更 ──→ 重校验、emit config-changed
+  template.yaml 变更 ──→ 重校验、emit dimensions-changed（现名 config-changed，实现时改名）
   _monthly.md 变更 ──→ 重校验、emit commitments-changed
   → 前端 store 响应式更新维度数据
 ```
