@@ -1,143 +1,190 @@
-# Dimension Editor — GUI + CLI
+# 维度编辑器 — GUI + CLI
 
-**Date:** 2026-06-27
-**Status:** design (pending implementation plan)
+**日期：** 2026-06-28
+**状态：** design（待实现计划）
 
-## Problem
+## 问题
 
-Dimensions and their values are currently managed by hand-editing YAML files (`template.yaml`, `_monthly.md`). Users must know the file location, format, and validation rules. This blocks adoption.
+维度及其值目前只能通过手改 YAML 文件（`template.yaml`、`_monthly.md`）来管理。用户必须知道文件位置、格式和校验规则。这阻碍了新用户上手。
 
-## Scope
+## 范围
 
-GUI and CLI for creating, editing, reordering, and deleting dimensions and their static values. Editing always targets the month currently viewed in MonthView; a separate action promotes the in-memory editor state to the template.
+为维度和其静态值提供 GUI 和 CLI 的创建、编辑、排序、删除能力。编辑始终面向 MonthView 当前查看的月份；另有单独操作可将编辑器内存态推广到模板。
 
-## Design Decisions
+## 设计决策
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Entry point | ⚙ icon in composer input row, right-aligned | Stable, always visible, no sidebar competition, contextually near dimension use |
-| Edit target | Current month (via `_monthly.md`); "Save as template" action available | Edit-first-then-promote workflow; reduces cognitive load vs. month/template toggle |
-| Key | Set at creation, locked thereafter | Avoids data migration when renaming |
-| Source (`static` / `monthly`) | Set at creation, locked thereafter | Prevents multi-monthly conflicts |
-| Deletion | Remove from config; entries keep their dimension data (orphaned) | No silent data loss; old entries remain readable |
-| Reordering | Drag to reorder in dimension list sidebar | Controls popover display order |
-| CLI | `dimensions get/set` | Matches `commitments set` pattern |
-| Seed data | Goal dimension (`source: monthly`) shipped in default template | Makes dimensions discoverable for new users without docs/onboarding |
+| 决策 | 选择 | 理由 |
+|------|------|------|
+| 入口 | Composer 输入行右侧的 ⚙ 图标 | 稳定可见、不与 sidebar 竞争、维度使用场景就近 |
+| 编辑目标 | 当前月（写入 `_monthly.md`）；另有「保存为模板」操作 | 先试用再推广；避免月/模板切换的认知负担 |
+| Key | 创建时指定，创建后锁定 | 避免改名时的数据迁移 |
+| Source（`static` / `monthly`） | 创建时选定，创建后锁定 | 防止多月度源冲突 |
+| 删除维度 | 从配置中移除；已有 entry 保留其维度数据（孤立 chip） | 无静默数据丢失；旧条目仍可读 |
+| 排序 | 左栏维度列表拖拽排序 | 控制 popover 显示顺序 |
+| CLI | `dimensions get/set` | 对齐 `commitments set` 模式 |
+| 种子数据 | 默认 template 包含 Goal 维度（`source: monthly`） | 新用户无需文档即可自然发现维度概念 |
 
 ## GUI
 
-### Entry point
+### 入口
 
-In the composer input row (`EntryComposer.vue`), right of the Enter badge:
+在 `EntryComposer.vue` 的输入行内，Enter 徽章右侧：
 
 ```
 [+] [What did you work on?         ] [Enter] [⚙]
 ```
 
-The ⚙ icon is `text-[var(--color-text-muted)]`, matching placeholder color. On hover: brand color.
+⚙ 图标样式：`text-[var(--color-text-muted)]`（与 placeholder 同色），hover 变为 brand 色。始终可见，不随输入状态变化。
 
-No tooltip needed — the icon itself is the affordance, and Goal's presence in the popover makes the concept discoverable.
+### Modal 布局
 
-### Modal layout
+点击 ⚙ 打开。Teleport 到 `<body>`，居中 overlay（`fixed inset-0 z-50 bg-black/30`）。
 
-Opens on ⚙ click. Teleported to `<body>`, centered overlay (`fixed inset-0 z-50 bg-black/30`).
-
-```
-┌─────────────────────────────────────────────────────────┐
-│ Edit Dimensions                                    [×]  │
-│ Editing June 2026              [Save as template]       │
-├──────────────┬──────────────────────────────────────────┤
-│              │                                          │
-│  ▎ Goal      │  Name: [Biz________]                     │
-│  ▎ Biz    ←  │  Key:  biz    Source: static [▼]         │
-│  ▎ Importance│  ☑ Required                              │
-│              │                                          │
-│              │  VALUES                                  │
-│              │  ⠿ [Product________] [×]                 │
-│              │  ⠿ [Marketing______] [×]                 │
-│              │  ⠿ [Engineering____] [×]                 │
-│              │  [New value_______] [+]                   │
-│              │                                          │
-│              │                              [Delete dim]│
-│  ─────────── │                                          │
-│  + Add dim   │                                          │
-│              │                                          │
-├──────────────┴──────────────────────────────────────────┤
-│                                    [Cancel]  [Save]     │
-└─────────────────────────────────────────────────────────┘
-```
-
-**Header row:**
-- Title: "Edit Dimensions"
-- Subtitle: "Editing `<month year>`" with a `[Save as template]` text button (brand-link color). Clicking it immediately writes current dimensions to `template.yaml`. No confirmation dialog — the action is low-risk (template is just a default; instantiated months aren't affected).
-
-**Left panel (210px):**
-- Dimension list, each row: color bar (3px × 16px), name, source badge (`static`/`monthly`). Selected row has `bg-[#eff6ff]`.
-- Bottom: `+ Add dimension` dashed-border button.
-- Drag to reorder: drag grip on each row (dots-123456 pattern, matches CommitmentsModal).
-- Order persisted on save.
-
-**Right panel (flex-1):**
-- Name input (editable, inline)
-- Key display (read-only, monospace)
-- Source display (read-only badge)
-- Required checkbox
-- **Values section** (only for `source: static`):
-  - Each value row: drag grip, text input, × remove button
-  - Bottom: `[New value input] [+]` to add
-  - Drag to reorder within values
-- **Goal (monthly) special case:** Values section replaced with informational text: "Values are derived from commitment goals. Edit commitments to change available values." Source and required are still displayed (required can be toggled).
-- **Delete dimension** button: bottom-left, danger-styled. On click:
-  - If no entries use this dimension: delete immediately.
-  - If entries exist: show a banner "This dimension is used by N entries this month. Deleting will remove it from the configuration but existing entries will keep their values." with "Delete anyway" and "Cancel".
-
-**Footer:**
-- Cancel (closes without saving, discard confirmation if dirty)
-- Save (writes to `_monthly.md`)
-
-### Add dimension flow
-
-Clicking `+ Add dimension` inserts a focused form at the bottom of the left list:
+对齐 `CommitmentsModal` 骨架。对话框：`w-[660px]`，`rounded-[var(--radius-lg)]`（14px），`shadow-[var(--shadow-popover)]`。
 
 ```
-┌─────────────────┐
-│ Name: [______]  │
-│ Key:  [______]  │  ← user types; validated on blur
-│ Source: static  │  ← default, dropdown (static / monthly)
-│                 │
-│ [Cancel] [Create]│
-└─────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│ Edit Dimensions                                             [×]  │
+│ Editing June 2026              [Save as template]                │
+├───────────────┬──────────────────────────────────────────────────┤
+│ (surface-     │                                                  │
+│  muted bg)    │  Name: [Biz_____________]                        │
+│               │  key: biz (locked)  Source: STATIC (locked)      │
+│  ▎ Goal       │  ☑ Required                                     │
+│  ▎ Biz     ←  │                                                  │
+│  ▎ Importance │  VALUES                                          │
+│               │  ⠿ [Product_____________] [×]                   │
+│               │  ⠿ [Marketing___________] [×]                   │
+│               │  ⠿ [Engineering_________] [×]                   │
+│               │  [New value____________] [+]                     │
+│               │                                                  │
+│               │                                   [Delete dim]   │
+│  ──────────── │                                                  │
+│  + Add dim    │                                                  │
+│               │                                                  │
+├───────────────┴──────────────────────────────────────────────────┤
+│                                          [Cancel]  [Save]        │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
-- Key input: validated on blur — alphanumeric + hyphens/underscores only, no duplicates.
-- If source = monthly and another monthly already exists: inline error "Only one monthly-source dimension is allowed."
-- On create: dimension appears in list, selected, right panel shows its detail editor.
+#### 选中 monthly 维度时右栏变体
 
-### Save
+选中 Goal（`source: monthly`）时，右栏不显示 Values 列表，替换为提示信息：
 
-- Validates all dimensions (same rules as `validate_dimensions`).
-- On success: writes to current month's `_monthly.md`. If month is uninstantiated, this triggers instantiation (dimensions + existing commitments preserved).
-- File watcher picks up the change; frontend store updates via the existing `config-changed` / `commitments-changed` event flow.
-- If validation fails: highlight the offending dimension in the left list; show error message inline in the right panel.
+```
+│  Name: [Goal______________]                     │
+│  key: goal (locked)  Source: MONTHLY (locked)   │
+│  ☐ Required                                     │
+│                                                  │
+│  Values are derived from commitment goals.       │
+│  Edit commitments to change available values.    │
+│                                                  │
+│                                   [Delete dim]   │
+```
 
-### "Save as template"
+#### Header
 
-- Appears in the modal header, right-aligned.
-- Enabled whenever dimensions are valid.
-- Writes the in-memory editor state (not the persisted file) to `template.yaml` immediately. Does NOT require a prior Save — you can edit, save-as-template, then Cancel without affecting the month.
-- Toast confirmation: "Dimensions saved to template" with the existing toast component.
-- Does NOT retroactively affect already-instantiated months.
+- 标题：「Edit Dimensions」，`text-title font-bold tracking-[-0.3px]`（20px）
+- 副标题：「Editing `<月份年份>`」+ 右侧「Save as template」链接（`text-[var(--color-brand-link)]`、`font-medium`）
+- 「Save as template」点击立即将编辑器内存态写入 `template.yaml`。无需确认——模板只是默认值，不回溯影响已实例化的月份
+- 关闭按钮：×，`text-[var(--color-text-muted)]`
+- 内边距：`px-2xl pt-xl pb-lg`（32px / 24px / 16px），底部 `border-b border-[var(--color-divider)]`
 
-### Discard confirmation
+#### 左栏（210px）
 
-If the user closes the modal (×, Cancel, Escape, backdrop click) with unsaved changes:
-- Show an inline prompt in the footer area: "Discard changes?" + "Keep editing" (brand solid) + "Discard" (danger text).
-- Matches the existing pattern in `EntryRowEdit.vue` and `CommitmentsModal`.
+- 背景：`var(--color-surface-muted)`
+- 维度列表，每行：色条（3px × 16px，颜色引用 `--dim-bar-*`）、名称（`text-body`、14px）、source 徽章（`text-micro`）
+- 选中行：`bg-[var(--color-brand-soft-bg)]`、`rounded-[var(--radius-form-lg)]`（8px）
+- 拖拽排序：每行有拖拽手柄（⠿ 字符），使用 `vue-draggable-plus`（与 CommitmentsModal 一致）
+- 底部：「+ Add dimension」按钮，样式对齐 CommitmentsModal 的「+ Add Role」——无背景、无边框、`text-secondary font-semibold text-[var(--color-brand-link)]`
 
-### Keyboard
+#### 右栏（flex-1）
 
-- `Escape`: close modal (with discard confirmation if dirty).
-- `Ctrl+S` / `Cmd+S`: save.
+- 内边距：`px-2xl py-xl`（32px / 24px）
+- **Name 输入**：`text-title font-bold`（20px），底部 `border-bottom` 分隔线，可编辑
+- **Key 显示**：只读、等宽字体、`text-secondary`，附带 `(locked)` 标记
+- **Source 显示**：只读徽章，`(locked)` 标记
+- **Required 复选框**：`accent-color: var(--color-brand-solid)`
+- **Values 区域**（仅 `source: static` 时显示）：
+  - 每行：拖拽手柄 + 文本输入框（`text-body`、`rounded-[var(--radius-form)]`、`border-[var(--color-border-form)]`）+ × 删除按钮
+  - 底部：虚线边框的「New value」占位输入 + 「+」按钮
+  - 值之间支持拖拽排序
+- **monthly 维度说明**（仅 `source: monthly` 时显示，替代 Values 区域）：
+  - 信息卡：`bg-[var(--color-page-bg)]`、`rounded-[var(--radius-form-lg)]`，内容为「Values are derived from commitment goals. Edit commitments to change available values.」
+- **删除维度按钮**：底部、左侧，危险样式（`text-[var(--color-danger)]`、`border-[#fecaca]`、`rounded-[var(--radius-form)]`）
+  - 若无 entry 使用此维度：直接删除
+  - 若有 entry 使用：弹出提示「此维度被 N 条 entry 使用。删除将从配置中移除，但已有 entry 保留其值。」+「Delete anyway」和「Cancel」
+
+#### Footer
+
+- 右对齐，`flex justify-end gap-sm`
+- 内边距：`px-2xl py-lg`（32px / 16px），顶部 `border-t border-[var(--color-divider)]`
+- **Cancel**：`text-secondary font-semibold text-[var(--color-text-muted)]`、`rounded-[var(--radius-form)]`、`px-md py-sm`、无背景、hover 变深
+- **Save**：`text-secondary font-semibold text-white bg-[var(--color-brand-solid)]`、`rounded-[var(--radius-form)]`、`px-md py-sm`、hover 变 `var(--color-brand-link)`、disabled 时 `opacity-50`
+
+### 新增维度流程
+
+点击「+ Add dimension」在左栏底部插入内联表单：
+
+```
+┌─────────────────────┐
+│ Name: [_________]   │
+│ Key:  [_________]   │  ← 用户输入；失焦时校验
+│ Source: [static ▾]  │  ← 下拉选择（static / monthly）
+│                     │
+│ [Cancel]  [Create]  │
+└─────────────────────┘
+```
+
+- 表单样式：`border border-[var(--color-brand-solid)]`、`rounded-[var(--radius-form-lg)]`、`bg-[var(--color-brand-soft-bg)]`
+- Key 输入：失焦时校验——仅允许字母数字 + 连字符 + 下划线、不可重复、不可为空
+- Source 默认为 `static`
+- 若选择 `monthly` 且已有另一个 monthly 维度：内联错误提示「Only one monthly-source dimension is allowed.」
+- 创建后：维度出现在列表中、自动选中、右栏显示其详情编辑器
+- Cancel / Create 按钮：small、font-semibold；Cancel = `text-muted` 无背景，Create = `bg-brand-solid white`
+
+### 保存
+
+- 校验所有维度（复用 `validate_dimensions` 规则）
+- 校验通过：写入当前月份 `_monthly.md`。若月份未实例化，先调用 `ensure_month_instantiated`（保留已有 commitments）
+- 文件监听器自动感知变更；前端 store 通过已有 `config-changed` / `commitments-changed` 事件更新
+- 校验失败：高亮左侧列表中出错的维度；右栏底部或 footer 上方显示错误信息（`text-secondary text-[var(--color-danger)]`，对齐 CommitmentsModal 模式）
+
+### 「保存为模板」
+
+- 位于 modal header 右侧，维度有效时始终可用
+- 写入编辑器内存态（非持久化的文件态）到 `template.yaml`。不要求先 Save——可以编辑、保存为模板、然后 Cancel 不影响当月
+- Toast 确认：「Dimensions saved to template」（复用已有 Toast 组件）
+- 不回溯影响已实例化的月份
+
+### 丢弃确认
+
+若用户有关闭操作（×、Cancel、Escape、点击 overlay 背景）且有未保存改动：
+
+- 显示内联确认条：「Discard changes?」+「Keep editing」（brand solid）+「Discard」（danger text）
+- 复用 CommitmentsModal 的 discard overlay 模式：`bg-black/10` 遮罩 + 居中白色卡片 + `shadow-[var(--shadow-toast)]`
+- 无改动时：直接关闭，不打扰
+
+### 键盘
+
+- `Escape`：关闭 modal（有改动时先弹丢弃确认）
+- `⌘Enter` / `Ctrl+Enter`：保存
+- 打开时焦点移入 modal（`tabindex="-1"` + `el.focus()`），确保 Escape/Enter 能被 dialog 级 `@keydown` 捕获（对齐 CommitmentsModal 第 42-48 行）
+
+### 消解（Dismissal）
+
+遵循 `docs/interaction-principles.md` 原则 2：
+
+- 点击 overlay 背景：document 级 `mousedown`（capture 阶段）监听，仅在打开时挂、关闭/卸载时移除；内部点击不自关
+- Escape：window capture 级 `keydown` 监听 + dialog 元素 `@keydown.esc` 双保险
+- 失焦：document `focusin`，目标落在 modal 之外即消解
+
+### 拖拽排序
+
+- 使用 `vue-draggable-plus`（与 CommitmentsModal 一致）
+- 左栏：`.drag-grip-dim` handle 类
+- Values 列表：`.drag-grip-val` handle 类
+- 拖拽中 ghost 元素 `opacity-40`（复用已有 `.sortable-ghost` 样式）
 
 ## CLI
 
@@ -147,10 +194,10 @@ If the user closes the modal (×, Cancel, Escape, backdrop click) with unsaved c
 logbook-cli dimensions get [--year Y] [--month M] [--template]
 ```
 
-- Without flags: returns effective dimensions for current month (resolved: monthly snapshot if instantiated, else template).
-- `--template`: returns template dimensions directly.
-- Output: YAML (default) or `--json` flag for JSON.
-- Exit 0 on success, 1 on error (missing file, parse error).
+- 无参数：返回当前月有效维度（已实例化则取月快照，未实例化则取模板）
+- `--template`：直接返回模板维度
+- 输出：默认 YAML，`--json` 输出 JSON
+- 成功 exit 0，错误 exit 1（文件缺失、解析错误等）
 
 ### `logbook-cli dimensions set`
 
@@ -158,69 +205,69 @@ logbook-cli dimensions get [--year Y] [--month M] [--template]
 logbook-cli dimensions set [--year Y] [--month M] [--template]
 ```
 
-- Reads YAML or JSON from stdin.
-- `--template`: writes to `template.yaml`. Without: writes to `_monthly.md`.
-- Validates before writing (same rules as GUI).
-- On success: writes atomically (tmp + rename), outputs nothing, exit 0.
-- On validation failure: prints errors to stderr, exit 1.
-- Overwrites entire dimensions array (not partial update — matches `commitments set`).
+- 从 stdin 读取 YAML 或 JSON
+- `--template`：写入 `template.yaml`。无标记：写入 `_monthly.md`
+- 写入前校验（规则同 GUI）
+- 成功：原子写入（tmp + rename），无输出，exit 0
+- 校验失败：错误信息输出到 stderr，exit 1
+- 整量替换维度数组（非部分更新——对齐 `commitments set`）
 
-## Data Flow
+## 数据流
 
 ```
-GUI save ──→ _monthly.md (current month)
+GUI Save ──→ _monthly.md（当前月）
 GUI "Save as template" ──→ template.yaml
-CLI set ──→ _monthly.md or template.yaml
-CLI get ←── resolve_month_dimensions() ←── _monthly.md or template.yaml
+CLI set ──→ _monthly.md 或 template.yaml
+CLI get ←── resolve_month_dimensions() ←── _monthly.md 或 template.yaml
 
-File watcher (existing):
-  template.yaml change ──→ re-validate, emit config-changed
-  _monthly.md change ──→ re-validate, emit commitments-changed
-  → frontend store updates dimensions reactively
+文件监听器（已有）：
+  template.yaml 变更 ──→ 重校验、emit config-changed
+  _monthly.md 变更 ──→ 重校验、emit commitments-changed
+  → 前端 store 响应式更新维度数据
 ```
 
-### Month instantiation
+### 月份实例化
 
-If the month was uninstantiated (no `_monthly.md` dimensions) when the user saves:
-- `ensure_month_instantiated` is called (existing function).
-- The saved dimensions become the month's snapshot.
-- Subsequent template changes won't affect this month.
+若保存时月份尚未实例化（`_monthly.md` 无 dimensions 块）：
+- 调用 `ensure_month_instantiated`（已有函数）
+- 保存的维度成为该月的快照
+- 后续模板变更不影响该月
 
-### Orphaned dimension values
+### 孤立维度值
 
-When a dimension is deleted from config:
-- Entry `dimensions` map retains the key-value pair.
-- `EntryRow.vue` already renders chips for any key present in the entry's dimensions map, regardless of whether the key exists in current config.
-- The orphaned chip appears without a color from the dimension palette — use a neutral gray chip style.
-- `DimensionPopover` no longer lists the deleted dimension as selectable.
+当维度从配置中删除：
+- Entry 的 `dimensions` map 保留该 key-value
+- `EntryRow.vue` 已有的渲染逻辑会为 entry 数据中存在的任何 key 渲染 chip，无论该 key 是否在当前配置中
+- 孤立 chip 使用中性灰色样式（无维度调色板映射）
+- `DimensionPopover` 不再列出已删除的维度
 
-## Validation Rules (reuse from `config.rs::validate_dimensions`)
+## 校验规则（复用 `config.rs::validate_dimensions`）
 
-- `name`: non-empty.
-- `key`: non-empty, `[a-zA-Z0-9_-]+`, unique among all dimensions.
-- `source`: `"static"` or `"monthly"`.
-- If `source: "static"`: `values` must be present and non-empty.
-- At most one dimension with `source: "monthly"`.
+- `name`：非空
+- `key`：非空、仅 `[a-zA-Z0-9_-]`、所有维度间唯一
+- `source`：`"static"` 或 `"monthly"`
+- 若 `source: "static"`：`values` 必须存在且非空
+- 最多一个维度 `source: "monthly"`
 
-Additional GUI-level validation:
-- No two dimensions with the same key.
-- No two values with the same name within a dimension.
+GUI 层额外校验：
+- 无重复 key
+- 同一维度内无重复 value 名称
 
-## Edge Cases
+## 边界情况
 
-| Scenario | Behavior |
-|----------|----------|
-| Delete monthly-source dimension | Same as any deletion — remove from config, entries keep data. `monthly_dim_key` fallback to `"goal"` still works for commitment progress. |
-| Rename a value that's used in entries | Old entries keep old value string. No migration. User can find-replace via CLI or manual file edit. |
-| Template missing when saving "as template" | Create `template.yaml` with the dimensions (treat "Save as template" as idempotent create-or-update). |
-| Month is uninstantiated, user saves dimensions | Instantiate month + save dimensions. |
-| User opens editor, another process changes `_monthly.md` | File watcher triggers `commitments-changed`. Modal should show a "File changed externally" banner and disable save until reload. Stretch: if complexity is high, skip for v1 — the file watcher is sub-second, the race window is tiny in single-user desktop use. |
-| Duplicate key on creation | Inline validation error on blur: "Key 'biz' already exists." |
-| Empty values list for static dimension | Validation error on save: "Dimension 'Biz' has no values." |
+| 场景 | 处理 |
+|------|------|
+| 删除 source=monthly 的维度 | 与其他维度删除一致——从配置中移除，entry 保留数据。`monthly_dim_key` 回退到 `"goal"` 仍可用于承诺进度统计 |
+| 重命名某个已被 entry 使用的 value | 旧 entry 保留旧值字符串，不迁移。用户可通过 CLI 或手改文件进行查找替换 |
+| 保存为模板时模板文件缺失 | 创建 `template.yaml` 写入维度（「Save as template」为幂等创建或更新） |
+| 月份未实例化时保存维度 | 先实例化月份 + 保存维度 |
+| 编辑器打开期间其他进程修改 `_monthly.md` | 文件监听器触发 `commitments-changed`。Modal 显示「文件已在外部变更」提示并禁用保存直到重新加载。复杂度高则 v1 跳过——文件监听器为亚秒级，单用户桌面场景竞争窗口极小 |
+| 创建时 key 重复 | 失焦时内联校验错误：「Key 'biz' already exists.」 |
+| static 维度的 values 列表为空 | 保存时校验错误：「Dimension 'Biz' has no values.」 |
 
-## Out of Scope
+## 不纳入范围
 
-- Value renaming with entry data migration.
-- Onboarding flow for new users (deferred until more users exist).
-- Editing dimensions for past months that are already instantiated (only current month is targeted; editing past months can be done via CLI).
-- Import/export of dimension configurations beyond what CLI `get/set` provides.
+- Value 重命名并迁移 entry 数据
+- 新用户 onboarding 流程（等多用户时再做）
+- 编辑已实例化的历史月份维度（仅支持编辑当前查看的月份；历史月份可通过 CLI 编辑）
+- 超出 CLI `get/set` 的维度配置导入/导出
