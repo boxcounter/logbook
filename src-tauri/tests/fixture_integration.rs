@@ -16,9 +16,9 @@ fn fixture_root() -> std::path::PathBuf {
 /// environment state unrelated to the code under test.
 macro_rules! skip_if_no_fixture {
     () => {
-        if !fixture_root().join("template.yaml").exists() {
+        if !fixture_root().join("dimensions.template.yaml").exists() {
             eprintln!(
-                "skipping fixture test: no template.yaml under {:?} (set LOGBOOK_TEST_FIXTURE to override)",
+                "skipping fixture test: no dimensions.template.yaml under {:?} (set LOGBOOK_TEST_FIXTURE to override)",
                 fixture_root()
             );
             return;
@@ -30,7 +30,7 @@ macro_rules! skip_if_no_fixture {
 fn test_read_and_validate_config() {
     skip_if_no_fixture!();
     let root = fixture_root();
-    let config = tauri_app_lib::files::read_template(&root).expect("read_template should succeed");
+    let config = tauri_app_lib::files::read_dimensions_template(&root).expect("read_dimensions_template should succeed");
     let errors = tauri_app_lib::config::validate_dimensions(&config.dimensions);
     assert!(
         errors.is_empty(),
@@ -65,7 +65,7 @@ fn test_read_and_validate_monthly() {
 fn test_config_dimensions_count() {
     skip_if_no_fixture!();
     let root = fixture_root();
-    let config = tauri_app_lib::files::read_template(&root).unwrap();
+    let config = tauri_app_lib::files::read_dimensions_template(&root).unwrap();
     assert_eq!(config.dimensions.len(), 4);
     let keys: Vec<&str> = config.dimensions.iter().map(|d| d.key.as_str()).collect();
     assert!(keys.contains(&"importance-urgency"));

@@ -166,19 +166,19 @@ pub fn load_root_state(root: &std::path::Path) -> InitResult {
 
     let scan_warnings = crate::scan::scan_data_dir(root);
 
-    if !files::template_path(root).exists() {
+    if !files::dimensions_template_path(root).exists() {
         return InitResult::ConfigError {
             category: RecoveryCategory::ConfigMissing,
             root_path: root.to_string_lossy().into_owned(),
             errors: vec![ConfigErrorDetail {
                 kind: "ConfigMissing".to_string(),
-                message: format!("template.yaml not found in {}", root.display()),
+                message: format!("dimensions.template.yaml not found in {}", root.display()),
             }],
             scan_warnings,
         };
     }
 
-    let template = match files::read_template(root) {
+    let template = match files::read_dimensions_template(root) {
         Ok(c) => c,
         Err(e) => {
             return InitResult::ConfigError {
@@ -1142,10 +1142,10 @@ pub fn reveal_day_file(app: AppHandle, root_path: String, date: String) -> Resul
     result
 }
 
-/// (path, select) for revealing the template: select template.yaml if it exists,
+/// (path, select) for revealing the template: select dimensions.template.yaml if it exists,
 /// else open the root dir.
 pub fn reveal_template_target(root: &std::path::Path) -> (std::path::PathBuf, bool) {
-    let template = files::template_path(root);
+    let template = files::dimensions_template_path(root);
     if template.exists() {
         (template, true)
     } else {
@@ -1177,13 +1177,13 @@ pub fn create_starter_files(path: String) -> Result<(), String> {
     if !root.exists() {
         std::fs::create_dir_all(root).map_err(|e| format!("Failed to create directory: {}", e))?;
     }
-    let template_path = root.join("template.yaml");
+    let template_path = root.join("dimensions.template.yaml");
     if !template_path.exists() {
         std::fs::write(
             &template_path,
             "dimensions:\n  - name: Goal\n    key: goal\n    source: monthly\n",
         )
-        .map_err(|e| format!("Failed to write template.yaml: {}", e))?;
+        .map_err(|e| format!("Failed to write dimensions.template.yaml: {}", e))?;
     }
     Ok(())
 }

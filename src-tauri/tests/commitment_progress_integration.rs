@@ -9,9 +9,9 @@ fn setup(suffix: &str) -> std::path::PathBuf {
     let _ = fs::remove_dir_all(&root);
     fs::create_dir_all(&root).unwrap();
 
-    // Write template.yaml
+    // Write dimensions.template.yaml
     fs::write(
-        root.join("template.yaml"),
+        root.join("dimensions.template.yaml"),
         "dimensions:\n  - name: Goal\n    key: goal\n    source: monthly\n",
     )
     .unwrap();
@@ -150,7 +150,7 @@ fn test_progress_with_non_goal_monthly_key() {
 
     // Monthly dimension key is "objective", not "goal".
     fs::write(
-        root.join("template.yaml"),
+        root.join("dimensions.template.yaml"),
         "dimensions:\n  - name: Objective\n    key: objective\n    source: monthly\n",
     )
     .unwrap();

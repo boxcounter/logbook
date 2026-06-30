@@ -45,7 +45,7 @@ fn config_missing_when_dir_present_but_no_config() {
 fn in_place_when_config_present_but_malformed() {
     let root = temp_root();
     fs::create_dir_all(&root).unwrap();
-    fs::write(root.join("template.yaml"), "this: is: not: valid: yaml: : :").unwrap();
+    fs::write(root.join("dimensions.template.yaml"), "this: is: not: valid: yaml: : :").unwrap();
     let result = load_root_state(&root);
     assert_eq!(category_of(&result), RecoveryCategory::InPlace);
     fs::remove_dir_all(&root).unwrap();
@@ -57,7 +57,7 @@ fn in_place_when_config_valid_but_invalid_values() {
     fs::create_dir_all(&root).unwrap();
     // parses fine, but source is not static/monthly → validate_dimensions error
     fs::write(
-        root.join("template.yaml"),
+        root.join("dimensions.template.yaml"),
         "dimensions:\n  - name: X\n    key: x\n    source: bogus\n",
     )
     .unwrap();
@@ -70,7 +70,7 @@ fn in_place_when_config_valid_but_invalid_values() {
 fn ready_when_everything_valid() {
     let root = temp_root();
     fs::create_dir_all(&root).unwrap();
-    fs::write(root.join("template.yaml"), VALID_CONFIG).unwrap();
+    fs::write(root.join("dimensions.template.yaml"), VALID_CONFIG).unwrap();
     let result = load_root_state(&root);
     assert!(matches!(result, InitResult::Ready { .. }), "got {:?}", result);
     fs::remove_dir_all(&root).unwrap();
@@ -82,10 +82,10 @@ use tauri_app_lib::commands::reveal_template_target;
 fn reveal_target_selects_template_when_present() {
     let root = temp_root();
     fs::create_dir_all(&root).unwrap();
-    fs::write(root.join("template.yaml"), VALID_CONFIG).unwrap();
+    fs::write(root.join("dimensions.template.yaml"), VALID_CONFIG).unwrap();
     let (path, select) = reveal_template_target(&root);
     assert!(select, "should select the template file when it exists");
-    assert!(path.ends_with("template.yaml"));
+    assert!(path.ends_with("dimensions.template.yaml"));
     fs::remove_dir_all(&root).unwrap();
 }
 

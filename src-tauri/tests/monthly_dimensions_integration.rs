@@ -12,7 +12,7 @@ fn fresh_root(name: &str) -> PathBuf {
 }
 
 fn write_template(root: &PathBuf, body: &str) {
-    fs::write(root.join("template.yaml"), body).unwrap();
+    fs::write(root.join("dimensions.template.yaml"), body).unwrap();
 }
 
 const TPL_BIZ_GOAL: &str =
@@ -35,7 +35,7 @@ fn fresh_month_reads_template_without_writing() {
     let _ = fs::remove_dir_all(&root);
 }
 
-// 1b. A template.yaml saved with a leading UTF-8 BOM (external editors do this)
+// 1b. A dimensions.template.yaml saved with a leading UTF-8 BOM (external editors do this)
 // must still parse, and validation must see its dimensions. Otherwise the
 // failure is swallowed into empty dimensions and required-dimension validation
 // is silently bypassed.
@@ -44,7 +44,7 @@ fn template_with_utf8_bom_still_parses() {
     let root = fresh_root("logbook_md_bom_template");
     write_template(&root, &format!("\u{feff}{}", TPL_BIZ_GOAL));
 
-    let tpl = files::read_template(&root).expect("read_template must tolerate a leading BOM");
+    let tpl = files::read_dimensions_template(&root).expect("read_dimensions_template must tolerate a leading BOM");
     assert_eq!(tpl.dimensions.len(), 2);
     assert_eq!(tpl.dimensions[0].key, "biz");
 
@@ -205,7 +205,7 @@ fn set_day_note_does_not_instantiate() {
 #[test]
 fn missing_template_is_lenient() {
     let root = fresh_root("logbook_md_notpl");
-    // no template.yaml written
+    // no dimensions.template.yaml written
     let dims = files::resolve_month_dimensions(&root, 2026, 7).unwrap();
     assert!(dims.is_empty());
     files::ensure_month_instantiated(&root, 2026, 7).unwrap(); // no panic, no-op

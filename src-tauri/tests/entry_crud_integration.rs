@@ -12,9 +12,9 @@ fn setup(suffix: &str) {
     let root = test_root(suffix);
     let _ = fs::remove_dir_all(&root);
     fs::create_dir_all(&root).unwrap();
-    // Write minimal template.yaml
+    // Write minimal dimensions.template.yaml
     fs::write(
-        root.join("template.yaml"),
+        root.join("dimensions.template.yaml"),
         "dimensions:\n  - name: Goal\n    key: goal\n    source: monthly\n",
     )
     .unwrap();
@@ -161,7 +161,7 @@ fn test_append_entry_rejects_missing_required_dimension() {
     let root = test_root(suffix);
 
     fs::write(
-        root.join("template.yaml"),
+        root.join("dimensions.template.yaml"),
         "dimensions:\n  - name: Biz\n    key: biz\n    source: static\n    values: [A, B]\n    required: true\n  - name: Goal\n    key: goal\n    source: monthly\n",
     )
     .unwrap();
@@ -195,7 +195,7 @@ fn test_append_entry_accepts_when_required_dimensions_present() {
     let root = test_root(suffix);
 
     fs::write(
-        root.join("template.yaml"),
+        root.join("dimensions.template.yaml"),
         "dimensions:\n  - name: Biz\n    key: biz\n    source: static\n    values: [A, B]\n    required: true\n  - name: Goal\n    key: goal\n    source: monthly\n",
     )
     .unwrap();
@@ -231,7 +231,7 @@ fn test_update_entry_rejects_clearing_required_dimension() {
     let root = test_root(suffix);
 
     fs::write(
-        root.join("template.yaml"),
+        root.join("dimensions.template.yaml"),
         "dimensions:\n  - name: Biz\n    key: biz\n    source: static\n    values: [A, B]\n    required: true\n  - name: Goal\n    key: goal\n    source: monthly\n",
     )
     .unwrap();

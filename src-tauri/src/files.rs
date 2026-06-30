@@ -49,6 +49,25 @@ pub fn template_path(root: &Path) -> PathBuf {
     root.join("template.yaml")
 }
 
+/// Dimensions template: {root}/dimensions.template.yaml
+pub fn dimensions_template_path(root: &Path) -> PathBuf {
+    root.join("dimensions.template.yaml")
+}
+
+/// Monthly dimensions: {root}/{year}/{month:02}/dimensions.yaml
+pub fn dimensions_path(root: &Path, year: i32, month: u32) -> PathBuf {
+    root.join(year.to_string())
+        .join(format!("{:02}", month))
+        .join("dimensions.yaml")
+}
+
+/// Monthly commitments: {root}/{year}/{month:02}/commitments.yaml
+pub fn commitments_path(root: &Path, year: i32, month: u32) -> PathBuf {
+    root.join(year.to_string())
+        .join(format!("{:02}", month))
+        .join("commitments.yaml")
+}
+
 /// Read a day file. Returns empty DayFile if file doesn't exist.
 pub fn read_day_file(root: &Path, date: &str) -> Result<DayFile, String> {
     let path = day_path(root, date)?;
@@ -223,6 +242,16 @@ pub fn read_template(root: &Path) -> Result<Template, String> {
         .map_err(|e| format!("Failed to parse {}: {}", path.display(), e))
 }
 
+/// Read dimensions.template.yaml.
+pub fn read_dimensions_template(root: &Path) -> Result<Template, String> {
+    let path = dimensions_template_path(root);
+    let content = fs::read_to_string(&path)
+        .map_err(|e| format!("Failed to read {}: {}", path.display(), e))?;
+    let content = content.trim_start_matches('\u{feff}');
+    yaml_serde::from_str::<Template>(content)
+        .map_err(|e| format!("Failed to parse {}: {}", path.display(), e))
+}
+
 /// Parse (year, month) from an ISO date string "YYYY-MM-DD".
 pub fn year_month_from_date(date: &str) -> Result<(i32, u32), String> {
     use chrono::Datelike;
@@ -248,10 +277,10 @@ pub fn resolve_month_dimensions(
     }
     // No month-level block: fall back to the template. Tolerate a *missing*
     // template (fresh/uninstantiated data dir), but surface a parse error.
-    if !template_path(root).exists() {
+    if !dimensions_template_path(root).exists() {
         return Ok(vec![]);
     }
-    Ok(read_template(root)?.dimensions)
+    Ok(read_dimensions_template(root)?.dimensions)
 }
 
 /// Snapshot the template into a month's `_monthly.md` if it has no dimensions
@@ -264,10 +293,10 @@ pub fn ensure_month_instantiated(root: &Path, year: i32, month: u32) -> Result<(
     }
     // Tolerate a missing template (nothing to snapshot yet), but surface a
     // parse error instead of silently snapshotting empty dims.
-    if !template_path(root).exists() {
+    if !dimensions_template_path(root).exists() {
         return Ok(());
     }
-    let template_dims = read_template(root)?.dimensions;
+    let template_dims = read_dimensions_template(root)?.dimensions;
     if template_dims.is_empty() {
         return Ok(());
     }
@@ -465,6 +494,23 @@ mod tests {
         let root = Path::new("/data");
         let p = template_path(root);
         assert_eq!(p, PathBuf::from("/data/template.yaml"));
+    }
+
+    #[test]
+    fn test_new_file_paths() {
+        let root = Path::new("/data");
+        assert_eq!(
+            dimensions_template_path(root),
+            PathBuf::from("/data/dimensions.template.yaml")
+        );
+        assert_eq!(
+            dimensions_path(root, 2026, 6),
+            PathBuf::from("/data/2026/06/dimensions.yaml")
+        );
+        assert_eq!(
+            commitments_path(root, 2026, 6),
+            PathBuf::from("/data/2026/06/commitments.yaml")
+        );
     }
 
     #[test]

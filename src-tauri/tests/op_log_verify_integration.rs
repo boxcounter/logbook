@@ -15,9 +15,9 @@ fn test_verify_consistent_after_append() {
     let _ = fs::remove_dir_all(&tmp);
     fs::create_dir_all(&tmp).unwrap();
 
-    // Write template.yaml
+    // Write dimensions.template.yaml
     fs::write(
-        tmp.join("template.yaml"),
+        tmp.join("dimensions.template.yaml"),
         "dimensions:\n  - name: Goal\n    key: goal\n    source: monthly\n",
     )
     .unwrap();
@@ -81,9 +81,9 @@ fn test_verify_detects_missing_operation() {
     let _ = fs::remove_dir_all(&tmp);
     fs::create_dir_all(&tmp).unwrap();
 
-    // Write template.yaml
+    // Write dimensions.template.yaml
     fs::write(
-        tmp.join("template.yaml"),
+        tmp.join("dimensions.template.yaml"),
         "dimensions:\n  - name: Goal\n    key: goal\n    source: monthly\n",
     )
     .unwrap();

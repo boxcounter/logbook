@@ -173,7 +173,7 @@ pub fn verify_op_log(root_path: &str) -> Result<(), Vec<OpLogMismatch>> {
         .join(format!("logbook_oplog_replay_{}", uuid::Uuid::new_v4()));
 
     // Copy template to replay dir so dimension validation can read it
-    let template_src = root.join("template.yaml");
+    let template_src = root.join("dimensions.template.yaml");
     if template_src.exists() {
         fs::create_dir_all(&replay_root).map_err(|e| {
             vec![OpLogMismatch {
@@ -181,7 +181,7 @@ pub fn verify_op_log(root_path: &str) -> Result<(), Vec<OpLogMismatch>> {
                 description: format!("create replay dir: {}", e),
             }]
         })?;
-        fs::copy(&template_src, replay_root.join("template.yaml"))
+        fs::copy(&template_src, replay_root.join("dimensions.template.yaml"))
             .map_err(|e| {
                 vec![OpLogMismatch {
                     date: "".to_string(),
@@ -705,7 +705,7 @@ mod tests {
 
         // Set up config
         std::fs::write(
-            tmp.join("template.yaml"),
+            tmp.join("dimensions.template.yaml"),
             "dimensions:\n  - name: Goal\n    key: goal\n    source: monthly\n",
         ).unwrap();
 

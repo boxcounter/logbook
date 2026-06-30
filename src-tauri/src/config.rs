@@ -247,8 +247,8 @@ fn spawn_watcher(app_handle: AppHandle, root_path: PathBuf) -> Result<Recommende
                 }
 
                 let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-                if file_name == "template.yaml" {
-                    match files::read_template(&watch_root) {
+                if file_name == "dimensions.template.yaml" {
+                    match files::read_dimensions_template(&watch_root) {
                         Ok(config) => {
                             let errors = validate_dimensions(&config.dimensions);
                             if let Err(e) = app_handle.emit("config-changed", &errors) {
