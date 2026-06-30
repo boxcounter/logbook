@@ -1,4 +1,4 @@
-use crate::models::{DayFile, Dimension, Entry, MonthlyFile, Template};
+use crate::models::{Commitment, DayFile, Dimension, Entry, MonthlyFile, Template};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -227,6 +227,84 @@ pub fn write_monthly_file(
     let tmp_path = path.with_extension("tmp");
     fs::write(&tmp_path, &content).map_err(|e| format!("Failed to write temp file: {}", e))?;
     fs::rename(&tmp_path, &path).map_err(|e| format!("Failed to rename temp file: {}", e))?;
+    Ok(())
+}
+
+/// Read a month's dimensions.yaml. Returns empty Vec if file doesn't exist.
+pub fn read_dimensions_file(root: &Path, year: i32, month: u32) -> Result<Vec<Dimension>, String> {
+    let path = dimensions_path(root, year, month);
+    if !path.exists() {
+        return Ok(vec![]);
+    }
+    let content = fs::read_to_string(&path)
+        .map_err(|e| format!("Failed to read {}: {}", path.display(), e))?;
+    let content = content.trim_start_matches('\u{feff}');
+    // dimensions.yaml is a flat YAML array of Dimension objects (pure YAML, no frontmatter).
+    yaml_serde::from_str::<Vec<Dimension>>(content)
+        .map_err(|e| format!("Failed to parse {}: {}", path.display(), e))
+}
+
+/// Write dimensions to a month's dimensions.yaml (atomic: tmp then rename).
+/// Writes pure YAML — no frontmatter `---` delimiters.
+pub fn write_dimensions_file(
+    root: &Path,
+    year: i32,
+    month: u32,
+    dimensions: &[Dimension],
+) -> Result<(), String> {
+    let path = dimensions_path(root, year, month);
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|e| format!("Failed to create directory: {}", e))?;
+    }
+    let yaml_body = yaml_serde::to_string(dimensions)
+        .map_err(|e| format!("Failed to serialize dimensions: {}", e))?;
+    let tmp_path = path.with_extension("tmp");
+    fs::write(&tmp_path, yaml_body)
+        .map_err(|e| format!("Failed to write temp file: {}", e))?;
+    fs::rename(&tmp_path, &path)
+        .map_err(|e| format!("Failed to rename temp file: {}", e))?;
+    Ok(())
+}
+
+/// Read a month's commitments.yaml. Returns empty Vec if file doesn't exist.
+pub fn read_commitments_file(
+    root: &Path,
+    year: i32,
+    month: u32,
+) -> Result<Vec<Commitment>, String> {
+    let path = commitments_path(root, year, month);
+    if !path.exists() {
+        return Ok(vec![]);
+    }
+    let content = fs::read_to_string(&path)
+        .map_err(|e| format!("Failed to read {}: {}", path.display(), e))?;
+    let content = content.trim_start_matches('\u{feff}');
+    // commitments.yaml is a flat YAML array of Commitment objects (pure YAML, no frontmatter).
+    yaml_serde::from_str::<Vec<Commitment>>(content)
+        .map_err(|e| format!("Failed to parse {}: {}", path.display(), e))
+}
+
+/// Write commitments to a month's commitments.yaml (atomic: tmp then rename).
+/// Writes pure YAML — no frontmatter `---` delimiters.
+pub fn write_commitments_file(
+    root: &Path,
+    year: i32,
+    month: u32,
+    commitments: &[Commitment],
+) -> Result<(), String> {
+    let path = commitments_path(root, year, month);
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|e| format!("Failed to create directory: {}", e))?;
+    }
+    let yaml_body = yaml_serde::to_string(commitments)
+        .map_err(|e| format!("Failed to serialize commitments: {}", e))?;
+    let tmp_path = path.with_extension("tmp");
+    fs::write(&tmp_path, yaml_body)
+        .map_err(|e| format!("Failed to write temp file: {}", e))?;
+    fs::rename(&tmp_path, &path)
+        .map_err(|e| format!("Failed to rename temp file: {}", e))?;
     Ok(())
 }
 
