@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from "vue";
 import { invoke } from "@tauri-apps/api/core";
+import { VueDraggable } from "vue-draggable-plus";
 import type { Dimension } from "../../types";
 
 const props = defineProps<{
@@ -32,12 +33,6 @@ const addFormError = ref("");
 const showDeleted = ref(false);
 
 const hasDeleted = computed(() => draft.value.some(d => d.deleted));
-
-const visibleDimensions = computed(() =>
-  draft.value
-    .map((dim, originalIndex) => ({ dim, originalIndex }))
-    .filter(({ dim }) => !dim.deleted || showDeleted.value),
-);
 
 watch(() => props.open, (o) => {
   if (!o) return;
@@ -232,24 +227,38 @@ const monthLabel = new Date(props.year, props.month - 1, 1)
           <!-- Left panel: dimension list -->
           <div class="w-[210px] flex-shrink-0 border-r border-[var(--color-divider)] bg-[var(--color-surface-muted)] p-md flex flex-col">
             <div class="flex-1 space-y-2xs">
-              <div
-                v-for="item in visibleDimensions"
-                :key="item.dim.key"
-                data-test="dim-row"
-                :class="[
-                  'flex items-center gap-sm px-sm py-sm rounded-[var(--radius-form-lg)] cursor-pointer',
-                  item.originalIndex === selectedIndex ? 'bg-[var(--color-brand-soft-bg)]' : '',
-                  item.dim.deleted ? 'opacity-40' : '',
-                ]"
-                @click="selectDim(item.originalIndex)"
+              <VueDraggable
+                v-model="draft"
+                handle=".drag-grip-dim"
+                :animation="150"
+                class="space-y-2xs"
               >
-                <div
-                  class="w-[3px] h-[16px] rounded-[1px] flex-shrink-0"
-                  :style="{ background: `var(--dim-bar-${item.dim.key})` }"
-                ></div>
-                <span class="text-body text-[var(--color-text-primary)] flex-1">{{ item.dim.name }}</span>
-                <span class="text-micro text-[var(--color-text-muted)]">{{ item.dim.source }}</span>
-              </div>
+                <template v-for="(dim, index) in draft" :key="dim.key">
+                  <div
+                    v-if="!dim.deleted || showDeleted"
+                    data-test="dim-row"
+                    :class="[
+                      'flex items-center gap-sm px-sm py-sm rounded-[var(--radius-form-lg)] cursor-pointer',
+                      index === selectedIndex ? 'bg-[var(--color-brand-soft-bg)]' : '',
+                      dim.deleted ? 'opacity-40' : '',
+                    ]"
+                    @click="selectDim(index)"
+                  >
+                    <span
+                      data-test="drag-grip-dim"
+                      :class="[
+                        'text-[var(--color-text-disabled)] select-none px-2xs',
+                        dim.deleted ? '' : 'cursor-grab drag-grip-dim',
+                      ]">⠿</span>
+                    <div
+                      class="w-[3px] h-[16px] rounded-[1px] flex-shrink-0"
+                      :style="{ background: `var(--dim-bar-${dim.key})` }"
+                    ></div>
+                    <span class="text-body text-[var(--color-text-primary)] flex-1">{{ dim.name }}</span>
+                    <span class="text-micro text-[var(--color-text-muted)]">{{ dim.source }}</span>
+                  </div>
+                </template>
+              </VueDraggable>
 
               <!-- Add dimension form -->
               <div
@@ -373,13 +382,18 @@ const monthLabel = new Date(props.year, props.month - 1, 1)
                 <!-- Values section (static dimensions only) -->
                 <template v-if="selectedDimension.source === 'static' && selectedDimension.values">
                   <div class="text-micro uppercase tracking-wider font-semibold text-[var(--color-text-disabled)] mb-sm">Values</div>
-                  <div class="space-y-xs">
+                  <VueDraggable
+                    v-model="selectedDimension.values"
+                    handle=".drag-grip-val"
+                    :animation="150"
+                    class="space-y-xs"
+                  >
                     <div
                       v-for="(val, i) in selectedDimension.values"
                       :key="i"
                       class="flex items-center gap-sm"
                     >
-                      <span class="text-[var(--color-text-disabled)] select-none px-2xs" :class="selectedDimension.deleted ? '' : 'cursor-grab'">⠿</span>
+                      <span class="text-[var(--color-text-disabled)] select-none px-2xs" :class="selectedDimension.deleted ? '' : 'cursor-grab drag-grip-val'">⠿</span>
                       <input
                         data-test="value-input"
                         :value="val"
@@ -398,7 +412,7 @@ const monthLabel = new Date(props.year, props.month - 1, 1)
                         @click="removeValue(i)"
                       >&times;</button>
                     </div>
-                  </div>
+                  </VueDraggable>
 
                   <!-- New value input (hidden when deleted) -->
                   <template v-if="!selectedDimension.deleted">

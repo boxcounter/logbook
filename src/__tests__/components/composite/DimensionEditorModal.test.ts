@@ -496,4 +496,73 @@ describe("DimensionEditorModal", () => {
     const nameInput = wrapper.find('input[placeholder="Dimension name"]');
     expect((nameInput.element as HTMLInputElement).disabled).toBe(false);
   });
+
+  // ── Drag to reorder dimensions ──────────────────────────────────
+
+  it("renders drag grip on each non-deleted dimension row", () => {
+    const wrapper = mountModal();
+    const grips = wrapper.findAll('[data-test="drag-grip-dim"].drag-grip-dim');
+    // MOCK_DIMENSIONS has 3 non-deleted dims — all should have drag grip
+    expect(grips).toHaveLength(3);
+  });
+
+  it("drag grip has the cursor-grab class on non-deleted dims", () => {
+    const wrapper = mountModal();
+    const grip = wrapper.find('[data-test="drag-grip-dim"]');
+    expect(grip.classes()).toContain("cursor-grab");
+    expect(grip.classes()).toContain("drag-grip-dim");
+  });
+
+  it("deleted dimension lacks drag-grip-dim class", async () => {
+    const wrapper = mountModal();
+    // Delete Goal (index 0)
+    await wrapper.find('[data-test="delete-dim"]').trigger("click");
+    await nextTick();
+    // Turn on show deleted to make Goal visible
+    const toggleCheckbox = wrapper.find('[data-test="show-deleted-toggle"] input[type="checkbox"]');
+    await toggleCheckbox.setValue(true);
+    await nextTick();
+    // Goal is first dim-row, should be deleted
+    const rows = wrapper.findAll('[data-test="dim-row"]');
+    expect(rows).toHaveLength(3);
+    const goalRow = rows[0];
+    expect(goalRow.classes()).toContain("opacity-40");
+    // Its grip should NOT have drag-grip-dim class
+    const goalGrip = goalRow.find('[data-test="drag-grip-dim"]');
+    expect(goalGrip.exists()).toBe(true); // grip element exists
+    expect(goalGrip.classes()).not.toContain("drag-grip-dim");
+    expect(goalGrip.classes()).not.toContain("cursor-grab");
+  });
+
+  // ── Drag to reorder values ──────────────────────────────────────
+
+  it("renders drag grip with drag-grip-val class on value rows", async () => {
+    const wrapper = mountModal();
+    // Select Biz (index 1) — static with values
+    const bizRow = wrapper.findAll('[data-test="dim-row"]')[1];
+    await bizRow.trigger("click");
+    const grips = wrapper.findAll(".drag-grip-val");
+    // Biz has 3 values
+    expect(grips).toHaveLength(3);
+    expect(grips[0].classes()).toContain("cursor-grab");
+    expect(grips[0].classes()).toContain("drag-grip-val");
+  });
+
+  it("values grip lacks drag-grip-val class when dimension is deleted", async () => {
+    const wrapper = mountModal();
+    // Select Biz (index 1) — static with values
+    const bizRow = wrapper.findAll('[data-test="dim-row"]')[1];
+    await bizRow.trigger("click");
+    // Delete Biz
+    await wrapper.find('[data-test="delete-dim"]').trigger("click");
+    await nextTick();
+    // No elements should have drag-grip-val class
+    expect(wrapper.findAll(".drag-grip-val").length).toBe(0);
+    // Value inputs still exist but are disabled
+    const valueInputs = wrapper.findAll('[data-test="value-input"]');
+    expect(valueInputs.length).toBeGreaterThan(0);
+    for (const input of valueInputs) {
+      expect((input.element as HTMLInputElement).disabled).toBe(true);
+    }
+  });
 });
