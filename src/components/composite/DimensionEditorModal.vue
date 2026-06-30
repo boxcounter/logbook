@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from "vue";
+import { invoke } from "@tauri-apps/api/core";
 import type { Dimension } from "../../types";
 
 const props = defineProps<{
@@ -17,6 +18,8 @@ const showDiscard = ref(false);
 const draft = ref<Dimension[]>([]);
 const selectedIndex = ref(0);
 const newValue = ref("");
+const error = ref("");
+const saving = ref(false);
 
 watch(() => props.open, (o) => {
   if (!o) return;
@@ -24,18 +27,30 @@ watch(() => props.open, (o) => {
   selectedIndex.value = 0;
   showDiscard.value = false;
   newValue.value = "";
+  error.value = "";
+  saving.value = false;
   nextTick(() => overlayRef.value?.focus());
 }, { immediate: true });
 
 const selectedDimension = computed(() => draft.value[selectedIndex.value] ?? null);
 
+const isDirty = computed(() =>
+  JSON.stringify(draft.value) !== JSON.stringify(props.dimensions),
+);
+
 function selectDim(index: number) { selectedIndex.value = index; }
 
-function requestClose() { emit("close"); }
+function requestClose() {
+  if (isDirty.value) { showDiscard.value = true; return; }
+  emit("close");
+}
 
-// Keyboard: esc to close, cmd+enter to save (placeholder)
+function confirmDiscard() { showDiscard.value = false; emit("close"); }
+function keepEditing() { showDiscard.value = false; }
+
 function onKeydown(e: KeyboardEvent) {
   if (e.key === "Escape") { e.preventDefault(); requestClose(); }
+  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); save(); }
 }
 
 function updateDimName(e: Event) {
@@ -71,6 +86,37 @@ function toggleDelete() {
   }
 }
 
+async function save() {
+  saving.value = true;
+  error.value = "";
+  try {
+    const result = await invoke<Dimension[]>("save_dimensions", {
+      rootPath: props.rootPath,
+      year: props.year,
+      month: props.month,
+      dimensions: draft.value,
+    });
+    emit("saved", result);
+    emit("close");
+  } catch (e: unknown) {
+    error.value = typeof e === "string" ? e : (e as Error).message ?? "Save failed";
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function saveAsTemplate() {
+  error.value = "";
+  try {
+    await invoke("save_dimensions_template", {
+      rootPath: props.rootPath,
+      dimensions: draft.value,
+    });
+  } catch (e: unknown) {
+    error.value = typeof e === "string" ? e : (e as Error).message ?? "Save template failed";
+  }
+}
+
 const monthLabel = new Date(props.year, props.month - 1, 1)
   .toLocaleDateString("en-US", { month: "long", year: "numeric" });
 </script>
@@ -95,7 +141,15 @@ const monthLabel = new Date(props.year, props.month - 1, 1)
         <div class="flex justify-between items-start px-2xl pt-xl pb-lg border-b border-[var(--color-divider)]">
           <div>
             <div class="text-title font-bold text-[var(--color-text-primary)] tracking-[-0.3px]">Edit Dimensions</div>
-            <div class="text-secondary text-[var(--color-text-muted)] mt-2xs">Editing {{ monthLabel }}</div>
+            <div class="text-secondary text-[var(--color-text-muted)] mt-2xs">
+              Editing {{ monthLabel }}
+              <span class="text-[var(--color-text-disabled)]">|</span>
+              <button
+                data-test="save-as-template"
+                class="text-secondary font-semibold text-[var(--color-brand-link)] cursor-pointer"
+                @click="saveAsTemplate"
+              >Save as template</button>
+            </div>
           </div>
 
         </div>
@@ -243,16 +297,50 @@ const monthLabel = new Date(props.year, props.month - 1, 1)
         </div>
 
         <!-- Footer -->
-        <div class="flex justify-end gap-sm px-2xl py-lg border-t border-[var(--color-divider)]">
-          <button
-            data-test="cancel"
-            class="text-secondary font-semibold text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] rounded-[var(--radius-form)] px-md py-sm cursor-pointer"
-            @click="requestClose"
-          >Cancel</button>
-          <button
-            data-test="save"
-            class="text-secondary font-semibold text-white bg-[var(--color-brand-solid)] hover:bg-[var(--color-brand-link)] rounded-[var(--radius-form)] px-md py-sm cursor-pointer disabled:opacity-50"
-          >Save</button>
+        <div class="flex flex-col">
+          <div
+            v-if="error"
+            data-test="save-error"
+            class="text-secondary text-[var(--color-danger)] px-2xl py-sm"
+          >{{ error }}</div>
+          <div class="flex justify-end gap-sm px-2xl py-lg border-t border-[var(--color-divider)]">
+            <button
+              data-test="cancel"
+              class="text-secondary font-semibold text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] rounded-[var(--radius-form)] px-md py-sm cursor-pointer"
+              @click="requestClose"
+            >Cancel</button>
+            <button
+              data-test="save"
+              class="text-secondary font-semibold text-white bg-[var(--color-brand-solid)] hover:bg-[var(--color-brand-link)] rounded-[var(--radius-form)] px-md py-sm cursor-pointer disabled:opacity-50"
+              :disabled="saving"
+              @click="save"
+            >{{ saving ? 'Saving...' : 'Save' }}</button>
+          </div>
+        </div>
+
+        <!-- Discard confirmation overlay -->
+        <div
+          v-if="showDiscard"
+          data-test="discard-confirm"
+          class="absolute inset-0 flex items-center justify-center bg-black/10"
+          @click.self="keepEditing"
+        >
+          <div class="bg-[var(--color-surface)] border border-[var(--color-border-form)] rounded-[var(--radius-card)] shadow-[var(--shadow-toast)] p-lg max-w-[300px]">
+            <div class="text-body font-semibold text-[var(--color-text-primary)] mb-xs">Discard changes?</div>
+            <p class="text-secondary text-[var(--color-text-muted)] mb-md">You have unsaved changes to dimensions.</p>
+            <div class="flex justify-end gap-sm">
+              <button
+                data-test="keep-editing"
+                class="text-secondary font-semibold text-[var(--color-text-secondary)] rounded-[var(--radius-form)] px-md py-sm cursor-pointer"
+                @click="keepEditing"
+              >Keep editing</button>
+              <button
+                data-test="discard-yes"
+                class="text-secondary font-semibold text-[var(--color-danger)] rounded-[var(--radius-form)] px-md py-sm cursor-pointer"
+                @click="confirmDiscard"
+              >Discard</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

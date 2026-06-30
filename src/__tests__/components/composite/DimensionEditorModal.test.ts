@@ -1,14 +1,22 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { mount } from "@vue/test-utils";
 import { nextTick } from "vue";
+import { invoke } from "@tauri-apps/api/core";
 import DimensionEditorModal from "../../../components/composite/DimensionEditorModal.vue";
 import type { Dimension } from "../../../types";
+
+vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 
 const MOCK_DIMENSIONS: Dimension[] = [
   { name: "Goal", key: "goal", source: "monthly", values: undefined, required: false, deleted: false },
   { name: "Biz", key: "biz", source: "static", values: ["Product", "Marketing", "Engineering"], required: true, deleted: false },
   { name: "Importance", key: "importance-urgency", source: "static", values: ["P0", "P1"], required: false, deleted: false },
 ];
+
+beforeEach(() => {
+  (invoke as any).mockReset?.();
+  (invoke as any).mockResolvedValue?.(MOCK_DIMENSIONS);
+});
 
 function mountModal(overrides = {}) {
   return mount(DimensionEditorModal, {
@@ -153,5 +161,109 @@ describe("DimensionEditorModal", () => {
       dimensions: [],
     });
     expect(wrapper.text()).toContain("Select a dimension to edit");
+  });
+
+  it("emits saved with updated dimensions on Save", async () => {
+    const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
+    const nameInput = wrapper.find('input[placeholder="Dimension name"]');
+    await nameInput.setValue("Business Goal");
+    await wrapper.find('[data-test="save"]').trigger("click");
+    await nextTick();
+
+    expect(invoke).toHaveBeenCalledWith("save_dimensions", expect.objectContaining({
+      rootPath: "/test",
+      year: 2026,
+      month: 6,
+      dimensions: expect.arrayContaining([
+        expect.objectContaining({ name: "Business Goal", key: "goal" }),
+      ]),
+    }));
+    expect(wrapper.emitted("saved")).toBeTruthy();
+  });
+
+  it("shows discard confirmation when dirty and Cancel is clicked", async () => {
+    const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
+    // Make dirty by changing name
+    const nameInput = wrapper.find('input[placeholder="Dimension name"]');
+    await nameInput.setValue("Business Goal");
+    // Click Cancel — should show discard confirmation
+    await wrapper.find('[data-test="cancel"]').trigger("click");
+    await nextTick();
+    expect(wrapper.find('[data-test="discard-confirm"]').exists()).toBe(true);
+  });
+
+  it("does not show discard confirmation when not dirty", async () => {
+    const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
+    await wrapper.find('[data-test="cancel"]').trigger("click");
+    await nextTick();
+    // No discard confirm — emits close directly
+    expect(wrapper.find('[data-test="discard-confirm"]').exists()).toBe(false);
+    expect(wrapper.emitted("close")).toBeTruthy();
+  });
+
+  it("discard confirmation Keep editing returns to editor", async () => {
+    const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
+    const nameInput = wrapper.find('input[placeholder="Dimension name"]');
+    await nameInput.setValue("Business Goal");
+    await wrapper.find('[data-test="cancel"]').trigger("click");
+    await nextTick();
+    // Click "Keep editing" to dismiss discard overlay
+    await wrapper.find('[data-test="keep-editing"]').trigger("click");
+    await nextTick();
+    expect(wrapper.find('[data-test="discard-confirm"]').exists()).toBe(false);
+    expect(wrapper.find('[data-test="overlay"]').exists()).toBe(true); // still open
+  });
+
+  it("discard confirmation Discard closes modal", async () => {
+    const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
+    const nameInput = wrapper.find('input[placeholder="Dimension name"]');
+    await nameInput.setValue("Business Goal");
+    await wrapper.find('[data-test="cancel"]').trigger("click");
+    await nextTick();
+    await wrapper.find('[data-test="discard-yes"]').trigger("click");
+    await nextTick();
+    expect(wrapper.emitted("close")).toBeTruthy();
+  });
+
+  it("Cmd+Enter triggers save", async () => {
+    const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
+    const overlay = wrapper.find('[data-test="overlay"]');
+    await overlay.trigger("keydown", { key: "Enter", metaKey: true });
+    await nextTick();
+    expect(invoke).toHaveBeenCalledWith("save_dimensions", expect.anything());
+  });
+
+  it("Ctrl+Enter triggers save", async () => {
+    const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
+    const overlay = wrapper.find('[data-test="overlay"]');
+    await overlay.trigger("keydown", { key: "Enter", ctrlKey: true });
+    await nextTick();
+    expect(invoke).toHaveBeenCalledWith("save_dimensions", expect.anything());
+  });
+
+  it("shows save-as-template link in header", () => {
+    const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
+    expect(wrapper.find('[data-test="save-as-template"]').exists()).toBe(true);
+    expect(wrapper.text()).toContain("Save as template");
+  });
+
+  it("saveAsTemplate invokes save_dimensions_template", async () => {
+    const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
+    await wrapper.find('[data-test="save-as-template"]').trigger("click");
+    await nextTick();
+    expect(invoke).toHaveBeenCalledWith("save_dimensions_template", expect.objectContaining({
+      rootPath: "/test",
+      dimensions: MOCK_DIMENSIONS,
+    }));
+  });
+
+  it("shows error when save fails", async () => {
+    (invoke as any).mockRejectedValue(new Error("Validation failed: duplicate key"));
+    const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
+    await wrapper.find('[data-test="save"]').trigger("click");
+    await nextTick();
+    await nextTick(); // extra tick for promise rejection
+    expect(wrapper.find('[data-test="save-error"]').exists()).toBe(true);
+    expect(wrapper.text()).toContain("Validation failed");
   });
 });
