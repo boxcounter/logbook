@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { mount } from "@vue/test-utils";
+import { nextTick } from "vue";
 import DimensionEditorModal from "../../../components/composite/DimensionEditorModal.vue";
 import type { Dimension } from "../../../types";
 
@@ -47,5 +48,110 @@ describe("DimensionEditorModal", () => {
     await bizRow.trigger("click");
     const nameInput = wrapper.find('input[placeholder="Dimension name"]');
     expect((nameInput.element as HTMLInputElement).value).toBe("Biz");
+  });
+
+  it("shows values for selected static dimension", async () => {
+    const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
+    // Default selects index 0 (Goal, monthly). Click Biz (index 1) for static values.
+    const bizRow = wrapper.findAll('[data-test="dim-row"]')[1];
+    await bizRow.trigger("click");
+    const valueInputs = wrapper.findAll('[data-test="value-input"]');
+    const values = valueInputs.map((el) => (el.element as HTMLInputElement).value);
+    expect(values).toEqual(["Product", "Marketing", "Engineering"]);
+  });
+
+  it("updates dimension name on input", async () => {
+    const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
+    const nameInput = wrapper.find('input[placeholder="Dimension name"]');
+    await nameInput.setValue("Business");
+    expect((nameInput.element as HTMLInputElement).value).toBe("Business");
+  });
+
+  it("shows key and source in readonly mode", () => {
+    const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
+    // Default selects index 0 = Goal, key is "goal", source is "monthly"
+    expect(wrapper.text()).toContain("goal");
+    expect(wrapper.text()).toContain("monthly");
+    expect(wrapper.text()).toContain("locked");
+  });
+
+  it("shows monthly info card", () => {
+    const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
+    // Goal is monthly (index 0, selected by default)
+    expect(wrapper.text()).toContain("Values are derived from commitment goals");
+  });
+
+  it("does not show values section for monthly dimensions", () => {
+    const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
+    // Goal is monthly — no values list or "New value" input
+    expect(wrapper.find('input[placeholder="New value"]').exists()).toBe(false);
+  });
+
+  it("toggles required checkbox", async () => {
+    const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
+    const checkbox = wrapper.find('input[type="checkbox"]');
+    expect((checkbox.element as HTMLInputElement).checked).toBe(false);
+    await checkbox.setValue(true);
+    expect((checkbox.element as HTMLInputElement).checked).toBe(true);
+  });
+
+  it("adds a new value", async () => {
+    const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
+    // Select Biz (index 1) — static with values
+    const bizRow = wrapper.findAll('[data-test="dim-row"]')[1];
+    await bizRow.trigger("click");
+    const newValInput = wrapper.find('input[placeholder="New value"]');
+    await newValInput.setValue("Design");
+    await wrapper.find('[data-test="add-value"]').trigger("click");
+    const valueInputs = wrapper.findAll('[data-test="value-input"]');
+    const values = valueInputs.map((el) => (el.element as HTMLInputElement).value);
+    expect(values).toContain("Design");
+  });
+
+  it("deletes a value", async () => {
+    const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
+    // Select Biz (index 1) — has Product, Marketing, Engineering
+    const bizRow = wrapper.findAll('[data-test="dim-row"]')[1];
+    await bizRow.trigger("click");
+    const before = wrapper.findAll('[data-test="value-input"]');
+    expect(before.map((el) => (el.element as HTMLInputElement).value)).toContain("Product");
+    await wrapper.findAll('[data-test="delete-value"]')[0].trigger("click");
+    const after = wrapper.findAll('[data-test="value-input"]');
+    expect(after.map((el) => (el.element as HTMLInputElement).value)).not.toContain("Product");
+    expect(after.length).toBe(before.length - 1);
+  });
+
+  it("clears new value input after adding", async () => {
+    const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
+    const bizRow = wrapper.findAll('[data-test="dim-row"]')[1];
+    await bizRow.trigger("click");
+    const newValInput = wrapper.find('input[placeholder="New value"]');
+    await newValInput.setValue("Design");
+    await wrapper.find('[data-test="add-value"]').trigger("click");
+    await nextTick();
+    const after = wrapper.find('input[placeholder="New value"]');
+    expect((after.element as HTMLInputElement).value).toBe("");
+  });
+
+  it("toggles delete dimension", async () => {
+    const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
+    let btn = wrapper.find('[data-test="delete-dim"]');
+    expect(btn.text()).toContain("Delete dimension");
+    await btn.trigger("click");
+    await nextTick();
+    btn = wrapper.find('[data-test="delete-dim"]');
+    expect(btn.text()).toContain("Restore");
+    await btn.trigger("click");
+    await nextTick();
+    btn = wrapper.find('[data-test="delete-dim"]');
+    expect(btn.text()).toContain("Delete dimension");
+  });
+
+  it("shows placeholder when no dimension is selected", () => {
+    const wrapper = mountModal({
+      open: true,
+      dimensions: [],
+    });
+    expect(wrapper.text()).toContain("Select a dimension to edit");
   });
 });
