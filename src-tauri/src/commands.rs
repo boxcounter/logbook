@@ -1229,6 +1229,73 @@ pub fn create_starter_files(path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub fn save_dimensions(
+    root_path: String,
+    year: i32,
+    month: u32,
+    dimensions: Vec<Dimension>,
+) -> Result<Vec<Dimension>, String> {
+    error_log::log_command_enter(
+        "save_dimensions",
+        &format!("{}-{:02} {} dims", year, month, dimensions.len()),
+    );
+    let root = std::path::Path::new(&root_path);
+    if !root.exists() {
+        return Err("Root path does not exist".to_string());
+    }
+
+    // Validate before writing
+    let errors = validate_dimensions(&dimensions);
+    if !errors.is_empty() {
+        let messages: Vec<String> = errors.iter().map(|e| e.message.clone()).collect();
+        let msg = messages.join("; ");
+        error_log::log_command_exit("save_dimensions", false, &msg);
+        return Err(msg);
+    }
+
+    // Write to dimensions.yaml (creates file if month not instantiated)
+    files::write_dimensions_file(root, year, month, &dimensions)?;
+
+    error_log::log_command_exit("save_dimensions", true, "");
+    Ok(dimensions)
+}
+
+#[tauri::command]
+pub fn save_dimensions_template(
+    root_path: String,
+    dimensions: Vec<Dimension>,
+) -> Result<(), String> {
+    error_log::log_command_enter(
+        "save_dimensions_template",
+        &format!("{} dims", dimensions.len()),
+    );
+    let root = std::path::Path::new(&root_path);
+
+    // Validate before writing
+    let errors = validate_dimensions(&dimensions);
+    if !errors.is_empty() {
+        let messages: Vec<String> = errors.iter().map(|e| e.message.clone()).collect();
+        let msg = messages.join("; ");
+        error_log::log_command_exit("save_dimensions_template", false, &msg);
+        return Err(msg);
+    }
+
+    // Write to dimensions.template.yaml (atomic: tmp then rename)
+    let template = Template { dimensions };
+    let path = files::dimensions_template_path(root);
+    let yaml_body = yaml_serde::to_string(&template)
+        .map_err(|e| format!("Failed to serialize template: {}", e))?;
+    let tmp_path = path.with_extension("tmp");
+    std::fs::write(&tmp_path, yaml_body)
+        .map_err(|e| format!("Failed to write temp file: {}", e))?;
+    std::fs::rename(&tmp_path, &path)
+        .map_err(|e| format!("Failed to rename temp file: {}", e))?;
+
+    error_log::log_command_exit("save_dimensions_template", true, "");
+    Ok(())
+}
+
+#[tauri::command]
 pub fn log_error(message: String) {
     crate::error_log::log_frontend_error(&message);
 }

@@ -130,6 +130,8 @@ pub fn run() {
             commands::set_day_note,
             commands::get_commitments,
             commands::get_month_dimensions,
+            commands::save_dimensions,
+            commands::save_dimensions_template,
             commands::get_commitment_progress,
             commands::set_commitments,
             commands::get_available_months,
