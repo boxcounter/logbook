@@ -150,7 +150,7 @@
 
 - 校验所有维度（复用 `validate_dimensions` 规则）
 - 校验通过：写入当前月份 `_monthly.md`。若月份未实例化，先调用 `ensure_month_instantiated`（保留已有 commitments）
-- 文件监听器自动感知变更；前端 store 通过已有 `config-changed` / `commitments-changed` 事件更新
+- 文件监听器自动感知变更；前端 store 通过已有 `dimensions-changed` / `commitments-changed` 事件更新
 - 校验失败：高亮左侧列表中出错的维度；右栏底部或 footer 上方显示错误信息（`text-secondary text-[var(--color-danger)]`，对齐 CommitmentsModal 模式）
 
 ### 「保存为模板」
