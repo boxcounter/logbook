@@ -150,7 +150,7 @@
 
 - 校验所有维度（复用 `validate_dimensions` 规则）
 - 校验通过：写入当前月份 `_monthly.md`。若月份未实例化，先调用 `ensure_month_instantiated`（保留已有 commitments）
-- 文件监听器自动感知变更；前端 store 通过已有 `dimensions-changed` / `commitments-changed` 事件更新
+- Save 命令直接返回更新后的 `Dimension[]`，store 从返回值更新（对齐 `set_commitments` 模式，不依赖文件监听器回环）
 - 校验失败：高亮左侧列表中出错的维度；右栏底部或 footer 上方显示错误信息（`text-secondary text-[var(--color-danger)]`，对齐 CommitmentsModal 模式）
 
 ### 「保存为模板」
@@ -229,10 +229,10 @@ GUI "Save as template" ──→ template.yaml
 CLI set ──→ _monthly.md 或 template.yaml
 CLI get ←── resolve_month_dimensions() ←── _monthly.md 或 template.yaml
 
-文件监听器（已有）：
-  template.yaml 变更 ──→ 重校验、emit dimensions-changed（现名 config-changed，实现时改名）
-  _monthly.md 变更 ──→ 重校验、emit commitments-changed
-  → 前端 store 响应式更新维度数据
+文件监听器（已有——仅作外部编辑时的兜底一致性）：
+  template.yaml 变更 ──→ emit config-changed ──→ App.vue 调 initApp() 全量重载
+  _monthly.md 变更 ──→ emit commitments-changed ──→ App.vue 仅重载 commitments/commitmentProgress（不重载 dimensions）
+  → GUI 维度编辑不依赖文件监听器；Save 直接返回新 Dimension[] 更新 store
 ```
 
 ### 月份实例化
