@@ -282,7 +282,7 @@ CLI get ←── resolve_month_dimensions():
 
 若保存维度时 `dimensions.yaml` 不存在（月份未实例化）：
 - 创建 `dimensions.yaml`，写入当前编辑的维度
-- 等效 `ensure_month_instantiated`，但不涉及 `commitments.yaml`
+- 不涉及 `commitments.yaml`
 - 后续 `dimensions.template.yaml` 变更不影响该月
 
 ### 软删除的维度
