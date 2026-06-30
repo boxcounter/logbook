@@ -303,7 +303,7 @@ CLI get ←── resolve_month_dimensions():
 - 最多一个维度 `source: "monthly"`
 
 GUI 层额外校验：
-- key 在**非已删除**维度中唯一（软删除的 key 可被新维度复用）
+- key 在所有维度中唯一（含软删除的 key）
 - 同一维度内无重复 value 名称
 
 ## 边界情况
@@ -315,7 +315,7 @@ GUI 层额外校验：
 | 保存为模板时模板文件缺失 | 创建 `dimensions.template.yaml` 写入维度（「Save as template」为幂等创建或更新） |
 | 月份未实例化时保存维度 | 创建 `dimensions.yaml` + 写入维度 |
 | 编辑器打开期间其他进程修改 `dimensions.yaml` | 文件监听器触发 `dimensions-changed`。Modal 显示「文件已在外部变更」提示并禁用保存直到重新加载。复杂度高则 v1 跳过——文件监听器为亚秒级，单用户桌面场景竞争窗口极小 |
-| 创建时 key 与已删除维度重复 | 允许创建——软删除的 key 可被新维度复用。新维度创建后，历史 entry 中该 key 的值会关联到新维度（key 相同），颜色和标签采用新维度定义 |
+| 创建时 key 与已删除维度重复 | 不允许——key 全局唯一（含软删除）。失焦时内联校验错误：「Key 'biz' already exists (deleted). Restore it or choose a different key.」 |
 | 创建时 key 与活跃维度重复 | 失焦时内联校验错误：「Key 'biz' already exists.」 |
 | static 维度的 values 列表为空 | 保存时校验错误：「Dimension 'Biz' has no values.」 |
 | 旧数据迁移（`_monthly.md` → `dimensions.yaml` + `commitments.yaml`） | `init` 时检测 `_monthly.md` 存在 → 拆分为两个 `.yaml` 文件 → 保留原 `_monthly.md` 为 `.bak` 备份，不自动删除 |
