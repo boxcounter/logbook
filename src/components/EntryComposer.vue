@@ -12,6 +12,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   submit: [item: string, durationMinutes: number, dimensions: Record<string, string>];
+  editDimensions: [];
 }>();
 
 const text = ref("");
@@ -166,6 +167,11 @@ watch(focusRequestId, () => {
         <span class="mono text-micro font-semibold text-[var(--color-text-secondary)]
                      border border-[var(--color-border-form)] rounded-[var(--radius-md)] px-sm py-xs flex-shrink-0
                      opacity-50 group-focus-within:opacity-100 transition-opacity">⏎</span>
+        <span
+          class="text-[length:14px] text-[var(--color-text-muted)] hover:text-[var(--color-brand-solid)] cursor-pointer flex-shrink-0 py-2xs px-2xs"
+          @click.stop="$emit('editDimensions')"
+          title="Edit dimensions"
+        >⚙</span>
       </div>
 
       <!-- Line 2: tokens + missing indicators -->

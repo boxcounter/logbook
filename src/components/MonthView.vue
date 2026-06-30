@@ -9,12 +9,24 @@ import CommitmentsPanel from "./CommitmentsPanel.vue";
 import DayHeader from "./DayHeader.vue";
 import EntryList from "./EntryList.vue";
 import EntryComposer from "./EntryComposer.vue";
-import type { DayFile, Entry, CommitmentProgress, Commitment, MonthDimensions } from "../types";
+import DimensionEditorModal from "./composite/DimensionEditorModal.vue";
+import type { DayFile, Entry, CommitmentProgress, Commitment, MonthDimensions, Dimension } from "../types";
 import { logError, logInfo } from "../utils/errorLog";
 import { datesInMonth, yearMonthFromDate, parseDate, addDays } from "../utils/dates";
 
 const store = useStore();
 const inputRef = ref<InstanceType<typeof EntryComposer> | null>(null);
+
+// Dimension editor modal
+const showDimEditor = ref(false);
+
+function openDimEditor() { showDimEditor.value = true; }
+
+function onDimensionsSaved(dims: Dimension[]) {
+  store.dimensions = dims;
+  store.fromTemplate = false;
+  showDimEditor.value = false;
+}
 
 // Newly-added entry highlight (spec §5.2 step 7): mark the id, clear after 1.5s.
 const justAddedId = ref<string | null>(null);
@@ -409,8 +421,19 @@ logInfo("MonthView", "mounted");
           :dimensions="store.dimensions"
           :commitments="store.commitments"
           @submit="handleSubmit"
+          @edit-dimensions="openDimEditor"
         />
       </div>
+
+      <DimensionEditorModal
+        :open="showDimEditor"
+        :dimensions="store.dimensions"
+        :root-path="store.rootPath"
+        :year="selectedYear"
+        :month="selectedMonth"
+        @close="showDimEditor = false"
+        @saved="onDimensionsSaved"
+      />
 
       <div v-if="store.rootPath" class="mt-sm text-right flex justify-end items-baseline gap-md">
         <span v-if="appVersion" class="text-micro text-[var(--color-text-disabled)]">v{{ appVersion }}</span>
