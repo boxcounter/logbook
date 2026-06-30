@@ -150,6 +150,8 @@ root/
   - 已删除维度在左栏列表中降低透明度（`opacity-40`），不在 DimensionPopover 的可选维度中显示
   - 若该维度已被 entry 使用：Toast 提示「Biz deleted — N entries keep their values」（复用已有 Toast + Undo 模式）
   - Undo 后恢复为正常状态，无需重新填写任何字段
+  - 删除/恢复是编辑器内存态变更，在 Save 时持久化
+- **已删除维度的右栏视图**：所有字段只读（name 不可编辑、key/source 仍显示 locked 徽章），Values 列表不可编辑，删除按钮替换为「Restore」按钮（`text-[var(--color-brand-link)]`）
 
 #### Footer
 
@@ -182,7 +184,7 @@ root/
 ### 保存
 
 - 校验所有维度（复用 `validate_dimensions` 规则）
-- 校验通过：写入 `dimensions.yaml`。若文件不存在（月份未实例化），先创建文件再写入（等效 `ensure_month_instantiated`，不涉及 commitments）
+- 校验通过：写入 `dimensions.yaml`。若文件不存在（月份未实例化），创建文件再写入（不涉及 `commitments.yaml`）
 - Save 命令直接返回更新后的 `Dimension[]`，store 从返回值更新（对齐 `set_commitments` 模式，不依赖文件监听器回环）
 - 校验失败：高亮左侧列表中出错的维度；右栏底部或 footer 上方显示错误信息（`text-secondary text-[var(--color-danger)]`，对齐 CommitmentsModal 模式）
 
