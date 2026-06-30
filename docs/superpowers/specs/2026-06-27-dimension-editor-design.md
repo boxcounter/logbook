@@ -256,11 +256,15 @@ logbook-cli dimensions set --template < dimensions.yaml
 ## 数据流
 
 ```
-GUI 打开编辑器 ──→ resolve_month_dimensions() ──→ dimensions.yaml 或 dimensions.template.yaml
+GUI 打开编辑器 ──→ resolve_month_dimensions():
+                    dimensions.yaml 存在 → 取之
+                    dimensions.yaml 不存在 → 回退 dimensions.template.yaml
 GUI Save ──→ dimensions.yaml（当前月）
 GUI "Save as template" ──→ dimensions.template.yaml
 CLI set ──→ dimensions.yaml 或 dimensions.template.yaml
-CLI get ←── resolve_month_dimensions() ←── dimensions.yaml 或 dimensions.template.yaml
+CLI get ←── resolve_month_dimensions():
+                dimensions.yaml 存在 → 取之
+                dimensions.yaml 不存在 → 回退 dimensions.template.yaml
 
 文件监听器（仅作外部编辑时的兜底一致性——GUI 维度编辑不依赖它）：
   dimensions.template.yaml 变更 ──→ 仅校验，不 emit 事件
