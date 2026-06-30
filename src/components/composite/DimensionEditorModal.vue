@@ -21,6 +21,24 @@ const newValue = ref("");
 const error = ref("");
 const saving = ref(false);
 
+// Add dimension form
+const showAddForm = ref(false);
+const newDimName = ref("");
+const newDimKey = ref("");
+const newDimSource = ref<"static" | "monthly">("static");
+const addFormError = ref("");
+
+// Show deleted
+const showDeleted = ref(false);
+
+const hasDeleted = computed(() => draft.value.some(d => d.deleted));
+
+const visibleDimensions = computed(() =>
+  draft.value
+    .map((dim, originalIndex) => ({ dim, originalIndex }))
+    .filter(({ dim }) => !dim.deleted || showDeleted.value),
+);
+
 watch(() => props.open, (o) => {
   if (!o) return;
   draft.value = JSON.parse(JSON.stringify(props.dimensions));
@@ -29,6 +47,12 @@ watch(() => props.open, (o) => {
   newValue.value = "";
   error.value = "";
   saving.value = false;
+  showAddForm.value = false;
+  showDeleted.value = false;
+  newDimName.value = "";
+  newDimKey.value = "";
+  newDimSource.value = "static";
+  addFormError.value = "";
   nextTick(() => overlayRef.value?.focus());
 }, { immediate: true });
 
@@ -85,6 +109,55 @@ function toggleDelete() {
     selectedDimension.value.deleted = !selectedDimension.value.deleted;
   }
 }
+
+// ── Add dimension form ────────────────────────────────────────────
+
+function resetAddForm() {
+  showAddForm.value = false;
+  newDimName.value = "";
+  newDimKey.value = "";
+  newDimSource.value = "static";
+  addFormError.value = "";
+}
+
+function validateNewDim(): string | null {
+  const key = newDimKey.value.trim();
+  if (!key) return "Key is required";
+  if (!/^[a-zA-Z0-9_-]+$/.test(key)) return "Only letters, numbers, hyphens, and underscores allowed";
+
+  const duplicate = draft.value.find(d => d.key === key);
+  if (duplicate?.deleted) return `Key '${key}' already exists (deleted). Restore it or choose a different key.`;
+  if (duplicate) return `Key '${key}' already exists.`;
+
+  if (newDimSource.value === "monthly" && draft.value.some(d => d.source === "monthly" && !d.deleted)) {
+    return "Only one monthly-source dimension allowed";
+  }
+
+  return null;
+}
+
+function createDimension() {
+  const err = validateNewDim();
+  if (err) {
+    addFormError.value = err;
+    return;
+  }
+
+  const dim: Dimension = {
+    name: newDimName.value.trim(),
+    key: newDimKey.value.trim(),
+    source: newDimSource.value,
+    values: newDimSource.value === "static" ? [] : undefined,
+    required: false,
+    deleted: false,
+  };
+
+  draft.value = [...draft.value, dim];
+  selectedIndex.value = draft.value.length - 1;
+  resetAddForm();
+}
+
+// ── Save ──────────────────────────────────────────────────────────
 
 async function save() {
   saving.value = true;
@@ -160,26 +233,97 @@ const monthLabel = new Date(props.year, props.month - 1, 1)
           <div class="w-[210px] flex-shrink-0 border-r border-[var(--color-divider)] bg-[var(--color-surface-muted)] p-md flex flex-col">
             <div class="flex-1 space-y-2xs">
               <div
-                v-for="(dim, i) in draft"
-                :key="dim.key"
+                v-for="item in visibleDimensions"
+                :key="item.dim.key"
                 data-test="dim-row"
                 :class="[
                   'flex items-center gap-sm px-sm py-sm rounded-[var(--radius-form-lg)] cursor-pointer',
-                  i === selectedIndex ? 'bg-[var(--color-brand-soft-bg)]' : ''
+                  item.originalIndex === selectedIndex ? 'bg-[var(--color-brand-soft-bg)]' : '',
+                  item.dim.deleted ? 'opacity-40' : '',
                 ]"
-                @click="selectDim(i)"
+                @click="selectDim(item.originalIndex)"
               >
                 <div
                   class="w-[3px] h-[16px] rounded-[1px] flex-shrink-0"
-                  :style="{ background: `var(--dim-bar-${dim.key})` }"
+                  :style="{ background: `var(--dim-bar-${item.dim.key})` }"
                 ></div>
-                <span class="text-body text-[var(--color-text-primary)] flex-1">{{ dim.name }}</span>
-                <span class="text-micro text-[var(--color-text-muted)]">{{ dim.source }}</span>
+                <span class="text-body text-[var(--color-text-primary)] flex-1">{{ item.dim.name }}</span>
+                <span class="text-micro text-[var(--color-text-muted)]">{{ item.dim.source }}</span>
+              </div>
+
+              <!-- Add dimension form -->
+              <div
+                v-if="showAddForm"
+                data-test="add-dim-form"
+                class="border border-[var(--color-brand-solid)] rounded-[var(--radius-form-lg)] bg-[var(--color-brand-soft-bg)] p-sm space-y-xs"
+              >
+                <input
+                  v-model="newDimName"
+                  data-test="add-dim-name"
+                  placeholder="Dimension name"
+                  class="w-full px-sm py-xs border border-[var(--color-border-form)] rounded-[var(--radius-form)]
+                         text-body text-[var(--color-text-primary)] bg-[var(--color-surface)]
+                         outline-none focus:border-[var(--color-brand-solid)] placeholder-[var(--color-placeholder)]"
+                  @keydown.enter.prevent="createDimension"
+                />
+                <input
+                  v-model="newDimKey"
+                  data-test="add-dim-key"
+                  placeholder="Key (e.g. project)"
+                  class="w-full px-sm py-xs border border-[var(--color-border-form)] rounded-[var(--radius-form)]
+                         text-body text-[var(--color-text-primary)] bg-[var(--color-surface)]
+                         outline-none focus:border-[var(--color-brand-solid)] placeholder-[var(--color-placeholder)]"
+                  @keydown.enter.prevent="createDimension"
+                />
+                <select
+                  v-model="newDimSource"
+                  data-test="add-dim-source"
+                  class="w-full px-sm py-xs border border-[var(--color-border-form)] rounded-[var(--radius-form)]
+                         text-body text-[var(--color-text-primary)] bg-[var(--color-surface)]
+                         outline-none focus:border-[var(--color-brand-solid)]"
+                >
+                  <option value="static">Static</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+                <div
+                  v-if="addFormError"
+                  data-test="add-dim-error"
+                  class="text-micro text-[var(--color-danger)]"
+                >{{ addFormError }}</div>
+                <div class="flex justify-end gap-sm">
+                  <button
+                    data-test="add-dim-cancel"
+                    class="text-secondary font-semibold text-[var(--color-text-muted)] rounded-[var(--radius-form)] px-sm py-xs cursor-pointer"
+                    @click="resetAddForm"
+                  >Cancel</button>
+                  <button
+                    data-test="add-dim-create"
+                    class="text-secondary font-semibold text-white bg-[var(--color-brand-solid)] rounded-[var(--radius-form)] px-sm py-xs cursor-pointer"
+                    @click="createDimension"
+                  >Create</button>
+                </div>
               </div>
             </div>
-            <button class="text-secondary font-semibold text-[var(--color-brand-link)] text-left mt-sm cursor-pointer">
-              + Add dimension
-            </button>
+
+            <!-- Show deleted toggle -->
+            <label
+              v-if="hasDeleted"
+              data-test="show-deleted-toggle"
+              class="flex items-center gap-xs cursor-pointer mt-sm"
+            >
+              <input
+                type="checkbox"
+                v-model="showDeleted"
+                class="rounded-[var(--radius-form)]"
+              />
+              <span class="text-secondary text-[var(--color-text-secondary)]">Show deleted</span>
+            </label>
+
+            <button
+              data-test="add-dim-btn"
+              class="text-secondary font-semibold text-[var(--color-brand-link)] text-left mt-sm cursor-pointer"
+              @click="showAddForm = !showAddForm"
+            >+ Add dimension</button>
           </div>
 
           <!-- Right panel -->
@@ -191,10 +335,12 @@ const monthLabel = new Date(props.year, props.month - 1, 1)
                 <input
                   placeholder="Dimension name"
                   :value="selectedDimension.name"
+                  :disabled="selectedDimension.deleted"
                   @input="updateDimName"
                   class="text-title font-semibold text-[var(--color-text-primary)] bg-transparent
                          border-0 border-b-2 border-[var(--color-border-form)] rounded-none
-                         px-0 pb-xs w-full outline-none focus:border-[var(--color-brand-solid)]"
+                         px-0 pb-xs w-full outline-none focus:border-[var(--color-brand-solid)]
+                         disabled:opacity-40"
                 />
 
                 <!-- Meta row: key + source + required -->
@@ -212,7 +358,9 @@ const monthLabel = new Date(props.year, props.month - 1, 1)
                   <label class="flex items-center gap-xs ml-auto cursor-pointer">
                     <input
                       type="checkbox"
+                      data-test="required-checkbox"
                       :checked="selectedDimension.required"
+                      :disabled="selectedDimension.deleted"
                       @change="selectedDimension.required = ($event.target as HTMLInputElement).checked"
                       class="rounded-[var(--radius-form)]"
                     />
@@ -231,16 +379,19 @@ const monthLabel = new Date(props.year, props.month - 1, 1)
                       :key="i"
                       class="flex items-center gap-sm"
                     >
-                      <span class="text-[var(--color-text-disabled)] select-none px-2xs cursor-grab">⠿</span>
+                      <span class="text-[var(--color-text-disabled)] select-none px-2xs" :class="selectedDimension.deleted ? '' : 'cursor-grab'">⠿</span>
                       <input
                         data-test="value-input"
                         :value="val"
+                        :disabled="selectedDimension.deleted"
                         @input="updateValue(i, $event)"
                         class="flex-1 px-sm py-xs border border-[var(--color-border-form)] rounded-[var(--radius-form)]
                                text-body text-[var(--color-text-primary)]
-                               bg-[var(--color-surface)] outline-none focus:border-[var(--color-brand-solid)]"
+                               bg-[var(--color-surface)] outline-none focus:border-[var(--color-brand-solid)]
+                               disabled:opacity-40"
                       />
                       <button
+                        v-if="!selectedDimension.deleted"
                         data-test="delete-value"
                         class="text-body cursor-pointer px-xs transition-[color] duration-[var(--motion-fast)]
                                text-[var(--color-text-disabled)] hover:text-[var(--color-danger)]"
@@ -249,23 +400,25 @@ const monthLabel = new Date(props.year, props.month - 1, 1)
                     </div>
                   </div>
 
-                  <!-- New value input -->
-                  <div class="flex items-center gap-sm mt-sm">
-                    <span class="text-[var(--color-text-disabled)] select-none px-2xs invisible">⠿</span>
-                    <input
-                      v-model="newValue"
-                      placeholder="New value"
-                      class="flex-1 px-sm py-xs border border-dashed border-[var(--color-border-form)] rounded-[var(--radius-form)]
-                             text-body text-[var(--color-text-primary)] placeholder-[var(--color-placeholder)]
-                             bg-[var(--color-surface)] outline-none focus:border-[var(--color-brand-solid)]"
-                      @keydown.enter.exact.prevent="addValue"
-                    />
-                    <button
-                      data-test="add-value"
-                      class="text-secondary font-semibold text-[var(--color-brand-link)] px-sm py-xs cursor-pointer"
-                      @click="addValue"
-                    >+</button>
-                  </div>
+                  <!-- New value input (hidden when deleted) -->
+                  <template v-if="!selectedDimension.deleted">
+                    <div class="flex items-center gap-sm mt-sm">
+                      <span class="text-[var(--color-text-disabled)] select-none px-2xs invisible">⠿</span>
+                      <input
+                        v-model="newValue"
+                        placeholder="New value"
+                        class="flex-1 px-sm py-xs border border-dashed border-[var(--color-border-form)] rounded-[var(--radius-form)]
+                               text-body text-[var(--color-text-primary)] placeholder-[var(--color-placeholder)]
+                               bg-[var(--color-surface)] outline-none focus:border-[var(--color-brand-solid)]"
+                        @keydown.enter.exact.prevent="addValue"
+                      />
+                      <button
+                        data-test="add-value"
+                        class="text-secondary font-semibold text-[var(--color-brand-link)] px-sm py-xs cursor-pointer"
+                        @click="addValue"
+                      >+</button>
+                    </div>
+                  </template>
                 </template>
 
                 <!-- Monthly info card -->
@@ -276,16 +429,16 @@ const monthLabel = new Date(props.year, props.month - 1, 1)
                 </template>
               </div>
 
-              <!-- Delete dimension button -->
+              <!-- Delete / Restore dimension button -->
               <div class="border-t border-[var(--color-divider)] px-2xl py-lg flex-shrink-0">
                 <button
                   data-test="delete-dim"
                   class="text-secondary font-semibold cursor-pointer transition-[color] duration-[var(--motion-fast)]"
                   :class="selectedDimension.deleted
-                    ? 'text-[var(--color-danger)]'
+                    ? 'text-[var(--color-brand-link)]'
                     : 'text-[var(--color-text-disabled)] hover:text-[var(--color-danger)]'"
                   @click="toggleDelete"
-                >{{ selectedDimension.deleted ? 'Restore dimension' : 'Delete dimension' }}</button>
+                >{{ selectedDimension.deleted ? 'Restore' : 'Delete dimension' }}</button>
               </div>
             </div>
           </template>
