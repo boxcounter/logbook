@@ -269,8 +269,8 @@ fn dispatch_command(
         "get_commitments" => {
             let year = input["year"].as_i64().unwrap() as i32;
             let month = input["month"].as_u64().unwrap() as u32;
-            let mf = tauri_app_lib::files::read_monthly_file(root, year, month)?;
-            Ok(serde_json::to_value(mf.commitments).unwrap())
+            let commitments = tauri_app_lib::files::read_commitments_file(root, year, month)?;
+            Ok(serde_json::to_value(commitments).unwrap())
         }
 
         "get_commitment_progress" => {

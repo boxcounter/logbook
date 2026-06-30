@@ -1,19 +1,19 @@
 use crate::cli::output;
 use crate::files;
-use crate::models::{Commitment, CommitmentProgress, MonthlyFile};
+use crate::models::{Commitment, CommitmentProgress};
 use std::io::Read;
 use std::path::Path;
 
 pub fn list(root: &Path, year: i32, month: u32, json: bool) {
-    let monthly = files::read_monthly_file(root, year, month).unwrap_or_else(|e| {
-        output::print_error(&format!("Failed to read monthly file: {}", e));
+    let commitments = files::read_commitments_file(root, year, month).unwrap_or_else(|e| {
+        output::print_error(&format!("Failed to read commitments: {}", e));
         std::process::exit(1);
     });
 
     output::print_output(
         json,
-        &monthly.commitments,
-        &format_commitments_human(&monthly.commitments),
+        &commitments,
+        &format_commitments_human(&commitments),
     );
 }
 
@@ -45,28 +45,27 @@ pub fn set(root: &Path, year: i32, month: u32, json: bool) {
         });
 
     // Try JSON first, then YAML
-    let monthly: MonthlyFile =
-        if let Ok(mf) = serde_json::from_str::<MonthlyFile>(&input) {
-            mf
-        } else if let Ok(mf) = yaml_serde::from_str::<MonthlyFile>(&input) {
-            mf
+    let commitments: Vec<Commitment> =
+        if let Ok(c) = serde_json::from_str::<Vec<Commitment>>(&input) {
+            c
+        } else if let Ok(c) = yaml_serde::from_str::<Vec<Commitment>>(&input) {
+            c
         } else {
             output::print_error(
-                "Failed to parse input as JSON or YAML MonthlyFile.\n\
-                 Expected JSON: {\"commitments\":[{\"role\":\"...\",\"allocation\":N,\"goals\":[...]}]}\n\
-                 Or YAML:\ncommitments:\n  - role: Dev\n    allocation: 40\n    goals:\n      - Goal name",
+                "Failed to parse input as JSON or YAML commitments array.\n\
+                 Expected JSON: [{\"role\":\"...\",\"allocation\":N,\"goals\":[...]}]\n\
+                 Or YAML:\n- role: Dev\n  allocation: 40\n  goals:\n    - Goal name",
             );
             std::process::exit(1);
         };
 
     // Route through the same command the GUI uses: validates, applies goal renames,
-    // protects goals referenced by entries, and preserves the month's dimensions block.
-    // Dimensions are file-managed (not set via this command); any in the input are ignored.
+    // and protects goals referenced by entries.
     match crate::commands::set_commitments(
         root.to_string_lossy().into_owned(),
         year,
         month,
-        monthly.commitments,
+        commitments,
     ) {
         Ok(_) => output::print_output(
             json,

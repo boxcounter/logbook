@@ -25,12 +25,11 @@ fn setup_fixture(tmp: &Path) {
     fs::write(tmp.join("dimensions.template.yaml"), config).unwrap();
 }
 
-/// Create a _monthly.md with given commitments YAML body.
-fn setup_monthly(tmp: &Path, year: i32, month: u32, body: &str) {
+/// Create a commitments.yaml with given YAML body (commitments array, pure YAML).
+fn setup_commitments(tmp: &Path, year: i32, month: u32, body: &str) {
     let dir = tmp.join(year.to_string()).join(format!("{:02}", month));
     fs::create_dir_all(&dir).unwrap();
-    let content = format!("---\n{}---\n", body);
-    fs::write(dir.join("_monthly.md"), &content).unwrap();
+    fs::write(dir.join("commitments.yaml"), body).unwrap();
 }
 
 /// Create a day file with given entries YAML body.
@@ -38,7 +37,7 @@ fn setup_day_file(tmp: &Path, date: &str, body: &str) {
     let parts: Vec<&str> = date.split('-').collect();
     let dir = tmp.join(parts[0]).join(parts[1]);
     fs::create_dir_all(&dir).unwrap();
-    let content = format!("---\n{}---\n", body);
+    let content = format!("---\n{}\n---\n", body);
     fs::write(dir.join(format!("{}.md", date)), &content).unwrap();
 }
 
@@ -163,7 +162,7 @@ fn test_commitments_list_with_data() {
     let tmp = std::env::temp_dir().join("logbook_cli_test_list");
     let _ = fs::remove_dir_all(&tmp);
     setup_fixture(&tmp);
-    setup_monthly(&tmp, 2026, 6, "commitments:\n  - role: Dev\n    allocation: 40\n    goals:\n      - Ship it");
+    setup_commitments(&tmp, 2026, 6, "- role: Dev\n  allocation: 40\n  goals:\n    - Ship it");
 
     let output = run(&[
         "--root-path", tmp.to_str().unwrap(),
@@ -184,7 +183,7 @@ fn test_commitments_list_human() {
     let tmp = std::env::temp_dir().join("logbook_cli_test_list_human");
     let _ = fs::remove_dir_all(&tmp);
     setup_fixture(&tmp);
-    setup_monthly(&tmp, 2026, 6, "commitments:\n  - role: Dev\n    allocation: 40\n    goals:\n      - Ship it");
+    setup_commitments(&tmp, 2026, 6, "- role: Dev\n  allocation: 40\n  goals:\n    - Ship it");
 
     let output = run(&[
         "--root-path", tmp.to_str().unwrap(),
@@ -204,7 +203,7 @@ fn test_commitments_progress() {
     let tmp = std::env::temp_dir().join("logbook_cli_test_progress");
     let _ = fs::remove_dir_all(&tmp);
     setup_fixture(&tmp);
-    setup_monthly(&tmp, 2026, 6, "commitments:\n  - role: Dev\n    allocation: 40\n    goals:\n      - Ship it");
+    setup_commitments(&tmp, 2026, 6, "- role: Dev\n  allocation: 40\n  goals:\n    - Ship it");
 
     // Add a day entry with matching goal
     setup_day_file(
@@ -234,7 +233,7 @@ fn test_commitments_set_valid() {
     let _ = fs::remove_dir_all(&tmp);
     setup_fixture(&tmp);
 
-    let input = "commitments:\n  - role: Dev\n    allocation: 20\n    goals:\n      - Refactor";
+    let input = "- role: Dev\n  allocation: 20\n  goals:\n    - Refactor";
 
     let output = run_with_stdin(&[
         "--root-path", tmp.to_str().unwrap(),
@@ -243,9 +242,9 @@ fn test_commitments_set_valid() {
     assert!(output.status.success(), "stderr: {}", String::from_utf8_lossy(&output.stderr));
 
     // Verify the file was written
-    let monthly_path = tmp.join("2026").join("07").join("_monthly.md");
-    assert!(monthly_path.exists());
-    let content = fs::read_to_string(&monthly_path).unwrap();
+    let commitments_path = tmp.join("2026").join("07").join("commitments.yaml");
+    assert!(commitments_path.exists());
+    let content = fs::read_to_string(&commitments_path).unwrap();
     assert!(content.contains("Dev"));
     assert!(content.contains("20"));
     assert!(content.contains("Refactor"));
@@ -259,7 +258,7 @@ fn test_commitments_set_roundtrip() {
     let _ = fs::remove_dir_all(&tmp);
     setup_fixture(&tmp);
 
-    let input = "commitments:\n  - role: Dev\n    allocation: 40\n    goals:\n      - Feature A\n      - Bug fixes\n  - role: PM\n    allocation: 10\n    goals:\n      - Planning";
+    let input = "- role: Dev\n  allocation: 40\n  goals:\n    - Feature A\n    - Bug fixes\n- role: PM\n  allocation: 10\n  goals:\n    - Planning";
 
     // Write via set
     let output = run_with_stdin(&[
@@ -292,27 +291,32 @@ fn test_commitments_set_preserves_dimensions_block() {
     let tmp = std::env::temp_dir().join("logbook_cli_test_setdims");
     let _ = fs::remove_dir_all(&tmp);
     setup_fixture(&tmp);
-    // Instantiated month: _monthly.md already carries a dimensions snapshot.
-    setup_monthly(
-        &tmp,
-        2026,
-        8,
-        "dimensions:\n  - name: Biz\n    key: biz\n    source: static\n    values: [Product]\ncommitments:\n  - role: Dev\n    allocation: 40\n    goals:\n      - Feature A",
-    );
+
+    // Instantiated month: dimensions.yaml carries a dimensions snapshot.
+    let dir = tmp.join("2026").join("08");
+    fs::create_dir_all(&dir).unwrap();
+    fs::write(
+        dir.join("dimensions.yaml"),
+        "- name: Biz\n  key: biz\n  source: static\n  values: [Product]\n",
+    ).unwrap();
+    // Old commitments in commitments.yaml (to test rename detection doesn't wipe dimensions).
+    setup_commitments(&tmp, 2026, 8, "- role: Dev\n  allocation: 40\n  goals:\n    - Feature A");
 
     // set with the documented commitments-only input.
-    let input = "commitments:\n  - role: PM\n    allocation: 10\n    goals:\n      - Planning";
+    let input = "- role: PM\n  allocation: 10\n  goals:\n    - Planning";
     let output = run_with_stdin(&[
         "--root-path", tmp.to_str().unwrap(),
         "commitments", "set", "--year", "2026", "--month", "8",
     ], input);
     assert!(output.status.success(), "set failed: {}", String::from_utf8_lossy(&output.stderr));
 
-    // The dimensions block must survive; commitments are replaced.
-    let content = fs::read_to_string(tmp.join("2026").join("08").join("_monthly.md")).unwrap();
-    assert!(content.contains("biz"), "dimensions block was wiped: {}", content);
-    assert!(content.contains("PM"));
-    assert!(!content.contains("Feature A"), "old commitments should be replaced: {}", content);
+    // The dimensions.yaml must survive; commitments.yaml has new commitments.
+    let dims_content = fs::read_to_string(tmp.join("2026").join("08").join("dimensions.yaml")).unwrap();
+    assert!(dims_content.contains("biz"), "dimensions.yaml was wiped: {}", dims_content);
+
+    let comm_content = fs::read_to_string(tmp.join("2026").join("08").join("commitments.yaml")).unwrap();
+    assert!(comm_content.contains("PM"));
+    assert!(!comm_content.contains("Feature A"), "old commitments should be replaced: {}", comm_content);
 
     let _ = fs::remove_dir_all(&tmp);
 }
@@ -324,7 +328,7 @@ fn test_commitments_set_validation_error_no_write() {
     setup_fixture(&tmp);
 
     // Missing role
-    let input = "commitments:\n  - role: ''\n    allocation: 10\n    goals: []";
+    let input = "- role: ''\n  allocation: 10\n  goals: []";
 
     let output = run_with_stdin(&[
         "--root-path", tmp.to_str().unwrap(),
@@ -339,8 +343,8 @@ fn test_commitments_set_validation_error_no_write() {
     );
 
     // Verify file was NOT written
-    let monthly_path = tmp.join("2026").join("09").join("_monthly.md");
-    assert!(!monthly_path.exists());
+    let commitments_path = tmp.join("2026").join("09").join("commitments.yaml");
+    assert!(!commitments_path.exists());
 
     let _ = fs::remove_dir_all(&tmp);
 }
@@ -351,7 +355,7 @@ fn test_commitments_set_json_input() {
     let _ = fs::remove_dir_all(&tmp);
     setup_fixture(&tmp);
 
-    let input = r#"{"commitments":[{"role":"Dev","allocation":30,"goals":["API work"]}]}"#;
+    let input = r#"[{"role":"Dev","allocation":30,"goals":["API work"]}]"#;
 
     let output = run_with_stdin(&[
         "--root-path", tmp.to_str().unwrap(),
@@ -359,9 +363,9 @@ fn test_commitments_set_json_input() {
     ], input);
     assert!(output.status.success(), "stderr: {}", String::from_utf8_lossy(&output.stderr));
 
-    let monthly_path = tmp.join("2026").join("10").join("_monthly.md");
-    assert!(monthly_path.exists());
-    let content = fs::read_to_string(&monthly_path).unwrap();
+    let commitments_path = tmp.join("2026").join("10").join("commitments.yaml");
+    assert!(commitments_path.exists());
+    let content = fs::read_to_string(&commitments_path).unwrap();
     assert!(content.contains("Dev"));
     assert!(content.contains("30"));
 
@@ -422,7 +426,7 @@ fn test_root_path_flag_priority() {
     let tmp = std::env::temp_dir().join("logbook_cli_test_root_flag");
     let _ = fs::remove_dir_all(&tmp);
     setup_fixture(&tmp);
-    setup_monthly(&tmp, 2026, 6, "commitments:\n  - role: Dev\n    allocation: 10\n    goals:\n      - Test");
+    setup_commitments(&tmp, 2026, 6, "- role: Dev\n  allocation: 10\n  goals:\n    - Test");
 
     let output = run(&[
         "--root-path", tmp.to_str().unwrap(),

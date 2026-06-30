@@ -208,6 +208,28 @@ pub fn load_root_state(root: &std::path::Path) -> InitResult {
     };
     all_errors.extend(validate_monthly(&monthly));
 
+    // Read commitments from commitments.yaml (separate from _monthly.md)
+    let commitments = match files::read_commitments_file(root, now.year(), now.month()) {
+        Ok(c) => {
+            if !c.is_empty() {
+                if let Err(e) = validate_commitments(&c) {
+                    all_errors.push(ConfigErrorDetail {
+                        kind: "CommitmentValidation".to_string(),
+                        message: e,
+                    });
+                }
+            }
+            c
+        }
+        Err(e) => {
+            all_errors.push(ConfigErrorDetail {
+                kind: "CommitmentsFileCorrupt".to_string(),
+                message: e,
+            });
+            vec![]
+        }
+    };
+
     let today_date = format!("{}-{:02}-{:02}", now.year(), now.month(), now.day());
     let today = match read_day_file_safe(root, &today_date) {
         Ok(df) => df,
@@ -241,7 +263,7 @@ pub fn load_root_state(root: &std::path::Path) -> InitResult {
         dimensions,
         from_template,
         today,
-        commitments: monthly.commitments,
+        commitments,
         scan_warnings,
     }
 }
@@ -523,7 +545,7 @@ pub fn get_commitments(
 ) -> Result<Vec<Commitment>, String> {
     error_log::log_command_enter("get_commitments", &format!("{}-{:02}", year, month));
     let root = std::path::Path::new(&root_path);
-    let result = files::read_monthly_file(root, year, month).map(|m| m.commitments);
+    let result = files::read_commitments_file(root, year, month);
     let ok = result.is_ok();
     let count = result.as_ref().map(|c| c.len()).unwrap_or(0);
     error_log::log_command_exit("get_commitments", ok, &format!("{} commitments", count));
@@ -579,19 +601,14 @@ pub fn get_commitment_progress(
 
     let root = std::path::Path::new(&root_path);
 
-    // 1. Read _monthly.md
-    let monthly = crate::files::read_monthly_file(root, year, month).unwrap_or_else(|e| {
+    // 1. Read commitments.yaml
+    let commitments = crate::files::read_commitments_file(root, year, month).unwrap_or_else(|e| {
         error_log::log_error(
             "get_commitment_progress",
-            &format!("Failed to read _monthly.md for {}-{:02}: {:?}", year, month, e),
+            &format!("Failed to read commitments.yaml for {}-{:02}: {:?}", year, month, e),
         );
-        MonthlyFile {
-            dimensions: vec![],
-            commitments: vec![],
-        }
+        vec![]
     });
-
-    let commitments = monthly.commitments;
 
     // 2. Build goal -> (role, goal_name) map
     let mut goal_to_role: HashMap<String, (String, String)> = HashMap::new();
@@ -708,11 +725,17 @@ pub fn set_commitments(
     // 2. Snapshot template dims if this month is fresh (preserves any dims block)
     files::create_dimensions_if_missing(root, year, month)?;
 
-    // 3. Read old state for diff
-    let old = read_monthly_file_safe(root, year, month)?;
+    // 3. Read old commitments for diff
+    let old_commitments = files::read_commitments_file(root, year, month).unwrap_or_else(|e| {
+        error_log::log_error(
+            "set_commitments",
+            &format!("Failed to read old commitments: {}", e),
+        );
+        vec![]
+    });
 
     // 4. Detect changes
-    let changes = detect_goal_changes(&old.commitments, &commitments);
+    let changes = detect_goal_changes(&old_commitments, &commitments);
 
     // 5. Check deleted goals for existing entries
     for goal_name in &changes.deleted {
@@ -730,14 +753,12 @@ pub fn set_commitments(
         rename_goal_in_entries(root, year, month, old_name, new_name)?;
     }
 
-    // 7. Write _monthly.md, preserving the dimensions block
-    let mut monthly = read_monthly_file_safe(root, year, month)?;
-    monthly.commitments = commitments;
-    files::write_monthly_file(root, year, month, &monthly)?;
+    // 7. Write commitments.yaml
+    files::write_commitments_file(root, year, month, &commitments)?;
 
     let ok = true;
     error_log::log_command_exit("set_commitments", ok, "");
-    Ok(monthly.commitments)
+    Ok(commitments)
 }
 
 /// Count entries in a month that reference a specific goal.
@@ -1371,12 +1392,12 @@ mod tests {
         let tmp = std::env::temp_dir().join("logbook_test_cp_empty");
         let _ = fs::remove_dir_all(&tmp);
 
-        // Create directory structure with _monthly.md but no day files
+        // Create directory structure with commitments.yaml but no day files
         let monthly_dir = tmp.join("2026").join("06");
         fs::create_dir_all(&monthly_dir).unwrap();
         fs::write(
-            monthly_dir.join("_monthly.md"),
-            "---\ncommitments:\n  - role: Dev\n    allocation: 40\n    goals:\n      - Ship it\n---\n",
+            monthly_dir.join("commitments.yaml"),
+            "- role: Dev\n  allocation: 40\n  goals:\n    - Ship it\n",
         )
         .unwrap();
 
@@ -1399,12 +1420,12 @@ mod tests {
         let tmp = std::env::temp_dir().join("logbook_test_cp_agg");
         let _ = fs::remove_dir_all(&tmp);
 
-        // Create _monthly.md
+        // Create commitments.yaml
         let monthly_dir = tmp.join("2026").join("06");
         fs::create_dir_all(&monthly_dir).unwrap();
         fs::write(
-            monthly_dir.join("_monthly.md"),
-            "---\ncommitments:\n  - role: Dev\n    allocation: 40\n    goals:\n      - Ship it\n      - Review\n  - role: PM\n    allocation: 10\n    goals:\n      - Planning\n---\n",
+            monthly_dir.join("commitments.yaml"),
+            "- role: Dev\n  allocation: 40\n  goals:\n    - Ship it\n    - Review\n- role: PM\n  allocation: 10\n  goals:\n    - Planning\n",
         )
         .unwrap();
 
@@ -1453,8 +1474,8 @@ mod tests {
         let monthly_dir = tmp.join("2026").join("06");
         fs::create_dir_all(&monthly_dir).unwrap();
         fs::write(
-            monthly_dir.join("_monthly.md"),
-            "---\ncommitments:\n  - role: Dev\n    allocation: 40\n    goals:\n      - Ship it\n---\n",
+            monthly_dir.join("commitments.yaml"),
+            "- role: Dev\n  allocation: 40\n  goals:\n    - Ship it\n",
         )
         .unwrap();
 

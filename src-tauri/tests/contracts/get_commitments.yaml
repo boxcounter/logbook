@@ -1,23 +1,20 @@
 command: get_commitments
-description: Read commitments from _monthly.md for a given year/month.
+description: Read commitments from commitments.yaml for a given year/month.
 cases:
-  - name: read commitments from monthly file
+  - name: read commitments from commitments file
     before:
       - action: write_file
-        path: "2026/06/_monthly.md"
+        path: "2026/06/commitments.yaml"
         content: |
-          ---
-          commitments:
-            - role: Dev
-              allocation: 40
-              goals:
-                - Ship it
-                - Review
-            - role: PM
-              allocation: 10
-              goals:
-                - Planning
-          ---
+          - role: Dev
+            allocation: 40
+            goals:
+              - Ship it
+              - Review
+          - role: PM
+            allocation: 10
+            goals:
+              - Planning
     input:
       root_path: "{ROOT}"
       year: 2026

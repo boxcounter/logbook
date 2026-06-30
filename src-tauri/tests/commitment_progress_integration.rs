@@ -16,12 +16,12 @@ fn setup(suffix: &str) -> std::path::PathBuf {
     )
     .unwrap();
 
-    // Write _monthly.md for June 2026
+    // Write commitments.yaml for June 2026
     let monthly_dir = root.join("2026/06");
     fs::create_dir_all(&monthly_dir).unwrap();
     fs::write(
-        monthly_dir.join("_monthly.md"),
-        "---\ncommitments:\n  - role: Developer\n    allocation: 30\n    goals:\n      - Feature A\n      - Bug fixes\n  - role: VP\n    allocation: 15\n    goals:\n      - Strategy\n---\n",
+        monthly_dir.join("commitments.yaml"),
+        "- role: Developer\n  allocation: 30\n  goals:\n    - Feature A\n    - Bug fixes\n- role: VP\n  allocation: 15\n  goals:\n    - Strategy\n",
     )
     .unwrap();
 
@@ -157,8 +157,8 @@ fn test_progress_with_non_goal_monthly_key() {
     let monthly_dir = root.join("2026/06");
     fs::create_dir_all(&monthly_dir).unwrap();
     fs::write(
-        monthly_dir.join("_monthly.md"),
-        "---\ncommitments:\n  - role: Developer\n    allocation: 30\n    goals:\n      - Feature A\n---\n",
+        monthly_dir.join("commitments.yaml"),
+        "- role: Developer\n  allocation: 30\n  goals:\n    - Feature A\n",
     )
     .unwrap();
 

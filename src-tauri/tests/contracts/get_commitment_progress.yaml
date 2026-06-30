@@ -4,15 +4,12 @@ cases:
   - name: aggregates entries by goal
     before:
       - action: write_file
-        path: "2026/06/_monthly.md"
+        path: "2026/06/commitments.yaml"
         content: |
-          ---
-          commitments:
-            - role: Dev
-              allocation: 40
-              goals:
-                - Ship it
-          ---
+          - role: Dev
+            allocation: 40
+            goals:
+              - Ship it
       - action: write_file
         path: "2026/06/2026-06-01.md"
         content: |
@@ -43,11 +40,8 @@ cases:
   - name: empty month returns zero progress
     before:
       - action: write_file
-        path: "2026/06/_monthly.md"
-        content: |
-          ---
-          commitments: []
-          ---
+        path: "2026/06/commitments.yaml"
+        content: "[]"
     input:
       root_path: "{ROOT}"
       year: 2026

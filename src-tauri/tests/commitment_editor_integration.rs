@@ -18,8 +18,8 @@ fn setup(suffix: &str) -> std::path::PathBuf {
     let monthly_dir = root.join("2026/06");
     fs::create_dir_all(&monthly_dir).unwrap();
     fs::write(
-        monthly_dir.join("_monthly.md"),
-        "---\ncommitments:\n  - role: Developer\n    allocation: 40\n    goals:\n      - Feature A\n      - Code review\n  - role: VP\n    allocation: 10\n    goals:\n      - Strategy\n---\n",
+        monthly_dir.join("commitments.yaml"),
+        "- role: Developer\n  allocation: 40\n  goals:\n    - Feature A\n    - Code review\n- role: VP\n  allocation: 10\n  goals:\n    - Strategy\n",
     )
     .unwrap();
 
@@ -56,7 +56,7 @@ fn test_set_commitments_write_and_read() {
     assert_eq!(result[0].goals, vec!["X", "Y"]);
 
     // Verify file content
-    let content = fs::read_to_string(root.join("2026/06/_monthly.md")).unwrap();
+    let content = fs::read_to_string(root.join("2026/06/commitments.yaml")).unwrap();
     assert!(content.contains("role: Dev"));
     assert!(content.contains("allocation: 80"));
 
@@ -290,10 +290,10 @@ fn test_set_commitments_rename_aborts_before_write_on_corrupt_file() {
 }
 
 #[test]
-fn test_set_commitments_creates_new_monthly_file() {
+fn test_set_commitments_creates_new_commitments_file() {
     let root = setup("new_file");
-    // Delete existing _monthly.md to simulate a month with no prior commitments
-    fs::remove_file(root.join("2026/06/_monthly.md")).unwrap();
+    // Delete existing commitments.yaml to simulate a month with no prior commitments
+    fs::remove_file(root.join("2026/06/commitments.yaml")).unwrap();
 
     let new = make_commitments(vec![("Dev", 20, vec!["Goal 1"])]);
     let result =
@@ -302,7 +302,7 @@ fn test_set_commitments_creates_new_monthly_file() {
 
     assert_eq!(result.len(), 1);
     assert_eq!(result[0].role, "Dev");
-    assert!(root.join("2026/06/_monthly.md").exists());
+    assert!(root.join("2026/06/commitments.yaml").exists());
 
     teardown(&root);
 }
