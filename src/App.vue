@@ -9,7 +9,7 @@ import SetupScreen from "./components/SetupScreen.vue";
 import RecoveryScreen from "./components/RecoveryScreen.vue";
 import MonthView from "./components/MonthView.vue";
 import Toast from "./components/base/Toast.vue";
-import type { InitResult, ConfigErrorDetail, ScanWarning, Commitment, CommitmentProgress } from "./types";
+import type { InitResult, ConfigErrorDetail, ScanWarning, Commitment, CommitmentProgress, MonthDimensions } from "./types";
 import { logError, logInfo } from "./utils/errorLog";
 import { applyInitResult } from "./utils/applyInitResult";
 
@@ -55,23 +55,32 @@ function maybeRollover() {
 }
 
 // Store listener handles for cleanup (prevents HMR duplication)
-let unlistenConfig: (() => void) | null = null;
+let unlistenDimensions: (() => void) | null = null;
 let unlistenCommitments: (() => void) | null = null;
 let unlistenFocus: (() => void) | null = null;
 
 onMounted(async () => {
   try {
-    unlistenConfig = await listen<ConfigErrorDetail[]>("config-changed", (event) => {
-      if (event.payload.length === 0) {
-        initApp();
-      } else {
+    unlistenDimensions = await listen<ConfigErrorDetail[]>("dimensions-changed", async (event) => {
+      if (store.status !== "ready") return;
+      if (event.payload.length > 0) {
         store.configErrors = event.payload;
-        // The watcher only runs on an existing, watched root and fires for
-        // template.yaml/_monthly.md edits, so a non-empty payload is always an
-        // in-place fix (root + template demonstrably exist). If the backend ever
-        // emits config-changed from a path where the tier could differ, revisit this.
         store.configCategory = "in_place";
         store.status = "error";
+        return;
+      }
+      // Reload dimensions for the currently viewed month only — not initApp()
+      const { year, month } = yearMonthFromDate(store.currentDate);
+      try {
+        const result = await invoke("get_month_dimensions", {
+          rootPath: store.rootPath,
+          year,
+          month,
+        }) as MonthDimensions;
+        store.dimensions = result.dimensions;
+        store.fromTemplate = result.from_template;
+      } catch (e) {
+        logError("App.dimensionsChanged", e);
       }
     });
 
@@ -81,6 +90,12 @@ onMounted(async () => {
       if (store.status !== "ready") return;
       const { year, month } = yearMonthFromDate(store.currentDate);
       try {
+        // Reload both commitments AND dimensions (monthly file contains both)
+        const dimsResult = await invoke("get_month_dimensions", {
+          rootPath: store.rootPath, year, month,
+        }) as MonthDimensions;
+        store.dimensions = dimsResult.dimensions;
+        store.fromTemplate = dimsResult.from_template;
         store.commitments = (await invoke("get_commitments", { rootPath: store.rootPath, year, month })) as Commitment[];
         store.commitmentProgress = (await invoke("get_commitment_progress", { rootPath: store.rootPath, year, month })) as CommitmentProgress[];
       } catch (e) {
@@ -105,7 +120,7 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
-  unlistenConfig?.();
+  unlistenDimensions?.();
   unlistenCommitments?.();
   unlistenFocus?.();
   if (undoTimer) clearTimeout(undoTimer);

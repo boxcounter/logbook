@@ -3,7 +3,7 @@ import { mount, flushPromises } from "@vue/test-utils";
 import { nextTick } from "vue";
 import { STORE_KEY } from "../../stores/useStore";
 import { createTestStore } from "../mocks/store";
-import { makeDimensions, makeDayFile, makeCommitment } from "../mocks/fixtures";
+import { makeDimensions, makeDayFile, makeCommitment, makeDimension } from "../mocks/fixtures";
 import App from "../../App.vue";
 import Toast from "../../components/base/Toast.vue";
 
@@ -23,7 +23,7 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 vi.mock("../../utils/errorLog", () => ({ logError: mockLogError, logInfo: mockLogInfo }));
 
 // Track registered event callbacks so tests can fire them
-let configChangedCallback: ((event: { payload: unknown }) => void) | null = null;
+let dimensionsChangedCallback: ((event: { payload: unknown }) => void) | null = null;
 let commitmentsChangedCallback: (() => void) | null = null;
 let focusChangedCallback: (({ payload }: { payload: boolean }) => void) | null = null;
 
@@ -55,7 +55,7 @@ describe("App", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
-    configChangedCallback = null;
+    dimensionsChangedCallback = null;
     commitmentsChangedCallback = null;
     focusChangedCallback = null;
 
@@ -63,10 +63,10 @@ describe("App", () => {
     mockInvoke.mockResolvedValue({ status: "NeedsSetup" });
     // listen returns unlisten function and stores the callback
     mockListen.mockImplementation(async (event: string, cb: unknown) => {
-      if (event === "config-changed") configChangedCallback = cb as typeof configChangedCallback;
+      if (event === "dimensions-changed") dimensionsChangedCallback = cb as typeof dimensionsChangedCallback;
       if (event === "commitments-changed") commitmentsChangedCallback = cb as typeof commitmentsChangedCallback;
       return () => {
-        if (event === "config-changed") configChangedCallback = null;
+        if (event === "dimensions-changed") dimensionsChangedCallback = null;
         if (event === "commitments-changed") commitmentsChangedCallback = null;
       };
     });
@@ -188,17 +188,17 @@ describe("App", () => {
     await vi.runAllTimersAsync();
     await nextTick();
 
-    expect(mockListen).toHaveBeenCalledWith("config-changed", expect.any(Function));
+    expect(mockListen).toHaveBeenCalledWith("dimensions-changed", expect.any(Function));
     expect(mockListen).toHaveBeenCalledWith("commitments-changed", expect.any(Function));
   });
 
   it("calls unlisten on unmount", async () => {
     // Distinct spies for each listener so we can assert each is cleaned up.
-    const unlistenConfig = vi.fn();
+    const unlistenDimensions = vi.fn();
     const unlistenCommitments = vi.fn();
     const unlistenFocus = vi.fn();
     mockListen.mockImplementation(async (event: string) => {
-      if (event === "config-changed") return unlistenConfig;
+      if (event === "dimensions-changed") return unlistenDimensions;
       if (event === "commitments-changed") return unlistenCommitments;
       return vi.fn();
     });
@@ -214,37 +214,49 @@ describe("App", () => {
 
     wrapper.unmount();
 
-    expect(unlistenConfig).toHaveBeenCalledTimes(1);
+    expect(unlistenDimensions).toHaveBeenCalledTimes(1);
     expect(unlistenCommitments).toHaveBeenCalledTimes(1);
     expect(unlistenFocus).toHaveBeenCalledTimes(1);
   });
 
-  it("config-changed event with no errors calls initApp", async () => {
-    mountApp();
-    // Wait for mount to complete
-    await vi.runAllTimersAsync();
-    await nextTick();
-
-    vi.clearAllMocks();
-    mockInvoke.mockResolvedValue({ status: "NeedsSetup" });
-
-    // Simulate config-changed event with empty error list
-    if (configChangedCallback) {
-      configChangedCallback({ payload: [] });
-      await vi.runAllTimersAsync();
-    }
-
-    expect(mockInvoke).toHaveBeenCalledWith("init");
-  });
-
-  it("config-changed event with errors shows error screen", async () => {
+  it("dimensions-changed event with no errors reloads dimensions for current month", async () => {
+    vi.setSystemTime(new Date(2026, 5, 20, 10, 0, 0));
+    const dims = makeDimensions();
+    mockInvoke.mockResolvedValue({
+      status: "Ready",
+      data: { root_path: "/test", dimensions: dims, from_template: false, today: makeDayFile(), commitments: [], scan_warnings: [] },
+    });
     const { store } = mountApp();
     await vi.runAllTimersAsync();
     await nextTick();
 
-    if (configChangedCallback) {
+    vi.clearAllMocks();
+    const newDims = [makeDimension({ name: "Updated", key: "updated", source: "static", required: false })];
+    mockInvoke.mockResolvedValue({ dimensions: newDims, from_template: true });
+
+    // Simulate dimensions-changed event with empty error list
+    if (dimensionsChangedCallback) {
+      dimensionsChangedCallback({ payload: [] });
+      await vi.runAllTimersAsync();
+    }
+
+    expect(mockInvoke).toHaveBeenCalledWith("get_month_dimensions", expect.objectContaining({ year: 2026, month: 6 }));
+    expect(store.dimensions).toEqual(newDims);
+    expect(store.fromTemplate).toBe(true);
+  });
+
+  it("dimensions-changed event with errors shows error screen", async () => {
+    mockInvoke.mockResolvedValue({
+      status: "Ready",
+      data: { root_path: "/test", dimensions: makeDimensions(), from_template: false, today: makeDayFile(), commitments: [], scan_warnings: [] },
+    });
+    const { store } = mountApp();
+    await vi.runAllTimersAsync();
+    await nextTick();
+
+    if (dimensionsChangedCallback) {
       const errors = [{ kind: "MissingName", message: "Bad config" }];
-      configChangedCallback({ payload: errors });
+      dimensionsChangedCallback({ payload: errors });
     }
 
     expect(store.status).toBe("error");
@@ -269,6 +281,7 @@ describe("App", () => {
 
     // 按月路由：7 月空，其它月有数据
     mockInvoke.mockImplementation(async (cmd: string, args: { month: number }) => {
+      if (cmd === "get_month_dimensions") return { dimensions: makeDimensions(), from_template: false };
       if (cmd === "get_commitments") return args.month === 7 ? [] : [makeCommitment()];
       if (cmd === "get_commitment_progress") return [];
       return undefined;
@@ -298,7 +311,7 @@ describe("App", () => {
     expect(mockInvoke).not.toHaveBeenCalledWith("get_commitment_progress");
   });
 
-  it("initApp (via config-changed) does NOT overwrite the selected month's commitments", async () => {
+  it("dimensions-changed reloads dimensions without overwriting commitments", async () => {
     vi.setSystemTime(new Date(2026, 5, 20, 10, 0, 0));
     mockInvoke.mockResolvedValue({
       status: "Ready",
@@ -312,15 +325,15 @@ describe("App", () => {
     const sentinel = [makeCommitment({ role: "JulyOnly" })];
     store.commitments = sentinel; // 选中月（7 月）当前持有的数据
     vi.clearAllMocks();
-    mockInvoke.mockResolvedValue({
-      status: "Ready",
-      data: { root_path: "/test", dimensions: makeDimensions(), from_template: false, today: makeDayFile(), commitments: [makeCommitment()], scan_warnings: [] },
-    });
+    const newDims = [makeDimension({ name: "NewDim", key: "new", source: "static", required: false })];
+    mockInvoke.mockResolvedValue({ dimensions: newDims, from_template: true });
 
-    configChangedCallback?.({ payload: [] }); // 触发 initApp
+    dimensionsChangedCallback?.({ payload: [] }); // 触发 get_month_dimensions
     await vi.runAllTimersAsync();
 
-    expect(store.commitments).toStrictEqual(sentinel); // initApp 不再写 commitments，内容未变
+    expect(store.dimensions).toEqual(newDims);
+    expect(store.fromTemplate).toBe(true);
+    expect(store.commitments).toStrictEqual(sentinel); // commitments untouched
   });
 
   // ---- Focus / midnight crossing ----
