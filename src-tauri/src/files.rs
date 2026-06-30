@@ -118,7 +118,7 @@ pub fn append_new_entry(
 ) -> Result<Entry, String> {
     let duration = crate::commands::parse_duration(&new_entry.duration)?;
     let (year, month) = year_month_from_date(date)?;
-    ensure_month_instantiated(root, year, month)?;
+    create_dimensions_if_missing(root, year, month)?;
     let dims = resolve_month_dimensions(root, year, month)?;
     crate::commands::validate_required_dimensions(&dims, &new_entry.dimensions)?;
     let entry = Entry {
@@ -356,9 +356,30 @@ pub fn resolve_month_dimensions(
     Ok(read_dimensions_template(root)?.dimensions)
 }
 
+/// Create dimensions.yaml from template if the month has no dimensions yet.
+/// No-op if dimensions.yaml already exists or the template has no dimensions.
+pub fn create_dimensions_if_missing(
+    root: &Path,
+    year: i32,
+    month: u32,
+) -> Result<(), String> {
+    if dimensions_path(root, year, month).exists() {
+        return Ok(());
+    }
+    if !dimensions_template_path(root).exists() {
+        return Ok(());
+    }
+    let template_dims = read_dimensions_template(root)?.dimensions;
+    if template_dims.is_empty() {
+        return Ok(());
+    }
+    write_dimensions_file(root, year, month, &template_dims)
+}
+
 /// Snapshot the template into a month's `_monthly.md` if it has no dimensions
 /// block yet. Preserves any existing commitments (merge, not overwrite).
 /// No-op if already instantiated or the template has no dimensions.
+#[allow(dead_code)]
 pub fn ensure_month_instantiated(root: &Path, year: i32, month: u32) -> Result<(), String> {
     let mut monthly = read_monthly_file(root, year, month)?;
     if !monthly.dimensions.is_empty() {

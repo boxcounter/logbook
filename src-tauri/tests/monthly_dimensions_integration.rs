@@ -68,21 +68,24 @@ fn first_append_snapshots_template() {
     };
     files::append_new_entry(&root, "2026-07-15", &input).unwrap();
 
-    // _monthly.md now carries the dimensions block
-    let monthly = files::read_monthly_file(&root, 2026, 7).unwrap();
-    assert_eq!(monthly.dimensions.len(), 2);
+    // dimensions.yaml now carries the template snapshot
+    let dims = files::read_dimensions_file(&root, 2026, 7).unwrap();
+    assert_eq!(dims.len(), 2, "append must snapshot template to dimensions.yaml");
 
-    // Write dimensions.yaml so resolve_month_dimensions finds the snapshot.
-    files::write_dimensions_file(&root, 2026, 7, &monthly.dimensions).unwrap();
+    // _monthly.md must NOT be written by append (dimensions live in dimensions.yaml).
+    assert!(
+        !files::monthly_path(&root, 2026, 7).exists(),
+        "append must not write _monthly.md"
+    );
 
     // Change the template; the month keeps its snapshot.
     write_template(
         &root,
         "dimensions:\n  - name: Other\n    key: other\n    source: static\n    values: [x]\n",
     );
-    let dims = files::resolve_month_dimensions(&root, 2026, 7).unwrap();
-    assert_eq!(dims.len(), 2, "snapshot must not follow template changes");
-    assert_eq!(dims[0].key, "biz");
+    let resolved = files::resolve_month_dimensions(&root, 2026, 7).unwrap();
+    assert_eq!(resolved.len(), 2, "snapshot must not follow template changes");
+    assert_eq!(resolved[0].key, "biz");
 
     let _ = fs::remove_dir_all(&root);
 }

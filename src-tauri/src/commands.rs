@@ -363,7 +363,7 @@ pub fn append_entry(root_path: String, date: String, entry: CreateEntryInput) ->
     validate_date_format(&date)?;
     let duration = parse_duration(&entry.duration)?;
     let (year, month) = files::year_month_from_date(&date)?;
-    files::ensure_month_instantiated(root, year, month)?;
+    files::create_dimensions_if_missing(root, year, month)?;
     let dims = files::resolve_month_dimensions(root, year, month)?;
     validate_required_dimensions(&dims, &entry.dimensions)?;
 
@@ -407,7 +407,7 @@ pub fn update_entry(
     let root = std::path::Path::new(&root_path);
     validate_date_format(&date)?;
     let (year, month) = files::year_month_from_date(&date)?;
-    files::ensure_month_instantiated(root, year, month)?;
+    files::create_dimensions_if_missing(root, year, month)?;
     if let Some(ref dur_str) = update.duration {
         parse_duration(dur_str)?;
     }
@@ -706,7 +706,7 @@ pub fn set_commitments(
     validate_commitments(&commitments)?;
 
     // 2. Snapshot template dims if this month is fresh (preserves any dims block)
-    files::ensure_month_instantiated(root, year, month)?;
+    files::create_dimensions_if_missing(root, year, month)?;
 
     // 3. Read old state for diff
     let old = read_monthly_file_safe(root, year, month)?;
