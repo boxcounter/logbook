@@ -1305,6 +1305,7 @@ mod tests {
                     source: "static".into(),
                     values: Some(vec!["A".into()]),
                     required: required_keys.contains(&"biz"),
+                    deleted: false,
                 },
                 Dimension {
                     name: "Cat".into(),
@@ -1312,6 +1313,7 @@ mod tests {
                     source: "static".into(),
                     values: Some(vec!["X".into()]),
                     required: required_keys.contains(&"cat"),
+                    deleted: false,
                 },
                 Dimension {
                     name: "Goal".into(),
@@ -1319,6 +1321,7 @@ mod tests {
                     source: "monthly".into(),
                     values: None,
                     required: required_keys.contains(&"goal"),
+                    deleted: false,
                 },
             ],
         }

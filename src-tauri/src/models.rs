@@ -18,6 +18,8 @@ pub struct Dimension {
     pub values: Option<Vec<String>>,
     #[serde(default)] // false when absent
     pub required: bool,
+    #[serde(default)] // false when absent; backward-compatible with existing files
+    pub deleted: bool,
 }
 
 fn default_source() -> String {

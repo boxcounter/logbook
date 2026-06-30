@@ -4,6 +4,7 @@ export interface Dimension {
   source: "static" | "monthly";
   values?: string[];
   required: boolean;
+  deleted: boolean;
 }
 
 export interface MonthDimensions {

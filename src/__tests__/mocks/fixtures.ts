@@ -40,6 +40,7 @@ export function makeDimension(overrides?: Partial<Dimension>): Dimension {
     key: "goal",
     source: "monthly",
     required: false,
+    deleted: false,
     ...overrides,
   };
 }

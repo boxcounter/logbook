@@ -364,6 +364,7 @@ mod tests {
                     source: "static".into(),
                     values: Some(vec!["X".into()]),
                     required: false,
+                    deleted: false,
                 },
                 Dimension {
                     name: "Goal".into(),
@@ -371,6 +372,7 @@ mod tests {
                     source: "monthly".into(),
                     values: None,
                     required: false,
+                    deleted: false,
                 },
             ],
         };
@@ -386,6 +388,7 @@ mod tests {
                 source: "static".into(),
                 values: None,
                 required: false,
+                deleted: false,
             }],
         };
         let errors = validate_dimensions(&config.dimensions);
@@ -402,6 +405,7 @@ mod tests {
                 source: "static".into(),
                 values: Some(vec![]),
                 required: false,
+                deleted: false,
             }],
         };
         let errors = validate_dimensions(&config.dimensions);
@@ -418,6 +422,7 @@ mod tests {
                 source: "static".into(),
                 values: Some(vec!["x".into()]),
                 required: false,
+                deleted: false,
             }],
         };
         let errors = validate_dimensions(&config.dimensions);
@@ -435,6 +440,7 @@ mod tests {
                     source: "monthly".into(),
                     values: None,
                     required: false,
+                    deleted: false,
                 },
                 Dimension {
                     name: "G2".into(),
@@ -442,6 +448,7 @@ mod tests {
                     source: "monthly".into(),
                     values: None,
                     required: false,
+                    deleted: false,
                 },
             ],
         };
@@ -459,6 +466,7 @@ mod tests {
                 source: "dynamic".into(),
                 values: None,
                 required: false,
+                deleted: false,
             }],
         };
         let errors = validate_dimensions(&config.dimensions);
