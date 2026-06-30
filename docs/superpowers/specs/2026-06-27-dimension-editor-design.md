@@ -194,22 +194,27 @@
 ### `logbook-cli dimensions get`
 
 ```
-logbook-cli dimensions get [--year Y] [--month M] [--template]
+logbook-cli dimensions get --year Y --month M
+logbook-cli dimensions get --template
 ```
 
-- 无参数：返回当前月有效维度（已实例化则取月快照，未实例化则取模板）
-- `--template`：直接返回模板维度
-- 输出：默认 YAML，`--json` 输出 JSON
+- `--year Y --month M`（二者必须同时提供）：返回该月有效维度（已实例化则取月快照，未实例化则取模板）
+- `--template`：返回模板维度
+- `--year`/`--month` 和 `--template` 互斥
+- 输出：默认 YAML，`--json` 输出 JSON。YAML 模式在顶部输出一行注释标明来源：`# source: 2026/06/_monthly.md` 或 `# source: template.yaml`
 - 成功 exit 0，错误 exit 1（文件缺失、解析错误等）
 
 ### `logbook-cli dimensions set`
 
 ```
-logbook-cli dimensions set [--year Y] [--month M] [--template]
+logbook-cli dimensions set --year Y --month M < dimensions.yaml
+logbook-cli dimensions set --template < dimensions.yaml
 ```
 
 - 从 stdin 读取 YAML 或 JSON
-- `--template`：写入 `template.yaml`。无标记：写入 `_monthly.md`
+- `--year Y --month M`（二者必须同时提供）：写入该月 `_monthly.md`
+- `--template`：写入 `template.yaml`
+- `--year`/`--month` 和 `--template` 互斥
 - 写入前校验（规则同 GUI）
 - 成功：原子写入（tmp + rename），无输出，exit 0
 - 校验失败：错误信息输出到 stderr，exit 1
