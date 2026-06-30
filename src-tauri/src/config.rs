@@ -35,8 +35,8 @@ fn is_valid_key(key: &str) -> bool {
         .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
 }
 
-/// Extract (year, month) from a `_monthly.md` path laid out as
-/// `{root}/{year}/{month:02}/_monthly.md`. Returns None if the parent
+/// Extract (year, month) from a path laid out as
+/// `{root}/{year}/{month:02}/<filename>`. Returns None if the parent
 /// directories aren't numeric year/month — the watcher must reflect the month
 /// of the file that actually changed, not the current wall-clock month.
 fn month_from_monthly_path(path: &std::path::Path) -> Option<(i32, u32)> {
@@ -250,17 +250,41 @@ fn spawn_watcher(app_handle: AppHandle, root_path: PathBuf) -> Result<Recommende
                 if file_name == "dimensions.template.yaml" {
                     match files::read_dimensions_template(&watch_root) {
                         Ok(config) => {
-                            let errors = validate_dimensions(&config.dimensions);
-                            if let Err(e) = app_handle.emit("config-changed", &errors) {
+                            let _ = validate_dimensions(&config.dimensions);
+                            // Template changes do not affect the current view — no emit.
+                            // Validation errors are surfaced on the next init/dimensions read.
+                        }
+                        Err(_) => {
+                            // Parse error; next read will surface it.
+                        }
+                    }
+                } else if file_name == "dimensions.yaml" {
+                    // Reflect the month of the file that actually changed, not the
+                    // current wall-clock month — editing a past month's dimensions
+                    // must not broadcast the current month's data.
+                    let (year, month) = match month_from_monthly_path(path) {
+                        Some(ym) => ym,
+                        None => {
+                            crate::error_log::log_error(
+                                "file_watcher",
+                                &format!("could not parse month from dimensions.yaml path: {}", path.display()),
+                            );
+                            continue;
+                        }
+                    };
+                    match files::read_dimensions_file(&watch_root, year, month) {
+                        Ok(dims) => {
+                            let errors = validate_dimensions(&dims);
+                            if let Err(e) = app_handle.emit("dimensions-changed", &errors) {
                                 crate::error_log::log_error(
                                     "file_watcher",
-                                    &format!("emit config-changed failed: {}", e),
+                                    &format!("emit dimensions-changed failed: {}", e),
                                 );
                             }
                         }
                         Err(e) => {
                             if let Err(e2) = app_handle.emit(
-                                "config-changed",
+                                "dimensions-changed",
                                 &vec![ConfigErrorDetail {
                                     kind: "ParseError".to_string(),
                                     message: e,
@@ -268,27 +292,31 @@ fn spawn_watcher(app_handle: AppHandle, root_path: PathBuf) -> Result<Recommende
                             ) {
                                 crate::error_log::log_error(
                                     "file_watcher",
-                                    &format!("emit config-changed failed: {}", e2),
+                                    &format!("emit dimensions-changed failed: {}", e2),
                                 );
                             }
                         }
                     }
-                } else if file_name == "_monthly.md" {
+                } else if file_name == "commitments.yaml" {
                     // Reflect the month of the file that actually changed, not the
-                    // current wall-clock month — editing a past month's _monthly.md
+                    // current wall-clock month — editing a past month's commitments
                     // must not broadcast the current month's data.
                     let (year, month) = match month_from_monthly_path(path) {
                         Some(ym) => ym,
                         None => {
                             crate::error_log::log_error(
                                 "file_watcher",
-                                &format!("could not parse month from _monthly.md path: {}", path.display()),
+                                &format!("could not parse month from commitments.yaml path: {}", path.display()),
                             );
                             continue;
                         }
                     };
-                    match files::read_monthly_file(&watch_root, year, month) {
-                        Ok(monthly) => {
+                    match files::read_commitments_file(&watch_root, year, month) {
+                        Ok(commitments) => {
+                            // Validate alongside any existing dimensions
+                            let dims = files::read_dimensions_file(&watch_root, year, month)
+                                .unwrap_or_default();
+                            let monthly = MonthlyFile { dimensions: dims, commitments };
                             let errors = validate_monthly(&monthly);
                             if let Err(e) = app_handle.emit("commitments-changed", &errors) {
                                 crate::error_log::log_error(
@@ -541,22 +569,22 @@ mod tests {
 
     #[test]
     fn test_month_from_monthly_path_extracts_changed_month() {
-        let p = std::path::Path::new("/data/2026/05/_monthly.md");
+        let p = std::path::Path::new("/data/2026/05/dimensions.yaml");
         assert_eq!(month_from_monthly_path(p), Some((2026, 5)));
     }
 
     #[test]
     fn test_month_from_monthly_path_rejects_non_numeric_and_bad_month() {
         assert_eq!(
-            month_from_monthly_path(std::path::Path::new("/data/abc/05/_monthly.md")),
+            month_from_monthly_path(std::path::Path::new("/data/abc/05/dimensions.yaml")),
             None
         );
         assert_eq!(
-            month_from_monthly_path(std::path::Path::new("/data/2026/13/_monthly.md")),
+            month_from_monthly_path(std::path::Path::new("/data/2026/13/commitments.yaml")),
             None
         );
         assert_eq!(
-            month_from_monthly_path(std::path::Path::new("/_monthly.md")),
+            month_from_monthly_path(std::path::Path::new("/dimensions.yaml")),
             None
         );
     }
@@ -566,7 +594,7 @@ mod tests {
         let mut m: HashMap<std::path::PathBuf, Instant> = HashMap::new();
         let window = Duration::from_millis(300);
         let t0 = Instant::now();
-        let p = std::path::Path::new("/data/2026/06/_monthly.md");
+        let p = std::path::Path::new("/data/2026/06/dimensions.yaml");
 
         // First event for the path → process.
         assert!(debounce_and_record(&mut m, p, t0, window));
