@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, nextTick } from "vue";
+import { ref, computed, watch, nextTick } from "vue";
 import type { Dimension } from "../../types";
 
 const props = defineProps<{
@@ -14,12 +14,20 @@ const emit = defineEmits<{ close: []; saved: [Dimension[]] }>();
 
 const overlayRef = ref<HTMLElement>();
 const showDiscard = ref(false);
+const draft = ref<Dimension[]>([]);
+const selectedIndex = ref(0);
 
 watch(() => props.open, (o) => {
   if (!o) return;
+  draft.value = JSON.parse(JSON.stringify(props.dimensions));
+  selectedIndex.value = 0;
   showDiscard.value = false;
   nextTick(() => overlayRef.value?.focus());
 }, { immediate: true });
+
+const selectedDimension = computed(() => draft.value[selectedIndex.value] ?? null);
+
+function selectDim(index: number) { selectedIndex.value = index; }
 
 function requestClose() { emit("close"); }
 
@@ -57,9 +65,44 @@ const monthLabel = new Date(props.year, props.month - 1, 1)
 
         </div>
 
-        <!-- Body placeholder -->
-        <div class="flex-1 overflow-y-auto px-2xl py-xl">
-          <p class="text-secondary text-[var(--color-text-muted)]">Dimension editor body — coming in next task.</p>
+        <!-- Body: two-column layout -->
+        <div class="flex-1 flex min-h-0">
+          <!-- Left panel: dimension list -->
+          <div class="w-[210px] flex-shrink-0 border-r border-[var(--color-divider)] bg-[var(--color-surface-muted)] p-md flex flex-col">
+            <div class="flex-1 space-y-2xs">
+              <div
+                v-for="(dim, i) in draft"
+                :key="dim.key"
+                data-test="dim-row"
+                :class="[
+                  'flex items-center gap-sm px-sm py-sm rounded-[var(--radius-form-lg)] cursor-pointer',
+                  i === selectedIndex ? 'bg-[var(--color-brand-soft-bg)]' : ''
+                ]"
+                @click="selectDim(i)"
+              >
+                <div
+                  class="w-[3px] h-[16px] rounded-[1px] flex-shrink-0"
+                  :style="{ background: `var(--dim-bar-${dim.key})` }"
+                ></div>
+                <span class="text-body text-[var(--color-text-primary)] flex-1">{{ dim.name }}</span>
+                <span class="text-micro text-[var(--color-text-muted)]">{{ dim.source }}</span>
+              </div>
+            </div>
+            <button class="text-secondary font-semibold text-[var(--color-brand-link)] text-left mt-sm cursor-pointer">
+              + Add dimension
+            </button>
+          </div>
+
+          <!-- Right panel placeholder -->
+          <div class="flex-1 px-2xl py-xl">
+            <input
+              v-if="selectedDimension"
+              placeholder="Dimension name"
+              :value="selectedDimension.name"
+              class="text-body text-[var(--color-text-primary)] bg-[var(--color-surface)] border border-[var(--color-border-form)] rounded-[var(--radius-form)] px-sm py-xs w-full"
+            />
+            <p v-else class="text-secondary text-[var(--color-text-muted)]">Right panel — next task.</p>
+          </div>
         </div>
 
         <!-- Footer -->

@@ -33,4 +33,19 @@ describe("DimensionEditorModal", () => {
     await wrapper.find('[data-test="cancel"]').trigger("click");
     expect(wrapper.emitted("close")).toBeTruthy();
   });
+
+  it("renders all dimensions in the left panel", () => {
+    const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
+    expect(wrapper.text()).toContain("Goal");
+    expect(wrapper.text()).toContain("Biz");
+    expect(wrapper.text()).toContain("Importance");
+  });
+
+  it("selects a dimension on click", async () => {
+    const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
+    const bizRow = wrapper.findAll('[data-test="dim-row"]')[1]; // second row = Biz
+    await bizRow.trigger("click");
+    const nameInput = wrapper.find('input[placeholder="Dimension name"]');
+    expect((nameInput.element as HTMLInputElement).value).toBe("Biz");
+  });
 });
