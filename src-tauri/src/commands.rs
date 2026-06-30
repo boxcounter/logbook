@@ -196,6 +196,25 @@ pub fn load_root_state(root: &std::path::Path) -> InitResult {
     let mut all_errors = validate_dimensions(&template.dimensions);
 
     let now = chrono::Local::now();
+
+    // Migrate old _monthly.md → dimensions.yaml + commitments.yaml (current month only)
+    if files::monthly_path(root, now.year(), now.month()).exists() {
+        let (had_dims, had_commits) = files::migrate_monthly_file(root, now.year(), now.month())
+            .unwrap_or((false, false));
+        if had_dims || had_commits {
+            crate::error_log::log_info(
+                "migration",
+                &format!(
+                    "Migrated {}/{:02}/_monthly.md → dimensions.yaml ({}) + commitments.yaml ({})",
+                    now.year(),
+                    now.month(),
+                    had_dims,
+                    had_commits
+                ),
+            );
+        }
+    }
+
     let monthly = match read_monthly_file_safe(root, now.year(), now.month()) {
         Ok(mf) => mf,
         Err(e) => {
