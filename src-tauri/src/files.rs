@@ -338,23 +338,18 @@ pub fn year_month_from_date(date: &str) -> Result<(i32, u32), String> {
     Ok((d.year(), d.month()))
 }
 
-/// Effective dimensions for a month: the month's own `dimensions` block if
-/// non-empty, otherwise the template's. A *missing* template/monthly file is
-/// tolerated (returns empty vec) so replay and uninstantiated months never
-/// error. A file that EXISTS but fails to parse surfaces the error, rather than
-/// collapsing to empty dims — empty dims silently bypass required-dimension
-/// validation, so a malformed template must not be swallowed.
+/// Effective dimensions for a month: the month's dimensions.yaml if it exists,
+/// otherwise the dimensions.template.yaml. Tolerates missing files (returns
+/// empty vec).
 pub fn resolve_month_dimensions(
     root: &Path,
     year: i32,
     month: u32,
 ) -> Result<Vec<Dimension>, String> {
-    let monthly = read_monthly_file(root, year, month)?;
-    if !monthly.dimensions.is_empty() {
-        return Ok(monthly.dimensions);
+    let dims = read_dimensions_file(root, year, month)?;
+    if !dims.is_empty() {
+        return Ok(dims);
     }
-    // No month-level block: fall back to the template. Tolerate a *missing*
-    // template (fresh/uninstantiated data dir), but surface a parse error.
     if !dimensions_template_path(root).exists() {
         return Ok(vec![]);
     }

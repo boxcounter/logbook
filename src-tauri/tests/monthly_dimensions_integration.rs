@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::PathBuf;
 use tauri_app_lib::files;
-use tauri_app_lib::models::{Commitment, CreateEntryInput};
+use tauri_app_lib::models::{Commitment, CreateEntryInput, Dimension};
 
 fn fresh_root(name: &str) -> PathBuf {
     let root = std::env::temp_dir().join(name);
@@ -72,6 +72,9 @@ fn first_append_snapshots_template() {
     let monthly = files::read_monthly_file(&root, 2026, 7).unwrap();
     assert_eq!(monthly.dimensions.len(), 2);
 
+    // Write dimensions.yaml so resolve_month_dimensions finds the snapshot.
+    files::write_dimensions_file(&root, 2026, 7, &monthly.dimensions).unwrap();
+
     // Change the template; the month keeps its snapshot.
     write_template(
         &root,
@@ -84,18 +87,20 @@ fn first_append_snapshots_template() {
     let _ = fs::remove_dir_all(&root);
 }
 
-// 3. A hand-written month block overrides the template.
+// 3. A hand-written month dimensions.yaml overrides the template.
 #[test]
 fn month_block_overrides_template() {
     let root = fresh_root("logbook_md_override");
     write_template(&root, TPL_BIZ_GOAL);
-    let month_dir = root.join("2026").join("08");
-    fs::create_dir_all(&month_dir).unwrap();
-    fs::write(
-        month_dir.join("_monthly.md"),
-        "---\ndimensions:\n  - name: Client\n    key: client\n    source: static\n    values: [甲]\n---\n",
-    )
-    .unwrap();
+    let client_dim = Dimension {
+        name: "Client".into(),
+        key: "client".into(),
+        source: "static".into(),
+        values: Some(vec!["甲".into()]),
+        required: false,
+        deleted: false,
+    };
+    files::write_dimensions_file(&root, 2026, 8, &[client_dim]).unwrap();
 
     let dims = files::resolve_month_dimensions(&root, 2026, 8).unwrap();
     assert_eq!(dims.len(), 1);
@@ -174,6 +179,9 @@ fn get_month_dimensions_reports_from_template_flag() {
 
     // After instantiation: own snapshot, flag flips.
     files::ensure_month_instantiated(&root, 2026, 11).unwrap();
+    // Write dimensions.yaml so resolve_month_dimensions finds the snapshot.
+    let monthly = files::read_monthly_file(&root, 2026, 11).unwrap();
+    files::write_dimensions_file(&root, 2026, 11, &monthly.dimensions).unwrap();
     let md2 = tauri_app_lib::commands::get_month_dimensions(root_str, 2026, 11).unwrap();
     assert!(!md2.from_template, "instantiated month must report from_template = false");
     assert_eq!(md2.dimensions.len(), 2);
