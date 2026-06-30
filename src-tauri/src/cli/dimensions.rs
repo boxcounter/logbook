@@ -47,7 +47,7 @@ pub fn handle_dimensions(cmd: DimensionsCommands, root: &Path) -> Result<(), Str
             } else {
                 let y = year.unwrap();
                 let m = month.unwrap();
-                let source_line = format!("# source: {}/{}/dimensions.yaml", y, format!("{:02}", m));
+                let source_line = format!("# source: {}/{:02}/dimensions.yaml", y, m);
                 let dims = files::resolve_month_dimensions(root, y, m)?;
                 if !json {
                     println!("{}", source_line);
