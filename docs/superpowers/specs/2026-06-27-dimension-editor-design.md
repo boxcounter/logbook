@@ -229,10 +229,14 @@ GUI "Save as template" ──→ template.yaml
 CLI set ──→ _monthly.md 或 template.yaml
 CLI get ←── resolve_month_dimensions() ←── _monthly.md 或 template.yaml
 
-文件监听器（已有——仅作外部编辑时的兜底一致性）：
-  template.yaml 变更 ──→ emit config-changed ──→ App.vue 调 initApp() 全量重载
-  _monthly.md 变更 ──→ emit commitments-changed ──→ App.vue 仅重载 commitments/commitmentProgress（不重载 dimensions）
-  → GUI 维度编辑不依赖文件监听器；Save 直接返回新 Dimension[] 更新 store
+文件监听器（仅作外部编辑时的兜底一致性——GUI 维度编辑不依赖它）：
+  template.yaml 变更 ──→ 重校验维度、emit template-changed
+    ──→ 前端仅调 get_month_dimensions 刷新当前月维度（当月已实例化则无变化，未实例化则更新为模板内容）
+    ──→ 不重载 commitments、不重置当前视图
+  _monthly.md 变更 ──→ 重校验维度+commitments、emit commitments-changed
+    ──→ 前端同时重载 dimensions（get_month_dimensions）+ commitments/commitmentProgress
+  → 两个事件均从 initApp() 全量重载收窄为精准字段更新
+  → 事件命名变更：config-changed → template-changed（实现时同步改后端 emit + 前端 listen）
 ```
 
 ### 月份实例化
