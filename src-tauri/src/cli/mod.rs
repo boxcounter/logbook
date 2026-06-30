@@ -1,10 +1,12 @@
 pub mod commitments;
+pub mod dimensions;
 mod entries;
 pub mod install;
 pub mod output;
 pub mod root_path;
 
 use clap::{Parser, Subcommand};
+use dimensions::{DimensionsCommands, handle_dimensions};
 use root_path::resolve_root_path;
 
 /// Where the CLI writes logbook.log. Honours `LOGBOOK_LOG_DIR` (used by tests to
@@ -44,6 +46,9 @@ pub enum Commands {
         #[arg(long)]
         date: String,
     },
+    /// Get or set dimensions for a month or the template
+    #[command(subcommand)]
+    Dimensions(DimensionsCommands),
 }
 
 #[derive(Subcommand)]
@@ -108,6 +113,12 @@ pub fn run() {
         },
         Commands::Entries { date } => {
             entries::list(&root, &date, cli.json);
+        }
+        Commands::Dimensions(cmd) => {
+            if let Err(e) = handle_dimensions(cmd, &root) {
+                output::print_error(&e);
+                std::process::exit(1);
+            }
         }
     }
 }
