@@ -166,6 +166,26 @@ pub fn load_root_state(root: &std::path::Path) -> InitResult {
 
     let scan_warnings = crate::scan::scan_data_dir(root);
 
+    // Migrate old template.yaml → dimensions.template.yaml
+    let old_template = files::template_path(root);
+    let new_template = files::dimensions_template_path(root);
+    if old_template.exists() && !new_template.exists() {
+        if let Err(e) = std::fs::rename(&old_template, &new_template) {
+            crate::error_log::log_error(
+                "migration",
+                &format!(
+                    "Failed to rename template.yaml → dimensions.template.yaml: {}",
+                    e
+                ),
+            );
+        } else {
+            crate::error_log::log_info(
+                "migration",
+                "Renamed template.yaml → dimensions.template.yaml",
+            );
+        }
+    }
+
     if !files::dimensions_template_path(root).exists() {
         return InitResult::ConfigError {
             category: RecoveryCategory::ConfigMissing,

@@ -44,14 +44,14 @@ async function revealTemplate() {
           class="mt-lg px-lg py-sm rounded-[var(--radius-form-lg)] bg-[var(--color-brand-solid)] text-white text-secondary whitespace-nowrap cursor-pointer hover:shadow-[var(--shadow-button-hover)] transition-all duration-[var(--motion-base)]"
           @click="revealTemplate"
         >
-          Reveal template.yaml in Finder
+          Reveal dimensions.template.yaml in Finder
         </button>
       </template>
 
       <!-- Tier 2: config_missing -->
       <template v-else-if="store.configCategory === 'config_missing'">
-        <h1 class="text-title font-bold mb-md text-[var(--color-text-primary)]">Your template.yaml is missing</h1>
-        <p class="text-[var(--color-text-secondary)] mb-sm">Your data folder is here, but its template file is gone:</p>
+        <h1 class="text-title font-bold mb-md text-[var(--color-text-primary)]">Your dimension template is missing</h1>
+        <p class="text-[var(--color-text-secondary)] mb-sm">Your data folder is here, but its dimensions.template.yaml file is gone:</p>
         <code class="inline-block max-w-full break-all text-secondary font-mono bg-[var(--color-danger)]/10 px-sm py-xs rounded-[var(--radius-sm)] mb-md">{{ store.rootPath }}</code>
         <p class="text-[var(--color-text-secondary)] mb-xl">Your records are still in place. Recreate a default template to continue.</p>
         <div class="flex flex-wrap justify-center gap-md">
@@ -60,7 +60,7 @@ async function revealTemplate() {
             class="px-lg py-sm rounded-[var(--radius-form-lg)] bg-[var(--color-brand-solid)] text-white text-secondary whitespace-nowrap cursor-pointer hover:shadow-[var(--shadow-button-hover)] transition-all duration-[var(--motion-base)]"
             @click="recreate"
           >
-            Recreate default template.yaml
+            Recreate default template
           </button>
           <button
             data-testid="choose-folder"

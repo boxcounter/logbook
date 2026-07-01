@@ -9,7 +9,7 @@ const store = useStore();
       Configuration Errors ({{ store.configErrors.length }})
     </h2>
     <p class="text-[var(--color-danger)] text-secondary mb-md">
-      Fix these errors in your template.yaml or _monthly.md file.
+      Fix these errors in your dimensions.template.yaml, dimensions.yaml, or commitments.yaml file.
       Changes are detected automatically.
     </p>
     <ul class="list-disc list-inside space-y-xs">
