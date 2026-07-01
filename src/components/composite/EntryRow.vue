@@ -3,6 +3,7 @@
 import { ref, computed } from "vue";
 import type { Entry } from "../../types";
 import { formatDuration } from "../../utils/format";
+import { dimensionHues, dimChipStyle } from "../../utils/dimensionColor";
 import { useStore } from "../../stores/useStore";
 import EntryRowEdit from "./EntryRowEdit.vue";
 
@@ -32,14 +33,9 @@ function onEditTrigger() {
 const dimensions = computed(() => store.dimensions);
 const filledDims = computed(() => dimensions.value.filter(d => props.entry.dimensions[d.key]));
 
-function chipClass(key: string): string {
-  const map: Record<string, string> = {
-    category: "bg-[var(--color-chip-cat-bg)] text-[var(--color-chip-cat-text)]",
-    "business-line": "bg-[var(--color-chip-biz-bg)] text-[var(--color-chip-biz-text)]",
-    "importance-urgency": "bg-[var(--color-chip-imp-bg)] text-[var(--color-chip-imp-text)]",
-    goal: "bg-[var(--color-chip-goal-bg)] text-[var(--color-chip-goal-text)]",
-  };
-  return map[key] || map.category;
+const chipHues = computed(() => dimensionHues(dimensions.value));
+function chipStyle(key: string) {
+  return dimChipStyle(chipHues.value.get(key) ?? null);
 }
 
 function onSave(item: string, durationMinutes: number, dims: Record<string, string>) {
@@ -81,7 +77,7 @@ function onSave(item: string, durationMinutes: number, dims: Record<string, stri
         <span
           v-for="d in filledDims" :key="d.key"
           class="text-micro font-[450] px-sm rounded-[var(--radius-sm)] max-w-[100px] overflow-hidden text-ellipsis whitespace-nowrap"
-          :class="chipClass(d.key)"
+          :style="chipStyle(d.key)"
           :title="entry.dimensions[d.key]"
         >{{ entry.dimensions[d.key] }}</span>
       </div>
