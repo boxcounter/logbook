@@ -9,6 +9,8 @@ import { addDays } from "../../utils/dates";
 
 const invokeMock = vi.fn();
 vi.mock("@tauri-apps/api/core", () => ({ invoke: (...args: unknown[]) => invokeMock(...args) }));
+vi.mock("@tauri-apps/api/app", () => ({ getVersion: vi.fn().mockResolvedValue("0.0.0") }));
+vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: vi.fn().mockReturnValue({ setTitle: vi.fn() }) }));
 
 // Compute today's date string at test runtime (not hardcoded) so isSelectedToday works
 function todayDateStr(): string {
@@ -222,6 +224,11 @@ describe("MonthView", () => {
     await flushPromises(); // belt-and-suspenders: chained async loads must settle before asserting
 
     expect(store.commitments).toEqual([]); // 跟随目标月：空，而非停留在当前月数据
+  });
+
+  it("does not render version string in the DOM (version is now in OS window title)", () => {
+    const wrapper = mountView();
+    expect(wrapper.text()).not.toMatch(/v\d+\.\d+\.\d+/);
   });
 });
 
