@@ -236,6 +236,32 @@ describe("MonthView", () => {
     mountView();
     expect(getCurrentWindow().setTitle).toHaveBeenCalledWith("Logbook v0.0.0");
   });
+
+  it("copies full file path to clipboard on right-click and shows Copied! feedback", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      writable: true,
+    });
+
+    const wrapper = mountView();
+    const btn = wrapper.find("button[title*='/']");
+    expect(btn.exists()).toBe(true);
+
+    // Before right-click: displays compact path (starts with "…/")
+    expect(btn.text()).toMatch(/^…\//);
+
+    await btn.trigger("contextmenu");
+    await wrapper.vm.$nextTick();
+
+    // Should copy the full path (no "…/" prefix)
+    expect(writeText).toHaveBeenCalledWith(
+      expect.stringMatching(/^\/root\/\d{4}\/\d{2}\/\d{4}-\d{2}-\d{2}\.md$/),
+    );
+
+    // Button text should change to "Copied!"
+    expect(btn.text()).toBe("Copied!");
+  });
 });
 
 // ---- Delete entry: optimistic delete + 5s timer + undo + failure rollback ----

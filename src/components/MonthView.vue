@@ -288,6 +288,18 @@ async function revealDayFile() {
   catch (e) { logError("MonthView.revealDayFile", e); }
 }
 
+// ---- File path right-click copy ----
+const copiedFeedback = ref(false);
+let copyTimer: ReturnType<typeof setTimeout> | null = null;
+async function copyFilePath(e: MouseEvent) {
+  e.preventDefault();
+  if (!store.rootPath) return;
+  await navigator.clipboard.writeText(store.rootPath + "/" + dayFilePath.value);
+  copiedFeedback.value = true;
+  if (copyTimer) clearTimeout(copyTimer);
+  copyTimer = setTimeout(() => { copiedFeedback.value = false; }, 1500);
+}
+
 // ---- Keyboard month navigation (⌘[ / ⌘]) ----
 function shiftMonth(delta: number) {
   let m = selectedMonth.value + delta;
@@ -344,6 +356,7 @@ onUnmounted(() => {
   window.removeEventListener("keydown", onGlobalKeydown);
   if (pendingDeleteTimer) clearTimeout(pendingDeleteTimer);
   if (highlightTimer) clearTimeout(highlightTimer);
+  if (copyTimer) clearTimeout(copyTimer);
 });
 
 logInfo("MonthView", "mounted");
@@ -439,7 +452,8 @@ logInfo("MonthView", "mounted");
           class="text-micro text-[var(--color-text-disabled)] hover:text-[var(--color-text-secondary)] cursor-pointer"
           :title="store.rootPath + '/' + dayFilePath"
           @click="revealDayFile"
-        >{{ displayPath }}</button>
+          @contextmenu.prevent="copyFilePath"
+        >{{ copiedFeedback ? 'Copied!' : displayPath }}</button>
       </div>
     </main>
   </div>
