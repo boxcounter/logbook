@@ -76,6 +76,7 @@ describe("App", () => {
         focusChangedCallback = cb as typeof focusChangedCallback;
         return () => { focusChangedCallback = null; };
       }),
+      setTitle: vi.fn(),
     });
   });
 
@@ -204,6 +205,7 @@ describe("App", () => {
     });
     mockGetCurrentWindow.mockReturnValue({
       onFocusChanged: vi.fn().mockResolvedValue(unlistenFocus),
+      setTitle: vi.fn(),
     });
 
     const { wrapper } = mountApp();

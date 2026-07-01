@@ -70,9 +70,9 @@ function onSaved(c: Commitment[]) { modalOpen.value = false; emit("saved", c); }
           data-test="goal-row"
           class="flex justify-between text-secondary text-[var(--color-text-secondary)] py-xs pl-sm"
         >
-          <span class="overflow-hidden text-ellipsis whitespace-nowrap max-w-[130px]" :title="g.name">{{ g.name }}</span>
-          <span v-if="g.spent_minutes > 0" class="mono font-medium text-[var(--color-text-primary)]">{{ formatDurationCompact(g.spent_minutes) }}</span>
-          <span v-else class="mono text-[var(--color-text-secondary)]">0</span>
+          <span class="overflow-hidden text-ellipsis whitespace-nowrap flex-1 min-w-0" :title="g.name">{{ g.name }}</span>
+          <span v-if="g.spent_minutes > 0" class="mono font-medium text-[var(--color-text-primary)] flex-shrink-0 ml-sm">{{ formatDurationCompact(g.spent_minutes) }}</span>
+          <span v-else class="mono text-[var(--color-text-secondary)] flex-shrink-0 ml-sm">0</span>
         </div>
       </div>
     </div>

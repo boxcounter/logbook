@@ -3,6 +3,7 @@
 import { inject, computed, watch, ref, onMounted, onUnmounted, nextTick } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { getVersion } from "@tauri-apps/api/app";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useStore } from "../stores/useStore";
 import HeatmapCalendar from "./HeatmapCalendar.vue";
 import CommitmentsPanel from "./CommitmentsPanel.vue";
@@ -31,8 +32,6 @@ function onDimensionsSaved(dims: Dimension[]) {
 // Newly-added entry highlight (spec §5.2 step 7): mark the id, clear after 1.5s.
 const justAddedId = ref<string | null>(null);
 let highlightTimer: ReturnType<typeof setTimeout> | null = null;
-
-const appVersion = ref("");
 
 const selectedYear = computed(() => yearMonthFromDate(store.currentDate).year);
 const selectedMonth = computed(() => yearMonthFromDate(store.currentDate).month);
@@ -289,6 +288,18 @@ async function revealDayFile() {
   catch (e) { logError("MonthView.revealDayFile", e); }
 }
 
+// ---- File path right-click copy ----
+const copiedFeedback = ref(false);
+let copyTimer: ReturnType<typeof setTimeout> | null = null;
+async function copyFilePath(e: MouseEvent) {
+  e.preventDefault();
+  if (!store.rootPath) return;
+  await navigator.clipboard.writeText(store.rootPath + "/" + dayFilePath.value);
+  copiedFeedback.value = true;
+  if (copyTimer) clearTimeout(copyTimer);
+  copyTimer = setTimeout(() => { copiedFeedback.value = false; }, 1500);
+}
+
 // ---- Keyboard month navigation (⌘[ / ⌘]) ----
 function shiftMonth(delta: number) {
   let m = selectedMonth.value + delta;
@@ -335,7 +346,7 @@ function onGlobalKeydown(e: KeyboardEvent) {
 
 onMounted(async () => {
   window.addEventListener("keydown", onGlobalKeydown);
-  getVersion().then(v => { appVersion.value = v; }).catch(() => {});
+  getVersion().then(v => { getCurrentWindow().setTitle("Logbook v" + v); }).catch(() => {});
   if (store.rootPath) {
     const { year, month } = yearMonthFromDate(store.currentDate);
     await loadMonth(year, month);
@@ -345,6 +356,7 @@ onUnmounted(() => {
   window.removeEventListener("keydown", onGlobalKeydown);
   if (pendingDeleteTimer) clearTimeout(pendingDeleteTimer);
   if (highlightTimer) clearTimeout(highlightTimer);
+  if (copyTimer) clearTimeout(copyTimer);
 });
 
 logInfo("MonthView", "mounted");
@@ -353,7 +365,7 @@ logInfo("MonthView", "mounted");
 <template>
   <div class="flex min-h-[calc(100vh-64px)] bg-[var(--color-surface)] border border-[var(--color-border-form)] rounded-[var(--radius-lg)] overflow-hidden">
     <!-- Sidebar -->
-    <aside class="w-[280px] flex-shrink-0 flex flex-col gap-0 bg-[var(--color-surface-muted)] border-r border-[var(--color-divider)] px-lg py-xl">
+    <aside class="w-[320px] flex-shrink-0 flex flex-col gap-0 bg-[var(--color-surface-muted)] border-r border-[var(--color-divider)] px-lg py-xl">
       <HeatmapCalendar
         :year="selectedYear"
         :month="selectedMonth"
@@ -436,12 +448,12 @@ logInfo("MonthView", "mounted");
       />
 
       <div v-if="store.rootPath" class="mt-sm text-right flex justify-end items-baseline gap-md">
-        <span v-if="appVersion" class="text-micro text-[var(--color-text-disabled)]">v{{ appVersion }}</span>
         <button
           class="text-micro text-[var(--color-text-disabled)] hover:text-[var(--color-text-secondary)] cursor-pointer"
           :title="store.rootPath + '/' + dayFilePath"
           @click="revealDayFile"
-        >{{ displayPath }}</button>
+          @contextmenu.prevent="copyFilePath"
+        >{{ copiedFeedback ? 'Copied!' : displayPath }}</button>
       </div>
     </main>
   </div>

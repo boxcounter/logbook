@@ -60,7 +60,7 @@ const defaultInvoke = async (cmd: string, _args?: unknown) => {
 const invoke = vi.fn().mockImplementation(defaultInvoke);
 const listen = vi.fn().mockResolvedValue(() => {});
 const onFocusChanged = vi.fn().mockResolvedValue(() => {});
-const getCurrentWindow = vi.fn().mockReturnValue({ onFocusChanged });
+const getCurrentWindow = vi.fn().mockReturnValue({ onFocusChanged, setTitle: vi.fn() });
 const openDialog = vi.fn().mockResolvedValue(null); // user cancels by default
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke }));

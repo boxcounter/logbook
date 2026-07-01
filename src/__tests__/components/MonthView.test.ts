@@ -9,6 +9,9 @@ import { addDays } from "../../utils/dates";
 
 const invokeMock = vi.fn();
 vi.mock("@tauri-apps/api/core", () => ({ invoke: (...args: unknown[]) => invokeMock(...args) }));
+vi.mock("@tauri-apps/api/app", () => ({ getVersion: vi.fn().mockResolvedValue("0.0.0") }));
+vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: vi.fn().mockReturnValue({ setTitle: vi.fn() }) }));
+import { getCurrentWindow } from "@tauri-apps/api/window";
 
 // Compute today's date string at test runtime (not hardcoded) so isSelectedToday works
 function todayDateStr(): string {
@@ -222,6 +225,42 @@ describe("MonthView", () => {
     await flushPromises(); // belt-and-suspenders: chained async loads must settle before asserting
 
     expect(store.commitments).toEqual([]); // 跟随目标月：空，而非停留在当前月数据
+  });
+
+  it("does not render version string in the DOM (version is now in OS window title)", () => {
+    const wrapper = mountView();
+    expect(wrapper.text()).not.toMatch(/v\d+\.\d+\.\d+/);
+  });
+
+  it("sets the OS window title to Logbook v{version} on mount", () => {
+    mountView();
+    expect(getCurrentWindow().setTitle).toHaveBeenCalledWith("Logbook v0.0.0");
+  });
+
+  it("copies full file path to clipboard on right-click and shows Copied! feedback", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      writable: true,
+    });
+
+    const wrapper = mountView();
+    const btn = wrapper.find("button[title*='/']");
+    expect(btn.exists()).toBe(true);
+
+    // Before right-click: displays compact path (starts with "…/")
+    expect(btn.text()).toMatch(/^…\//);
+
+    await btn.trigger("contextmenu");
+    await wrapper.vm.$nextTick();
+
+    // Should copy the full path (no "…/" prefix)
+    expect(writeText).toHaveBeenCalledWith(
+      expect.stringMatching(/^\/root\/\d{4}\/\d{2}\/\d{4}-\d{2}-\d{2}\.md$/),
+    );
+
+    // Button text should change to "Copied!"
+    expect(btn.text()).toBe("Copied!");
   });
 });
 
