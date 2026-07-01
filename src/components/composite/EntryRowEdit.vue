@@ -4,6 +4,7 @@ import { ref, computed, onMounted, onUnmounted, nextTick } from "vue";
 import type { Entry, Dimension, Commitment } from "../../types";
 import { resolveDelta } from "../../utils/format";
 import DimensionPopover from "../DimensionPopover.vue";
+import { dimensionHues, dimTokenChipStyle } from "../../utils/dimensionColor";
 
 const props = defineProps<{
   entry: Entry;
@@ -103,18 +104,13 @@ const missingRequired = computed(() =>
   props.dimensions.filter(d => d.required && !dimValues.value[d.key])
 );
 
-function chipClass(key: string): string {
-  const map: Record<string, string> = {
-    category: "bg-[var(--color-token-cat-bg)] text-[var(--color-token-cat-text)]",
-    "business-line": "bg-[var(--color-token-biz-bg)] text-[var(--color-token-biz-text)]",
-    "importance-urgency": "bg-[var(--color-token-imp-bg)] text-[var(--color-token-imp-text)]",
-    goal: "bg-[var(--color-token-goal-bg)] text-[var(--color-token-goal-text)]",
-  };
-  return map[key] || map.category;
-}
-
 function filled() {
   return props.dimensions.filter(d => dimValues.value[d.key]);
+}
+
+const editHues = computed(() => dimensionHues(props.dimensions));
+function tokenChipStyle(key: string) {
+  return dimTokenChipStyle(editHues.value.get(key) ?? null);
 }
 
 function removeDim(key: string) {
@@ -172,7 +168,7 @@ function save() {
       <span
         v-for="d in filled()" :key="d.key"
         class="text-micro font-medium px-sm py-2xs rounded-[var(--radius-sm)] inline-flex items-center gap-xs"
-        :class="chipClass(d.key)"
+        :style="tokenChipStyle(d.key)"
       >
         {{ dimValues[d.key] }}
         <span data-test="chip-remove" class="cursor-pointer opacity-50 hover:opacity-100 text-secondary leading-none" @click="removeDim(d.key)">×</span>
