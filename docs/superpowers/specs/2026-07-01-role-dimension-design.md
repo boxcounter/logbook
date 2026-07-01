@@ -65,11 +65,11 @@ struct CommitmentProgressResult {
 struct CommitmentProgress {
     role: String,
     allocation_minutes: u32,
-    spent_minutes: u32,          // role spent 总计（= goal + general）
-    goal_spent_minutes: u32,     // 新增：有匹配 goal 的部分
-    general_spent_minutes: u32,  // 新增：无匹配 goal 的部分
+    goal_spent_minutes: u32,     // 新增：有匹配 goal 的部分（dark 段）
+    general_spent_minutes: u32,  // 新增：无匹配 goal 的部分（light 段）
     goals: Vec<GoalProgress>,    // 不变
 }
+// 前端 spent = goal_spent_minutes + general_spent_minutes
 ```
 
 ## 前端 UI
