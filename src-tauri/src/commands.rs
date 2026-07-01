@@ -750,7 +750,7 @@ pub fn get_commitment_progress(
     root_path: String,
     year: i32,
     month: u32,
-) -> Result<Vec<CommitmentProgress>, String> {
+) -> Result<crate::models::CommitmentProgressResult, String> {
     use crate::models::{CommitmentProgress, GoalProgress};
     use std::collections::HashMap;
 
@@ -765,82 +765,102 @@ pub fn get_commitment_progress(
         vec![]
     });
 
-    // 2. Build goal -> (role, goal_name) map
-    let mut goal_to_role: HashMap<String, (String, String)> = HashMap::new();
-    for c in &commitments {
-        for g in &c.goals {
-            goal_to_role.insert(g.clone(), (c.role.clone(), g.clone()));
-        }
-    }
+    // 2. Build maps
+    let (goal_to_role, role_to_goals) = build_commitment_maps(&commitments);
 
     // 3. Initialize result structures
-    let mut role_spent: HashMap<String, u32> = HashMap::new();
+    let mut role_goal_spent: HashMap<String, u32> = HashMap::new();
+    let mut role_general_spent: HashMap<String, u32> = HashMap::new();
     let mut goal_spent: HashMap<String, u32> = HashMap::new();
+    let mut unattributed_count: u32 = 0;
+    let mut unattributed_total: u32 = 0;
+    let mut mismatch_count: u32 = 0;
+
     for c in &commitments {
-        role_spent.entry(c.role.clone()).or_insert(0);
+        role_goal_spent.entry(c.role.clone()).or_insert(0);
+        role_general_spent.entry(c.role.clone()).or_insert(0);
         for g in &c.goals {
             goal_spent.entry(g.clone()).or_insert(0);
         }
     }
 
-    // 4. Scan day files in the month directory
+    // 4. Scan day files
     let goal_key = monthly_dim_key(root, year, month);
     let month_dir = root.join(year.to_string()).join(format!("{:02}", month));
 
     if month_dir.exists() {
-        match std::fs::read_dir(&month_dir) {
-            Ok(entries) => {
-                for entry in entries {
-                    let entry = match entry {
-                        Ok(e) => e,
-                        Err(e) => {
-                            error_log::log_error(
-                                "get_commitment_progress",
-                                &format!("Failed to read directory entry in {}-{:02}: {:?}", year, month, e),
-                            );
-                            continue;
-                        }
-                    };
-                    let path = entry.path();
-                    let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-
-                    // Skip _monthly.md and non-.md files
-                    if file_name == "_monthly.md" || !file_name.ends_with(".md") {
+        if let Ok(entries) = std::fs::read_dir(&month_dir) {
+            for entry in entries {
+                let entry = match entry {
+                    Ok(e) => e,
+                    Err(e) => {
+                        error_log::log_error("get_commitment_progress", &format!("read_dir error: {:?}", e));
                         continue;
                     }
+                };
+                let path = entry.path();
+                let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                if file_name == "_monthly.md" || !file_name.ends_with(".md") {
+                    continue;
+                }
+                match crate::files::read_day_file(root, file_name.trim_end_matches(".md")) {
+                    Ok(day_file) => {
+                        for e in &day_file.entries {
+                            let attr = compute_attribution(&e.dimensions, &goal_key, &goal_to_role, &role_to_goals);
 
-                    // Read the day file
-                    match crate::files::read_day_file(root, file_name.trim_end_matches(".md")) {
-                        Ok(day_file) => {
-                            for e in &day_file.entries {
-                                if let Some(goal) = e.dimensions.get(&goal_key) {
-                                    if let Some((role, goal_name)) = goal_to_role.get(goal) {
-                                        *role_spent.entry(role.clone()).or_insert(0) += e.duration;
-                                        *goal_spent.entry(goal_name.clone()).or_insert(0) += e.duration;
+                            match attr {
+                                crate::models::Attribution::Ok => {
+                                    // Determine which role and whether it's goal or general
+                                    if let Some(role) = e.dimensions.get("role") {
+                                        if let Some(goal_val) = e.dimensions.get(&goal_key) {
+                                            if let Some(goals) = role_to_goals.get(role) {
+                                                if goals.contains(goal_val) {
+                                                    // Matching goal -> goal segment
+                                                    *role_goal_spent.entry(role.clone()).or_insert(0) += e.duration;
+                                                    *goal_spent.entry(goal_val.clone()).or_insert(0) += e.duration;
+                                                } else {
+                                                    // Goal not declared for this role -> general segment
+                                                    *role_general_spent.entry(role.clone()).or_insert(0) += e.duration;
+                                                }
+                                            } else {
+                                                *role_general_spent.entry(role.clone()).or_insert(0) += e.duration;
+                                            }
+                                        } else {
+                                            // No goal -> general segment
+                                            *role_general_spent.entry(role.clone()).or_insert(0) += e.duration;
+                                        }
+                                    } else if let Some(goal_val) = e.dimensions.get(&goal_key) {
+                                        // No role, but has goal -> fallback to goal's role
+                                        if let Some(role) = goal_to_role.get(goal_val) {
+                                            *role_goal_spent.entry(role.clone()).or_insert(0) += e.duration;
+                                            *goal_spent.entry(goal_val.clone()).or_insert(0) += e.duration;
+                                        }
+                                    }
+                                }
+                                crate::models::Attribution::Unattributed => {
+                                    unattributed_count += 1;
+                                    unattributed_total += e.duration;
+                                }
+                                crate::models::Attribution::Mismatch => {
+                                    mismatch_count += 1;
+                                    // Still count toward the role's general segment
+                                    if let Some(role) = e.dimensions.get("role") {
+                                        *role_general_spent.entry(role.clone()).or_insert(0) += e.duration;
                                     }
                                 }
                             }
                         }
-                        Err(e) => {
-                            error_log::log_error(
-                                "get_commitment_progress",
-                                &format!("Failed to read day file {} in {}-{:02}: {}", file_name, year, month, e),
-                            );
-                        }
+                    }
+                    Err(e) => {
+                        error_log::log_error("get_commitment_progress", &format!("read_day_file error: {}", e));
                     }
                 }
-            }
-            Err(e) => {
-                error_log::log_error(
-                    "get_commitment_progress",
-                    &format!("Failed to read month dir {}-{:02}: {:?}", year, month, e),
-                );
             }
         }
     }
 
-    // 5. Build result vector
-    let mut results: Vec<CommitmentProgress> = Vec::new();
+    // 5. Build result
+    let mut roles: Vec<CommitmentProgress> = Vec::new();
     for c in &commitments {
         let goals: Vec<GoalProgress> = c
             .goals
@@ -850,15 +870,21 @@ pub fn get_commitment_progress(
                 spent_minutes: *goal_spent.get(g).unwrap_or(&0),
             })
             .collect();
-        results.push(CommitmentProgress {
+        roles.push(CommitmentProgress {
             role: c.role.clone(),
             allocation_minutes: c.allocation * 60,
-            spent_minutes: *role_spent.get(&c.role).unwrap_or(&0),
+            goal_spent_minutes: *role_goal_spent.get(&c.role).unwrap_or(&0),
+            general_spent_minutes: *role_general_spent.get(&c.role).unwrap_or(&0),
             goals,
         });
     }
 
-    Ok(results)
+    Ok(crate::models::CommitmentProgressResult {
+        roles,
+        unattributed_count,
+        unattributed_total_minutes: unattributed_total,
+        mismatch_count,
+    })
 }
 
 #[tauri::command]
@@ -1625,13 +1651,13 @@ mod tests {
 
         let result = get_commitment_progress(tmp.to_string_lossy().into_owned(), 2026, 6).unwrap();
 
-        assert_eq!(result.len(), 1);
-        assert_eq!(result[0].role, "Dev");
-        assert_eq!(result[0].allocation_minutes, 2400); // 40 * 60
-        assert_eq!(result[0].spent_minutes, 0);
-        assert_eq!(result[0].goals.len(), 1);
-        assert_eq!(result[0].goals[0].name, "Ship it");
-        assert_eq!(result[0].goals[0].spent_minutes, 0);
+        assert_eq!(result.roles.len(), 1);
+        assert_eq!(result.roles[0].role, "Dev");
+        assert_eq!(result.roles[0].allocation_minutes, 2400); // 40 * 60
+        assert_eq!(result.roles[0].goal_spent_minutes, 0);
+        assert_eq!(result.roles[0].goals.len(), 1);
+        assert_eq!(result.roles[0].goals[0].name, "Ship it");
+        assert_eq!(result.roles[0].goals[0].spent_minutes, 0);
 
         let _ = fs::remove_dir_all(&tmp);
     }
@@ -1667,13 +1693,13 @@ mod tests {
         let result = get_commitment_progress(tmp.to_string_lossy().into_owned(), 2026, 6).unwrap();
 
         // Dev: Ship it(60) + Review(30) = 90 spent
-        let dev = result.iter().find(|c| c.role == "Dev").unwrap();
-        assert_eq!(dev.spent_minutes, 90);
+        let dev = result.roles.iter().find(|c| c.role == "Dev").unwrap();
+        assert_eq!(dev.goal_spent_minutes, 90);
         assert_eq!(dev.allocation_minutes, 2400);
 
         // PM: Planning(45) = 45 spent
-        let pm = result.iter().find(|c| c.role == "PM").unwrap();
-        assert_eq!(pm.spent_minutes, 45);
+        let pm = result.roles.iter().find(|c| c.role == "PM").unwrap();
+        assert_eq!(pm.goal_spent_minutes, 45);
         assert_eq!(pm.allocation_minutes, 600); // 10 * 60
 
         // Goal-level check
@@ -1710,8 +1736,8 @@ mod tests {
 
         let result = get_commitment_progress(tmp.to_string_lossy().into_owned(), 2026, 6).unwrap();
 
-        assert_eq!(result[0].spent_minutes, 0);
-        assert_eq!(result[0].goals[0].spent_minutes, 0);
+        assert_eq!(result.roles[0].goal_spent_minutes, 0);
+        assert_eq!(result.roles[0].goals[0].spent_minutes, 0);
 
         let _ = fs::remove_dir_all(&tmp);
     }
@@ -1723,7 +1749,103 @@ mod tests {
 
         let result = get_commitment_progress(tmp.to_string_lossy().into_owned(), 2026, 6).unwrap();
 
-        assert!(result.is_empty());
+        assert!(result.roles.is_empty());
+
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_get_commitment_progress_with_role_dimension() {
+        let tmp = std::env::temp_dir().join("logbook-test-role-progress");
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(&tmp).unwrap();
+
+        // Setup: dimensions.template.yaml
+        let template = r#"dimensions:
+  - name: Goal
+    key: goal
+    source: monthly
+"#;
+        std::fs::write(tmp.join("dimensions.template.yaml"), template).unwrap();
+
+        // Setup: commitments.yaml
+        let commitments_yaml = r#"- role: Dev
+  allocation: 20
+  goals:
+    - Ship X
+- role: PM
+  allocation: 10
+  goals:
+    - Roadmap
+"#;
+        let month_dir = tmp.join("2026").join("07");
+        std::fs::create_dir_all(&month_dir).unwrap();
+        std::fs::write(month_dir.join("commitments.yaml"), commitments_yaml).unwrap();
+        std::fs::write(month_dir.join("dimensions.yaml"), "dimensions: []\n").unwrap();
+
+        // Day 1: entry with role=Dev, goal=Ship X -> Ok, goal segment
+        let day1 = r#"---
+entries:
+  - id: e1
+    item: Code feature
+    duration: 120
+    dimensions:
+      role: Dev
+      goal: Ship X
+  - id: e2
+    item: Standup
+    duration: 30
+    dimensions:
+      role: Dev
+  - id: e3
+    item: Email
+    duration: 15
+    dimensions: {}
+---"#;
+        std::fs::write(month_dir.join("2026-07-01.md"), day1).unwrap();
+
+        // Day 2: entry via goal fallback (no role dim) + mismatch case
+        let day2 = r#"---
+entries:
+  - id: e4
+    item: Roadmap planning
+    duration: 60
+    dimensions:
+      goal: Roadmap
+  - id: e5
+    item: Mismatch case
+    duration: 45
+    dimensions:
+      role: Dev
+      goal: Roadmap
+---"#;
+        std::fs::write(month_dir.join("2026-07-02.md"), day2).unwrap();
+
+        let result = get_commitment_progress(
+            tmp.to_string_lossy().to_string(),
+            2026,
+            7,
+        ).unwrap();
+
+        // Dev role
+        let dev = result.roles.iter().find(|r| r.role == "Dev").unwrap();
+        // e1 (120m goal=Ship X) + e2 (30m general) + e5 (45m goal=Roadmap but Dev role -> mismatch -> general)
+        assert_eq!(dev.goal_spent_minutes, 120);  // only e1
+        assert_eq!(dev.general_spent_minutes, 75);  // e2 + e5
+        assert_eq!(dev.allocation_minutes, 1200);
+
+        // PM role
+        let pm = result.roles.iter().find(|r| r.role == "PM").unwrap();
+        // e4 (60m goal=Roadmap, fallback to PM)
+        assert_eq!(pm.goal_spent_minutes, 60);
+        assert_eq!(pm.general_spent_minutes, 0);
+
+        // Unattributed
+        assert_eq!(result.unattributed_count, 1);  // e3
+        assert_eq!(result.unattributed_total_minutes, 15);
+
+        // Mismatch
+        assert_eq!(result.mismatch_count, 1);  // e5
 
         let _ = std::fs::remove_dir_all(&tmp);
     }
