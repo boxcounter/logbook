@@ -23,7 +23,7 @@ function mountModal() {
     props: {
       open: true,
       commitments: [makeCommitment({ role: "Developer", allocation: 40, goals: ["A", "B"] })],
-      progress: [makeCommitmentProgress({ role: "Developer", allocation_minutes: 2400, spent_minutes: 870, goals: [{ name: "A", spent_minutes: 865 }, { name: "B", spent_minutes: 5 }] })],
+      progress: [makeCommitmentProgress({ role: "Developer", allocation_minutes: 2400, goal_spent_minutes: 870, general_spent_minutes: 0, goals: [{ name: "A", spent_minutes: 865 }, { name: "B", spent_minutes: 5 }] })],
       rootPath: "/tmp", selectedYear: 2026, selectedMonth: 6,
     },
     attachTo: document.body,
