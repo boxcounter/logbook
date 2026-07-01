@@ -238,12 +238,11 @@ const monthLabel = new Date(props.year, props.month - 1, 1)
               >
                 <template v-for="(dim, index) in draft" :key="dim.key">
                   <div
-                    v-if="!dim.deleted || showDeleted"
                     data-test="dim-row"
                     :class="[
                       'flex items-center gap-sm px-sm py-sm rounded-[var(--radius-form-lg)] cursor-pointer',
                       index === selectedIndex ? 'bg-[var(--color-brand-soft-bg)]' : '',
-                      dim.deleted ? 'opacity-40' : '',
+                      dim.deleted ? (showDeleted ? 'opacity-40' : 'hidden') : '',
                     ]"
                     @click="selectDim(index)"
                   >

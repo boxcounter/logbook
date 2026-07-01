@@ -1,1 +1,2 @@
+npx vitest run src/__tests__/config-dev-prod-separation.test.ts
 pnpm exec lint-staged
