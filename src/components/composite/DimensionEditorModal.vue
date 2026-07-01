@@ -3,7 +3,7 @@ import { ref, computed, watch, nextTick } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { VueDraggable } from "vue-draggable-plus";
 import type { Dimension } from "../../types";
-import { dimBarColor } from "../../utils/dimensionColor";
+import { dimensionHues, dimBar } from "../../utils/dimensionColor";
 
 const props = defineProps<{
   open: boolean;
@@ -53,6 +53,8 @@ watch(() => props.open, (o) => {
 }, { immediate: true });
 
 const selectedDimension = computed(() => draft.value[selectedIndex.value] ?? null);
+
+const draftHues = computed(() => dimensionHues(draft.value));
 
 const isDirty = computed(() =>
   JSON.stringify(draft.value) !== JSON.stringify(props.dimensions),
@@ -253,7 +255,7 @@ const monthLabel = new Date(props.year, props.month - 1, 1)
                       ]">⠿</span>
                     <div
                       class="w-[3px] h-[16px] rounded-[1px] flex-shrink-0"
-                      :style="{ background: dimBarColor(dim.key) }"
+                      :style="{ background: dimBar(draftHues.get(dim.key) ?? null) }"
                     ></div>
                     <span class="text-body text-[var(--color-text-primary)] flex-1">{{ dim.name }}</span>
                     <span class="text-micro text-[var(--color-text-muted)]">{{ dim.source }}</span>
