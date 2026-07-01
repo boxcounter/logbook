@@ -101,11 +101,15 @@ function openPopover() {
 }
 
 const missingRequired = computed(() =>
-  props.dimensions.filter(d => d.required && !dimValues.value[d.key])
+  props.dimensions.filter(d => !d.deleted && d.required && !dimValues.value[d.key])
+);
+
+const unfilledOptional = computed(() =>
+  props.dimensions.filter(d => !d.deleted && !d.required && !dimValues.value[d.key])
 );
 
 function filled() {
-  return props.dimensions.filter(d => dimValues.value[d.key]);
+  return props.dimensions.filter(d => !d.deleted && dimValues.value[d.key]);
 }
 
 const editHues = computed(() => dimensionHues(props.dimensions));

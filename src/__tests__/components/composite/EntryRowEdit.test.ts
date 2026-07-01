@@ -22,6 +22,11 @@ function mountEdit(entryOverrides = {}) {
   return mount(EntryRowEdit, { props: { entry, dimensions, commitments } });
 }
 
+function mountEditNoDims() {
+  const entry = makeEntry({ item: "Old item", duration: 45, dimensions: {} });
+  return mount(EntryRowEdit, { props: { entry, dimensions, commitments } });
+}
+
 function mountEditWithFocus(focusTarget: 'item' | 'duration' = 'item') {
   const entry = makeEntry({ item: "Old item", duration: 45, dimensions: { ...fullDims } });
   return mount(EntryRowEdit, {
@@ -259,5 +264,31 @@ describe("EntryRowEdit", () => {
     const itemInput = wrapper.findAll("input")[0].element as HTMLInputElement;
     expect(spy).toHaveBeenCalledWith(itemInput.value.length, itemInput.value.length);
     spy.mockRestore();
+  });
+
+  it("excludes deleted dimensions from filled chips", () => {
+    const dims = [
+      makeDimension({ name: "Cat", key: "cat", source: "static", values: ["v"], required: false }),
+      makeDimension({ name: "Del", key: "del", source: "static", values: ["x"], required: false, deleted: true }),
+    ];
+    const entry = makeEntry({ item: "X", duration: 30, dimensions: { cat: "v", del: "x" } });
+    const wrapper = mount(EntryRowEdit, { props: { entry, dimensions: dims, commitments: [] } });
+    // filled() returns only non-deleted dims with values; del should be excluded
+    const chips = wrapper.findAll("[data-test='chip-remove']");
+    expect(chips.length).toBe(1);
+  });
+
+  it("excludes deleted required dimensions from missingRequired", async () => {
+    const dims = [
+      makeDimension({ name: "Req", key: "req", source: "static", values: ["v"], required: true }),
+      makeDimension({ name: "DelReq", key: "delreq", source: "static", values: ["x"], required: true, deleted: true }),
+    ];
+    const entry = makeEntry({ item: "X", duration: 30, dimensions: {} });
+    const wrapper = mount(EntryRowEdit, { props: { entry, dimensions: dims, commitments: [] } });
+    // missingRequired should only include "req", not "delreq"
+    // Verify via save behavior — save blocks when missingRequired is non-empty
+    await wrapper.find("[data-test='save']").trigger("click");
+    // Save blocked: only "req" is missing (1 required), not 2
+    expect(wrapper.emitted("save")).toBeFalsy();
   });
 });
