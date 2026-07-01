@@ -13,7 +13,7 @@ dimensions: {
 }
 ```
 
-role 的值来源为 `_monthly.md` 的 commitments 声明的 role 列表（动态），不在 `template.yaml` 的 `dimensions` 里声明。语义和 goal 的 `source: "monthly"` 相同。
+role 的值来源为 `commitments.yaml` 中声明的 role 列表（动态，按月存放），不在 `dimensions.template.yaml` 的 `dimensions` 里声明。语义和 goal 的 `source: "monthly"` 相同。
 
 ## 归属规则
 
