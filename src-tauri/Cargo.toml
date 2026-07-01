@@ -1,6 +1,6 @@
 [package]
 name = "logbook"
-version = "0.3.3"
+version = "0.3.4"
 description = "Personal work time tracking app"
 authors = ["you"]
 edition = "2021"
