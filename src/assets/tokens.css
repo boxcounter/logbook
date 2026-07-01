@@ -33,27 +33,9 @@
   --color-danger: #ef4444;
   --color-warning: #f59e0b;
 
-  /* === Input Tokens (active editing state — more saturated) === */
-  --color-token-cat-bg: #eef2ff;
-  --color-token-cat-text: #4338ca;
-  --color-token-biz-bg: #f5f3ff;
-  --color-token-biz-text: #6d28d9;
-  --color-token-imp-bg: #f0fdfa;
-  --color-token-imp-text: #0f766e;
-  --color-token-goal-bg: #f0fdf4;
-  --color-token-goal-text: #15803d;
+  /* === Duration Token (editing state) === */
   --color-token-dur-bg: #fff7ed;
   --color-token-dur-text: #c2410c;
-
-  /* === Entry Chips (passive display state — muted) === */
-  --color-chip-cat-bg: #f5f6fa;
-  --color-chip-cat-text: #5b63a6;
-  --color-chip-biz-bg: #f7f5fa;
-  --color-chip-biz-text: #7b5ea7;
-  --color-chip-imp-bg: #f5faf9;
-  --color-chip-imp-text: #3d7a73;
-  --color-chip-goal-bg: #f5faf6;
-  --color-chip-goal-text: #4a7c59;
 
   /* === Missing Indicator === */
   --color-missing-border: #e2e8f0;
@@ -71,12 +53,6 @@
   --heatmap-heavy-text: #ffffff;
   --heatmap-today-ring: #6366f1;
   --heatmap-selected-ring: #94a3b8;
-
-  /* === Dimension Bar Colors (popover left-side indicators) === */
-  --dim-bar-goal: #86efac;
-  --dim-bar-cat: #a5b4fc;
-  --dim-bar-biz: #c4b5fd;
-  --dim-bar-imp: #5eead4;
 
   /* === Popover-specific === */
   --color-popover-dim-header-bg: #fafaff;
