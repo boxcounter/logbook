@@ -33,18 +33,33 @@ goal_spent[goal]  = sum(entries with dimensions.goal == goal)  // 不变
 
 ## Command API 变更
 
+### DayFile — 携带归属信息
+
+`DayFile` 新增两个字段，每条 entry 读出来时同时判定归属状态：
+
+```rust
+struct DayFile {
+    note: Option<String>,
+    entries: Vec<Entry>,
+    unattributed_entry_ids: Vec<String>,  // 新增：无 role 且无 goal（或 goal 未声明）的 entry ID
+    mismatch_entry_ids: Vec<String>,      // 新增：role-goal 不匹配的 entry ID
+}
+```
+
+`get_entries`、`append_entry`、`update_entry`、`delete_entry` 均返回 `DayFile`，前端拿到后直接用于 EntryRow amber 标记判定（`Set.has(entry.id)`），不跨 API 来源拼接。
+
+`InitResult::Ready` 通过 `today: DayFile` 字段自然携带当月归属信息，不需要额外字段。
+
 ### `get_commitment_progress` 返回值
 
-从 `Vec<CommitmentProgress>` 改为一个包装结构，同时返回 role 统计和问题条目信息：
+从 `Vec<CommitmentProgress>` 改为包装结构，提供 warning bar 所需的月级汇总：
 
 ```rust
 struct CommitmentProgressResult {
     roles: Vec<CommitmentProgress>,
-    unattributed_count: u32,       // 未归属 entry 数
+    unattributed_count: u32,         // warning bar 用
     unattributed_total_minutes: u32,
-    mismatch_count: u32,           // role-goal 不匹配 entry 数（仅计数，时间已计入对应 role）
-    mismatch_entry_ids: Vec<String>,  // 前端据此在 EntryRow 上加 amber 标记
-    unattributed_entry_ids: Vec<String>,
+    mismatch_count: u32,
 }
 
 struct CommitmentProgress {
@@ -56,14 +71,6 @@ struct CommitmentProgress {
     goals: Vec<GoalProgress>,    // 不变
 }
 ```
-
-### `init` 也返回问题 entry ID
-
-`InitResult::Ready` 中增加 `unattributed_entry_ids` 和 `mismatch_entry_ids`（当月范围），和 `ScanWarning` 平级。前端 store 持有这两组 ID，EntryRow 通过 `Set` 查询是否应该显示 amber 标记。
-
-启动后每次 `get_commitment_progress` 调用也会更新这组 ID（应对用户编辑后问题消除或新增的场景）。
-
-如果需要展示历史月份的问题 entry，`get_month_dimensions` 不需要；历史月份只在 `get_commitment_progress` 被调用时（比如用户切换到那个月看 Stats）才检测。
 
 ## 前端 UI
 
