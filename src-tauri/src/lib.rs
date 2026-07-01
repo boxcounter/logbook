@@ -34,7 +34,7 @@ pub fn run() {
                 "main",
                 tauri::WebviewUrl::App("index.html".into()),
             )
-            .title("Logbook")
+            .title(format!("Logbook v{}", app.package_info().version))
             .inner_size(width as f64, height as f64)
             .position(x as f64, y as f64)
             // Tauri's OS drag-drop handler (enabled by default) intercepts the
