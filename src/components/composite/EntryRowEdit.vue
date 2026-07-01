@@ -178,17 +178,25 @@ function save() {
         <span data-test="chip-remove" class="cursor-pointer opacity-50 hover:opacity-100 text-secondary leading-none" @click="removeDim(d.key)">×</span>
       </span>
       <span
-        data-test="add-tag"
+        v-for="m in missingRequired" :key="'missing-' + m.key"
+        data-test="missing-required"
+        class="text-micro font-[450] px-sm py-2xs rounded-[var(--radius-sm)]
+               border-[1.5px] border-dashed inline-flex items-center gap-xs cursor-pointer transition-colors"
+        :class="submitAttempted
+          ? 'border-[var(--color-warning)] text-[var(--color-warning)]'
+          : 'border-[var(--color-missing-border)] text-[var(--color-missing-text)] hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'"
+        @click="openPopover"
+      >
+        <span class="w-[5px] h-[5px] rounded-full bg-[var(--color-missing-dot)]"></span>{{ m.name }}
+      </span>
+      <span
+        v-if="unfilledOptional.length > 0"
+        data-test="add-dimension"
         class="text-micro font-medium px-sm py-2xs rounded-[var(--radius-sm)]
                border border-dashed border-[var(--color-border-form)] text-[var(--color-text-secondary)]
                cursor-pointer hover:border-[var(--color-text-muted)]"
         @click="openPopover"
-      >+ tag</span>
-      <span
-        v-if="submitAttempted && missingRequired.length"
-        data-test="required-hint"
-        class="text-micro text-[var(--color-warning)]"
-      >Required: {{ missingRequired.map(d => d.name).join(", ") }}</span>
+      >+</span>
     </div>
 
     <div class="flex gap-sm mt-xs items-center">

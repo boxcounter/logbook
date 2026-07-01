@@ -291,4 +291,48 @@ describe("EntryRowEdit", () => {
     // Save blocked: only "req" is missing (1 required), not 2
     expect(wrapper.emitted("save")).toBeFalsy();
   });
+
+  it("renders a missing-required prompt for each unfilled required dimension", () => {
+    const wrapper = mountEditNoDims();
+    const prompts = wrapper.findAll("[data-test='missing-required']");
+    expect(prompts.length).toBe(2); // category, goal
+    expect(prompts[0].text()).toContain("Category");
+    expect(prompts[1].text()).toContain("Goal");
+  });
+
+  it("shows a + button when there are unfilled optional dimensions", () => {
+    const wrapper = mountEditNoDims();
+    // business-line is optional and unfilled
+    expect(wrapper.find("[data-test='add-dimension']").exists()).toBe(true);
+    expect(wrapper.find("[data-test='add-dimension']").text()).toBe("+");
+  });
+
+  it("hides the + button when all optional dimensions are filled", () => {
+    const wrapper = mountEdit(); // all dims filled via fullDims
+    expect(wrapper.find("[data-test='add-dimension']").exists()).toBe(false);
+  });
+
+  it("does NOT render the old required-hint warning text", () => {
+    const wrapper = mountEditNoDims();
+    expect(wrapper.find("[data-test='required-hint']").exists()).toBe(false);
+  });
+
+  it("opens DimensionPopover when a missing-required prompt is clicked", async () => {
+    const wrapper = mountEditNoDims();
+    await wrapper.find("[data-test='missing-required']").trigger("click");
+    expect(wrapper.findComponent({ name: "DimensionPopover" }).exists()).toBe(true);
+  });
+
+  it("opens DimensionPopover when + button is clicked", async () => {
+    const wrapper = mountEditNoDims();
+    await wrapper.find("[data-test='add-dimension']").trigger("click");
+    expect(wrapper.findComponent({ name: "DimensionPopover" }).exists()).toBe(true);
+  });
+
+  it("applies warning style to missing-required prompts after a blocked submit attempt", async () => {
+    const wrapper = mountEditNoDims();
+    await wrapper.find("[data-test='save']").trigger("click");
+    const prompt = wrapper.find("[data-test='missing-required']");
+    expect(prompt.classes()).toContain("text-[var(--color-warning)]");
+  });
 });
