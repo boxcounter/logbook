@@ -11,7 +11,7 @@ import DayHeader from "./DayHeader.vue";
 import EntryList from "./EntryList.vue";
 import EntryComposer from "./EntryComposer.vue";
 import DimensionEditorModal from "./composite/DimensionEditorModal.vue";
-import type { DayFile, Entry, CommitmentProgress, Commitment, MonthDimensions, Dimension } from "../types";
+import type { DayFile, Entry, Commitment, CommitmentProgressResult, MonthDimensions, Dimension } from "../types";
 import { logError, logInfo } from "../utils/errorLog";
 import { datesInMonth, yearMonthFromDate, parseDate, addDays } from "../utils/dates";
 
@@ -85,8 +85,10 @@ async function loadMonth(year: number, month: number, defaultDay?: number) {
 
 async function loadCommitmentProgress(year: number, month: number) {
   try {
-    store.commitmentProgress = (await invoke("get_commitment_progress", { rootPath: store.rootPath, year, month })) as CommitmentProgress[];
-  } catch (e) { logError("MonthView.loadCommitmentProgress", e); store.commitmentProgress = []; }
+    const result = await invoke<CommitmentProgressResult>("get_commitment_progress", { rootPath: store.rootPath, year, month });
+    store.commitmentProgress = result.roles;
+    store.commitmentProgressResult = result;
+  } catch (e) { logError("MonthView.loadCommitmentProgress", e); store.commitmentProgress = []; store.commitmentProgressResult = null; }
 }
 
 async function loadCommitments(year: number, month: number) {
@@ -381,6 +383,7 @@ logInfo("MonthView", "mounted");
       <div class="border-t border-[var(--color-divider)] my-xl"></div>
       <CommitmentsPanel
         :progress="store.commitmentProgress"
+        :progress-result="store.commitmentProgressResult"
         :commitments="store.commitments"
         :root-path="store.rootPath"
         :selected-year="selectedYear"

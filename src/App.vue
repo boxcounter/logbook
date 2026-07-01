@@ -9,7 +9,7 @@ import SetupScreen from "./components/SetupScreen.vue";
 import RecoveryScreen from "./components/RecoveryScreen.vue";
 import MonthView from "./components/MonthView.vue";
 import Toast from "./components/base/Toast.vue";
-import type { InitResult, ConfigErrorDetail, ScanWarning, Commitment, CommitmentProgress, MonthDimensions } from "./types";
+import type { InitResult, ConfigErrorDetail, ScanWarning, Commitment, CommitmentProgressResult, MonthDimensions } from "./types";
 import { logError, logInfo } from "./utils/errorLog";
 import { applyInitResult } from "./utils/applyInitResult";
 
@@ -97,7 +97,9 @@ onMounted(async () => {
         store.dimensions = dimsResult.dimensions;
         store.fromTemplate = dimsResult.from_template;
         store.commitments = (await invoke("get_commitments", { rootPath: store.rootPath, year, month })) as Commitment[];
-        store.commitmentProgress = (await invoke("get_commitment_progress", { rootPath: store.rootPath, year, month })) as CommitmentProgress[];
+        const result = await invoke<CommitmentProgressResult>("get_commitment_progress", { rootPath: store.rootPath, year, month });
+        store.commitmentProgress = result.roles;
+        store.commitmentProgressResult = result;
       } catch (e) {
         logError("App.commitmentsChanged", e);
       }
