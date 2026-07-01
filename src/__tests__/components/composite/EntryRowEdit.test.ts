@@ -80,18 +80,21 @@ describe("EntryRowEdit", () => {
     expect(wrapper.emitted("save")?.[0]).toEqual(["Old item", 45, { category: "Engineering", goal: "Bug fixes" }]);
   });
 
-  it("does NOT save when a required dimension chip is removed; shows a required hint", async () => {
+  it("does NOT save when a required dimension chip is removed; shows a missing-required prompt", async () => {
     const wrapper = mountEdit();
     const removes = wrapper.findAll("[data-test='chip-remove']");
     await removes[0].trigger("click"); // category (required)
     await wrapper.find("[data-test='save']").trigger("click");
     expect(wrapper.emitted("save")).toBeFalsy();
-    expect(wrapper.find("[data-test='required-hint']").exists()).toBe(true);
+    // After removing a required dim chip, it appears as a missing-required prompt
+    expect(wrapper.find("[data-test='missing-required']").exists()).toBe(true);
+    // The prompt gets warning styling because submitAttempted is true
+    expect(wrapper.find("[data-test='missing-required']").classes()).toContain("text-[var(--color-warning)]");
   });
 
-  it("opens DimensionPopover when + tag is clicked", async () => {
-    const wrapper = mountEdit();
-    await wrapper.find("[data-test='add-tag']").trigger("click");
+  it("opens DimensionPopover when a missing-required prompt is clicked", async () => {
+    const wrapper = mountEditNoDims();
+    await wrapper.find("[data-test='missing-required']").trigger("click");
     expect(wrapper.findComponent({ name: "DimensionPopover" }).exists()).toBe(true);
   });
 
@@ -136,21 +139,21 @@ describe("EntryRowEdit", () => {
   });
 
   it("Esc does nothing while the DimensionPopover is open", async () => {
-    const wrapper = mountEdit();
+    const wrapper = mountEditNoDims();
     await wrapper.findAll("input")[0].setValue("Changed item");
-    await wrapper.find("[data-test='add-tag']").trigger("click"); // open popover
+    await wrapper.find("[data-test='missing-required']").trigger("click"); // open popover
     await wrapper.trigger("keydown", { key: "Escape" });
     expect(wrapper.emitted("cancel")).toBeFalsy();
     expect(wrapper.find("[data-test='discard-prompt']").exists()).toBe(false);
   });
 
   it("Enter while the popover is open does not save (popover owns Enter)", async () => {
-    const entry = makeEntry({ item: "Old item", duration: 45, dimensions: { ...fullDims } });
+    const entry = makeEntry({ item: "Old item", duration: 45, dimensions: {} });
     const wrapper = mount(EntryRowEdit, {
       props: { entry, dimensions, commitments },
       attachTo: document.body,
     });
-    await wrapper.find("[data-test='add-tag']").trigger("click"); // open popover
+    await wrapper.find("[data-test='missing-required']").trigger("click"); // open popover
     expect(wrapper.findComponent({ name: "DimensionPopover" }).exists()).toBe(true);
 
     // Real bubbling Enter so the popover's window capture-phase listener intercepts it.
@@ -210,9 +213,9 @@ describe("EntryRowEdit", () => {
   });
 
   it("esc handoff: popover consumes esc while open, parent handles esc after it closes", async () => {
-    const wrapper = mountEdit();
+    const wrapper = mountEditNoDims();
     await wrapper.findAll("input")[0].setValue("Changed item"); // make it dirty
-    await wrapper.find("[data-test='add-tag']").trigger("click"); // open popover
+    await wrapper.find("[data-test='missing-required']").trigger("click"); // open popover
     expect(wrapper.findComponent({ name: "DimensionPopover" }).exists()).toBe(true);
 
     // While the popover is open, esc must NOT trigger the parent confirm flow.
