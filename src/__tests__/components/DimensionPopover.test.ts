@@ -248,4 +248,16 @@ describe("DimensionPopover", () => {
     expect(vals[0].classes()).not.toContain("bg-[var(--color-brand-solid)]");
     expect(vals[0].text()).toContain("✓");
   });
+
+  it("excludes deleted dimensions from the dim list", () => {
+    const dims = [
+      makeDimension({ name: "Visible", key: "visible", source: "static", values: ["v"], required: true }),
+      makeDimension({ name: "Deleted", key: "deleted", source: "static", values: ["d"], required: true, deleted: true }),
+    ];
+    const wrapper = mount(DimensionPopover, { props: { dimensions: dims, commitments: [], dimValues: {} } });
+    const items = wrapper.findAll("[data-test='dim-item']");
+    expect(items.length).toBe(1);
+    expect(items[0].text()).toContain("Visible");
+    expect(wrapper.text()).not.toContain("Deleted");
+  });
 });

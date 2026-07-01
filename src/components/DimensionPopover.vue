@@ -143,8 +143,9 @@ onUnmounted(() => window.removeEventListener("keydown", onWindowKeydown, true));
         <span class="bg-[var(--color-brand-solid)] text-white px-sm py-2xs rounded-[var(--radius-sm)] text-micro">DIM</span>
         Pick a dimension
       </div>
+      <template v-for="(d, i) in dimensions" :key="d.key">
       <div
-        v-for="(d, i) in dimensions" :key="d.key"
+        v-if="!d.deleted"
         data-test="dim-item"
         :data-active="i === highlightedIndex"
         class="px-md py-sm text-secondary
@@ -177,6 +178,7 @@ onUnmounted(() => window.removeEventListener("keydown", onWindowKeydown, true));
             : (d.required ? 'text-[var(--color-warning)] font-medium' : 'text-[var(--color-text-disabled)]')"
         >{{ d.required ? "required" : "optional" }}</span>
       </div>
+      </template>
       <div
         class="px-md py-sm text-micro text-[var(--color-text-disabled)]
                border-t border-[var(--color-divider)] flex gap-md"
