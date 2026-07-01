@@ -271,7 +271,7 @@ pub fn load_root_state(root: &std::path::Path) -> InitResult {
     };
 
     let today_date = format!("{}-{:02}-{:02}", now.year(), now.month(), now.day());
-    let today = match read_day_file_safe(root, &today_date) {
+    let mut today = match read_day_file_safe(root, &today_date) {
         Ok(df) => df,
         Err(e) => {
             all_errors.push(ConfigErrorDetail {
@@ -297,6 +297,14 @@ pub fn load_root_state(root: &std::path::Path) -> InitResult {
     } else {
         monthly.dimensions.clone()
     };
+
+    // Inject attribution into today's entries
+    {
+        let commitments = crate::files::read_commitments_file(root, now.year(), now.month()).unwrap_or_default();
+        let goal_key = monthly_dim_key(root, now.year(), now.month());
+        let (goal_to_role, role_to_goals) = build_commitment_maps(&commitments);
+        annotate_day_file(&mut today, &goal_key, &goal_to_role, &role_to_goals);
+    }
 
     InitResult::Ready {
         root_path: root.to_string_lossy().into_owned(),
@@ -408,7 +416,20 @@ pub fn get_entries(root_path: String, date: String) -> Result<DayFile, String> {
     error_log::log_command_enter("get_entries", &format!("date={}", date));
     let root = std::path::Path::new(&root_path);
     validate_date_format(&date)?;
-    let result = files::read_day_file(root, &date);
+    let mut result = files::read_day_file(root, &date);
+
+    // Inject attribution
+    if let Ok(d) = chrono::NaiveDate::parse_from_str(&date, "%Y-%m-%d") {
+        if let Ok(ref mut day_file) = result {
+            let year = d.format("%Y").to_string().parse::<i32>().unwrap_or(0);
+            let month = d.format("%m").to_string().parse::<u32>().unwrap_or(0);
+            let commitments = crate::files::read_commitments_file(root, year, month).unwrap_or_default();
+            let goal_key = monthly_dim_key(root, year, month);
+            let (goal_to_role, role_to_goals) = build_commitment_maps(&commitments);
+            annotate_day_file(day_file, &goal_key, &goal_to_role, &role_to_goals);
+        }
+    }
+
     let ok = result.is_ok();
     let entry_count = result.as_ref().map(|d| d.entries.len()).unwrap_or(0);
     error_log::log_command_exit("get_entries", ok, &format!("{} entries", entry_count));
@@ -446,12 +467,22 @@ pub fn append_entry(root_path: String, date: String, entry: CreateEntryInput) ->
         },
     )?;
 
-    let entry = Entry {
+    let mut entry = Entry {
         id: entry_id,
         item: entry.item,
         duration,
         dimensions: entry.dimensions,
+        attribution: crate::models::Attribution::default(),
     };
+
+    // Inject attribution for the new entry
+    {
+        let commitments = crate::files::read_commitments_file(root, year, month).unwrap_or_default();
+        let goal_key = monthly_dim_key(root, year, month);
+        let (goal_to_role, role_to_goals) = build_commitment_maps(&commitments);
+        entry.attribution = compute_attribution(&entry.dimensions, &goal_key, &goal_to_role, &role_to_goals);
+    }
+
     let result = files::append_to_day_file(root, &date, &entry);
     let ok = result.is_ok();
     error_log::log_command_exit("append_entry", ok, &format!("id={}", entry.id));
@@ -503,7 +534,16 @@ pub fn update_entry(
         },
     )?;
 
-    let result = files::update_entry_in_file(root, &date, &entry_id, &update);
+    let mut result = files::update_entry_in_file(root, &date, &entry_id, &update);
+
+    // Inject attribution
+    if let Ok(ref mut day_file) = result {
+        let commitments = crate::files::read_commitments_file(root, year, month).unwrap_or_default();
+        let goal_key = monthly_dim_key(root, year, month);
+        let (goal_to_role, role_to_goals) = build_commitment_maps(&commitments);
+        annotate_day_file(day_file, &goal_key, &goal_to_role, &role_to_goals);
+    }
+
     let ok = result.is_ok();
     error_log::log_command_exit(
         "update_entry",
@@ -521,6 +561,7 @@ pub fn delete_entry(root_path: String, date: String, entry_id: String) -> Result
     error_log::log_command_enter("delete_entry", &format!("date={} id={}", date, entry_id));
     let root = std::path::Path::new(&root_path);
     validate_date_format(&date)?;
+    let (year, month) = files::year_month_from_date(&date)?;
     // Deleting an entry does not customize the month's dimensions, so it must not
     // trigger instantiation (would freeze the month to the current template).
 
@@ -543,7 +584,16 @@ pub fn delete_entry(root_path: String, date: String, entry_id: String) -> Result
         },
     )?;
 
-    let result = files::delete_entry_from_file(root, &date, &entry_id);
+    let mut result = files::delete_entry_from_file(root, &date, &entry_id);
+
+    // Inject attribution
+    if let Ok(ref mut day_file) = result {
+        let commitments = crate::files::read_commitments_file(root, year, month).unwrap_or_default();
+        let goal_key = monthly_dim_key(root, year, month);
+        let (goal_to_role, role_to_goals) = build_commitment_maps(&commitments);
+        annotate_day_file(day_file, &goal_key, &goal_to_role, &role_to_goals);
+    }
+
     let ok = result.is_ok();
     error_log::log_command_exit("delete_entry", ok, "");
     result
@@ -661,6 +711,37 @@ fn compute_attribution(
                 Attribution::Unattributed
             }
         }
+    }
+}
+
+/// 从 commitments 构建 goal→role 和 role→goals 映射
+fn build_commitment_maps(
+    commitments: &[crate::models::Commitment],
+) -> (
+    std::collections::HashMap<String, String>,
+    std::collections::HashMap<String, Vec<String>>,
+) {
+    let mut goal_to_role: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    let mut role_to_goals: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+    for c in commitments {
+        let goals = c.goals.clone();
+        for g in &goals {
+            goal_to_role.insert(g.clone(), c.role.clone());
+        }
+        role_to_goals.insert(c.role.clone(), goals);
+    }
+    (goal_to_role, role_to_goals)
+}
+
+/// 为 DayFile 中所有 entry 计算 attribution
+fn annotate_day_file(
+    day_file: &mut crate::models::DayFile,
+    goal_key: &str,
+    goal_to_role: &std::collections::HashMap<String, String>,
+    role_to_goals: &std::collections::HashMap<String, Vec<String>>,
+) {
+    for entry in &mut day_file.entries {
+        entry.attribution = compute_attribution(&entry.dimensions, goal_key, goal_to_role, role_to_goals);
     }
 }
 
