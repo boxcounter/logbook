@@ -29,12 +29,13 @@ pub fn run() {
             error_log::init(&app_data_dir);
 
             let (width, height, x, y) = window_state::default_window_geometry(&app_handle);
-            let _window = tauri::WebviewWindowBuilder::new(
+            let title = format!("Logbook v{}", app.package_info().version);
+            let window = tauri::WebviewWindowBuilder::new(
                 app,
                 "main",
                 tauri::WebviewUrl::App("index.html".into()),
             )
-            .title(format!("Logbook v{}", app.package_info().version))
+            .title(&title)
             .inner_size(width as f64, height as f64)
             .position(x as f64, y as f64)
             // Tauri's OS drag-drop handler (enabled by default) intercepts the
@@ -43,6 +44,9 @@ pub fn run() {
             .disable_drag_drop_handler()
             .build()
             .expect("failed to create main window");
+            // productName in tauri.conf.json can override the builder .title()
+            // after initialization — set it again post-creation as a safeguard.
+            window.set_title(&title).ok();
 
             if let Some(root_path) = files::read_root_path(&app_data_dir) {
                 if root_path.exists() {
@@ -117,6 +121,12 @@ pub fn run() {
                 }
             });
             // ────────────────────────────────────────────────────
+
+            // Final safeguard: productName from tauri.conf can override
+            // the title during initialization. Set it one last time.
+            if let Some(w) = app.get_webview_window("main") {
+                w.set_title(&title).ok();
+            }
 
             Ok(())
         })
