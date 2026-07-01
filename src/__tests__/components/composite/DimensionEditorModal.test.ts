@@ -419,8 +419,12 @@ describe("DimensionEditorModal", () => {
     await wrapper.find('[data-test="delete-dim"]').trigger("click");
     await nextTick();
     const rows = wrapper.findAll('[data-test="dim-row"]');
-    expect(rows).toHaveLength(2); // Goal hidden, Biz + Importance remain
-    expect(wrapper.text()).not.toContain("Goal");
+    // All 3 rows remain in DOM; deleted Goal is CSS-hidden (not removed by v-if)
+    expect(rows).toHaveLength(3);
+    // Goal is the first row (index 0) after deletion
+    const goalRow = rows[0];
+    // When showDeleted=false, deleted dims get 'hidden'; when toggled on, 'opacity-40'
+    expect(goalRow.classes()).toContain("hidden");
   });
 
   it("toggle on shows deleted dimensions with opacity-40", async () => {
