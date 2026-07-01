@@ -54,14 +54,14 @@ function onSaved(c: Commitment[]) { modalOpen.value = false; emit("saved", c); }
           {{ s.role }} {{ collapsed[s.role] ? "▸" : "▾" }}
         </span>
         <span class="text-secondary font-semibold text-[var(--color-text-primary)]">
-          <span class="mono">{{ formatDurationCompact(s.spent_minutes) }}</span><span class="mono font-normal text-[var(--color-text-secondary)]"> / {{ (s.allocation_minutes / 60).toFixed(0) }}h</span>
+          <span class="mono">{{ formatDurationCompact(s.goal_spent_minutes + s.general_spent_minutes) }}</span><span class="mono font-normal text-[var(--color-text-secondary)]"> / {{ (s.allocation_minutes / 60).toFixed(0) }}h</span>
         </span>
       </div>
       <div class="h-[4px] bg-[var(--color-divider)] rounded-[var(--radius-sm)] overflow-hidden mt-xs">
         <div
           data-test="progress-fill"
           class="h-full rounded-[var(--radius-sm)] transition-all"
-          :style="{ width: pct(s.spent_minutes, s.allocation_minutes), background: 'linear-gradient(90deg, var(--color-brand-gradient-from), var(--color-brand-gradient-to))' }"
+          :style="{ width: pct(s.goal_spent_minutes + s.general_spent_minutes, s.allocation_minutes), background: 'linear-gradient(90deg, var(--color-brand-gradient-from), var(--color-brand-gradient-to))' }"
         />
       </div>
       <div v-if="!collapsed[s.role]" class="mt-sm flex flex-col gap-2xs">
