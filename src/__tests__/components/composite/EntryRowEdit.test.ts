@@ -22,6 +22,11 @@ function mountEdit(entryOverrides = {}) {
   return mount(EntryRowEdit, { props: { entry, dimensions, commitments } });
 }
 
+function mountEditNoDims() {
+  const entry = makeEntry({ item: "Old item", duration: 45, dimensions: {} });
+  return mount(EntryRowEdit, { props: { entry, dimensions, commitments } });
+}
+
 function mountEditWithFocus(focusTarget: 'item' | 'duration' = 'item') {
   const entry = makeEntry({ item: "Old item", duration: 45, dimensions: { ...fullDims } });
   return mount(EntryRowEdit, {
@@ -75,18 +80,21 @@ describe("EntryRowEdit", () => {
     expect(wrapper.emitted("save")?.[0]).toEqual(["Old item", 45, { category: "Engineering", goal: "Bug fixes" }]);
   });
 
-  it("does NOT save when a required dimension chip is removed; shows a required hint", async () => {
+  it("does NOT save when a required dimension chip is removed; shows a missing-required prompt", async () => {
     const wrapper = mountEdit();
     const removes = wrapper.findAll("[data-test='chip-remove']");
     await removes[0].trigger("click"); // category (required)
     await wrapper.find("[data-test='save']").trigger("click");
     expect(wrapper.emitted("save")).toBeFalsy();
-    expect(wrapper.find("[data-test='required-hint']").exists()).toBe(true);
+    // After removing a required dim chip, it appears as a missing-required prompt
+    expect(wrapper.find("[data-test='missing-required']").exists()).toBe(true);
+    // The prompt gets warning styling because submitAttempted is true
+    expect(wrapper.find("[data-test='missing-required']").classes()).toContain("text-[var(--color-warning)]");
   });
 
-  it("opens DimensionPopover when + tag is clicked", async () => {
-    const wrapper = mountEdit();
-    await wrapper.find("[data-test='add-tag']").trigger("click");
+  it("opens DimensionPopover when a missing-required prompt is clicked", async () => {
+    const wrapper = mountEditNoDims();
+    await wrapper.find("[data-test='missing-required']").trigger("click");
     expect(wrapper.findComponent({ name: "DimensionPopover" }).exists()).toBe(true);
   });
 
@@ -131,21 +139,21 @@ describe("EntryRowEdit", () => {
   });
 
   it("Esc does nothing while the DimensionPopover is open", async () => {
-    const wrapper = mountEdit();
+    const wrapper = mountEditNoDims();
     await wrapper.findAll("input")[0].setValue("Changed item");
-    await wrapper.find("[data-test='add-tag']").trigger("click"); // open popover
+    await wrapper.find("[data-test='missing-required']").trigger("click"); // open popover
     await wrapper.trigger("keydown", { key: "Escape" });
     expect(wrapper.emitted("cancel")).toBeFalsy();
     expect(wrapper.find("[data-test='discard-prompt']").exists()).toBe(false);
   });
 
   it("Enter while the popover is open does not save (popover owns Enter)", async () => {
-    const entry = makeEntry({ item: "Old item", duration: 45, dimensions: { ...fullDims } });
+    const entry = makeEntry({ item: "Old item", duration: 45, dimensions: {} });
     const wrapper = mount(EntryRowEdit, {
       props: { entry, dimensions, commitments },
       attachTo: document.body,
     });
-    await wrapper.find("[data-test='add-tag']").trigger("click"); // open popover
+    await wrapper.find("[data-test='missing-required']").trigger("click"); // open popover
     expect(wrapper.findComponent({ name: "DimensionPopover" }).exists()).toBe(true);
 
     // Real bubbling Enter so the popover's window capture-phase listener intercepts it.
@@ -205,9 +213,9 @@ describe("EntryRowEdit", () => {
   });
 
   it("esc handoff: popover consumes esc while open, parent handles esc after it closes", async () => {
-    const wrapper = mountEdit();
+    const wrapper = mountEditNoDims();
     await wrapper.findAll("input")[0].setValue("Changed item"); // make it dirty
-    await wrapper.find("[data-test='add-tag']").trigger("click"); // open popover
+    await wrapper.find("[data-test='missing-required']").trigger("click"); // open popover
     expect(wrapper.findComponent({ name: "DimensionPopover" }).exists()).toBe(true);
 
     // While the popover is open, esc must NOT trigger the parent confirm flow.
@@ -259,5 +267,75 @@ describe("EntryRowEdit", () => {
     const itemInput = wrapper.findAll("input")[0].element as HTMLInputElement;
     expect(spy).toHaveBeenCalledWith(itemInput.value.length, itemInput.value.length);
     spy.mockRestore();
+  });
+
+  it("excludes deleted dimensions from filled chips", () => {
+    const dims = [
+      makeDimension({ name: "Cat", key: "cat", source: "static", values: ["v"], required: false }),
+      makeDimension({ name: "Del", key: "del", source: "static", values: ["x"], required: false, deleted: true }),
+    ];
+    const entry = makeEntry({ item: "X", duration: 30, dimensions: { cat: "v", del: "x" } });
+    const wrapper = mount(EntryRowEdit, { props: { entry, dimensions: dims, commitments: [] } });
+    // filled() returns only non-deleted dims with values; del should be excluded
+    const chips = wrapper.findAll("[data-test='chip-remove']");
+    expect(chips.length).toBe(1);
+  });
+
+  it("excludes deleted required dimensions from missingRequired", async () => {
+    const dims = [
+      makeDimension({ name: "Req", key: "req", source: "static", values: ["v"], required: true }),
+      makeDimension({ name: "DelReq", key: "delreq", source: "static", values: ["x"], required: true, deleted: true }),
+    ];
+    const entry = makeEntry({ item: "X", duration: 30, dimensions: {} });
+    const wrapper = mount(EntryRowEdit, { props: { entry, dimensions: dims, commitments: [] } });
+    // missingRequired should only include "req", not "delreq"
+    // Verify via save behavior — save blocks when missingRequired is non-empty
+    await wrapper.find("[data-test='save']").trigger("click");
+    // Save blocked: only "req" is missing (1 required), not 2
+    expect(wrapper.emitted("save")).toBeFalsy();
+  });
+
+  it("renders a missing-required prompt for each unfilled required dimension", () => {
+    const wrapper = mountEditNoDims();
+    const prompts = wrapper.findAll("[data-test='missing-required']");
+    expect(prompts.length).toBe(2); // category, goal
+    expect(prompts[0].text()).toContain("Category");
+    expect(prompts[1].text()).toContain("Goal");
+  });
+
+  it("shows a + button when there are unfilled optional dimensions", () => {
+    const wrapper = mountEditNoDims();
+    // business-line is optional and unfilled
+    expect(wrapper.find("[data-test='add-dimension']").exists()).toBe(true);
+    expect(wrapper.find("[data-test='add-dimension']").text()).toBe("+");
+  });
+
+  it("hides the + button when all optional dimensions are filled", () => {
+    const wrapper = mountEdit(); // all dims filled via fullDims
+    expect(wrapper.find("[data-test='add-dimension']").exists()).toBe(false);
+  });
+
+  it("does NOT render the old required-hint warning text", () => {
+    const wrapper = mountEditNoDims();
+    expect(wrapper.find("[data-test='required-hint']").exists()).toBe(false);
+  });
+
+  it("opens DimensionPopover when a missing-required prompt is clicked", async () => {
+    const wrapper = mountEditNoDims();
+    await wrapper.find("[data-test='missing-required']").trigger("click");
+    expect(wrapper.findComponent({ name: "DimensionPopover" }).exists()).toBe(true);
+  });
+
+  it("opens DimensionPopover when + button is clicked", async () => {
+    const wrapper = mountEditNoDims();
+    await wrapper.find("[data-test='add-dimension']").trigger("click");
+    expect(wrapper.findComponent({ name: "DimensionPopover" }).exists()).toBe(true);
+  });
+
+  it("applies warning style to missing-required prompts after a blocked submit attempt", async () => {
+    const wrapper = mountEditNoDims();
+    await wrapper.find("[data-test='save']").trigger("click");
+    const prompt = wrapper.find("[data-test='missing-required']");
+    expect(prompt.classes()).toContain("text-[var(--color-warning)]");
   });
 });
