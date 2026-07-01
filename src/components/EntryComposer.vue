@@ -29,8 +29,8 @@ const parsedDuration = computed(() => {
   return t ? parseDurationFromText(t) : null;
 });
 
-const filledDims = computed(() => props.dimensions.filter(d => dimValues.value[d.key]));
-const missingRequired = computed(() => props.dimensions.filter(d => d.required && !dimValues.value[d.key]));
+const filledDims = computed(() => props.dimensions.filter(d => !d.deleted && dimValues.value[d.key]));
+const missingRequired = computed(() => props.dimensions.filter(d => !d.deleted && d.required && !dimValues.value[d.key]));
 
 const composerHues = computed(() => dimensionHues(props.dimensions));
 function tokenChipStyle(key: string) {

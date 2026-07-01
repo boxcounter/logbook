@@ -230,4 +230,35 @@ describe("EntryComposer", () => {
     expect((input.element as HTMLInputElement).value).toBe("");
     expect(wrapper.emitted("submit")).toBeFalsy();
   });
+
+  it("excludes deleted dimensions from missing-required indicators", () => {
+    const dims = [
+      makeDimension({ name: "Visible", key: "visible", source: "static", values: ["v"], required: true }),
+      makeDimension({ name: "Deleted", key: "deleted", source: "static", values: ["d"], required: true, deleted: true }),
+    ];
+    const wrapper = mount(EntryComposer, { props: { dimensions: dims, commitments: [] } });
+    const missing = wrapper.findAll("[data-test='missing']");
+    expect(missing.length).toBe(1);
+    expect(missing[0].text()).toContain("Visible");
+    expect(wrapper.text()).not.toContain("Deleted");
+  });
+
+  it("excludes deleted dimensions from filled chips", async () => {
+    const dims = [
+      makeDimension({ name: "Visible", key: "visible", source: "static", values: ["v"], required: false }),
+      makeDimension({ name: "Deleted", key: "deleted", source: "static", values: ["d"], required: false, deleted: true }),
+    ];
+    const wrapper = mount(EntryComposer, { props: { dimensions: dims, commitments: [] } });
+
+    // fill the visible dimension via popover
+    await wrapper.find("input").trigger("keydown", { key: "@" });
+    const pop = wrapper.findComponent({ name: "DimensionPopover" });
+    await pop.vm.$emit("select", "visible", "v");
+    await pop.vm.$emit("close");
+    await wrapper.vm.$nextTick();
+
+    const tokens = wrapper.findAll("[data-test='dim-token']");
+    expect(tokens.length).toBe(1);
+    expect(tokens[0].text()).toContain("v");
+  });
 });
