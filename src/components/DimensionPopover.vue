@@ -29,7 +29,10 @@ function firstUnfilledIndex(justFilled?: string): number {
 }
 
 function listLength(): number {
-  return stage.value === "dim" ? props.dimensions.length : activeValues.value.length;
+  if (stage.value === "dim") {
+    return props.dimensions.length + (props.commitments.length > 0 ? 1 : 0);
+  }
+  return activeValues.value.length;
 }
 
 function move(delta: number) {
@@ -44,12 +47,50 @@ const goalOptions = computed(() => {
   return [...goals];
 });
 
-const activeDim = computed(() => props.dimensions.find(d => d.key === selectedDimKey.value) || null);
+const goalKey = computed(() => {
+  const monthly = props.dimensions.find(d => d.source === "monthly");
+  return monthly?.key ?? "goal";
+});
 
 const activeValues = computed(() => {
-  const d = activeDim.value;
+  if (stage.value !== "val") return [];
+
+  // Role dimension: values from commitments
+  if (selectedDimKey.value === "role") {
+    let roles = props.commitments.map(c => c.role);
+    // Cross-filter: if goal is already selected, only show roles containing that goal
+    const existingGoal = props.dimValues[goalKey.value];
+    if (existingGoal) {
+      roles = roles.filter(r =>
+        props.commitments.find(c => c.role === r)?.goals.includes(existingGoal)
+      );
+    }
+    return roles;
+  }
+
+  // Goal dimension: values from monthly source
+  if (selectedDimKey.value === goalKey.value) {
+    let goals = goalOptions.value;
+    // Cross-filter: if role is already selected, only show goals under that role
+    const existingRole = props.dimValues["role"];
+    if (existingRole) {
+      const roleCommitment = props.commitments.find(c => c.role === existingRole);
+      if (roleCommitment) goals = roleCommitment.goals;
+    }
+    return goals;
+  }
+
+  // Other dimensions: values from template
+  const d = props.dimensions.find(d => d.key === selectedDimKey.value);
   if (!d) return [];
-  return d.source === "monthly" ? goalOptions.value : (d.values || []);
+  if (d.source === "monthly") return goalOptions.value;
+  return d.values ?? [];
+});
+
+const valHeaderName = computed(() => {
+  if (stage.value !== "val") return "";
+  if (selectedDimKey.value === "role") return "Role";
+  return props.dimensions.find(d => d.key === selectedDimKey.value)?.name ?? "";
 });
 
 const hues = computed(() => dimensionHues(props.dimensions));
@@ -112,8 +153,12 @@ function onWindowKeydown(e: KeyboardEvent) {
     e.preventDefault();
     e.stopPropagation();
     if (stage.value === "dim") {
-      const d = props.dimensions[highlightedIndex.value];
-      if (d) selectDim(d.key);
+      if (highlightedIndex.value < props.dimensions.length) {
+        const d = props.dimensions[highlightedIndex.value];
+        if (d) selectDim(d.key);
+      } else if (props.commitments.length > 0) {
+        selectDim("role");
+      }
     } else {
       const v = activeValues.value[highlightedIndex.value];
       if (v !== undefined) selectVal(v);
@@ -180,6 +225,39 @@ onUnmounted(() => window.removeEventListener("keydown", onWindowKeydown, true));
       </div>
       </template>
       <div
+        v-if="commitments.length > 0"
+        data-test="dim-role"
+        :data-active="dimensions.length === highlightedIndex"
+        class="px-md py-sm text-secondary
+               flex items-center gap-sm cursor-pointer border-b border-[var(--color-surface-muted)]"
+        :class="
+          dimensions.length === highlightedIndex
+            ? 'bg-[var(--color-brand-solid)] text-white'
+            : (dimValues['role']
+                ? 'text-[var(--color-brand-solid)] font-semibold'
+                : 'text-[var(--color-text-primary)]')
+        "
+        @mouseenter="highlightedIndex = dimensions.length"
+        @click="selectDim('role')"
+      >
+        <span class="w-[3px] h-[18px] rounded-[var(--radius-sm)] flex-shrink-0" :style="{ background: barColor('role') }"></span>
+        Role
+        <span
+          v-if="dimValues['role']"
+          class="ml-auto flex items-center gap-xs text-micro max-w-[110px]"
+        >
+          <span class="truncate">{{ dimValues['role'] }}</span>
+          <span class="flex-shrink-0">✓</span>
+        </span>
+        <span
+          v-else
+          class="ml-auto text-micro"
+          :class="dimensions.length === highlightedIndex
+            ? 'text-white'
+            : 'text-[var(--color-text-disabled)]'"
+        >optional</span>
+      </div>
+      <div
         class="px-md py-sm text-micro text-[var(--color-text-disabled)]
                border-t border-[var(--color-divider)] flex gap-md"
       >
@@ -197,7 +275,7 @@ onUnmounted(() => window.removeEventListener("keydown", onWindowKeydown, true));
                border-b border-[var(--color-divider)] flex items-center gap-sm"
       >
         <button data-test="back-btn" class="font-bold cursor-pointer leading-none" @click="goBack">←</button>
-        {{ activeDim?.name }}
+        {{ valHeaderName }}
       </div>
       <div
         v-for="(v, i) in activeValues" :key="v"
