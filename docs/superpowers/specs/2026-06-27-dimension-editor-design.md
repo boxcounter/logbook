@@ -292,6 +292,9 @@ CLI get ←── resolve_month_dimensions():
 当维度被标记为 `deleted: true`：
 - **新 entry 不可选**：`DimensionPopover` 过滤掉已删除维度
 - **历史 entry 保持原样**：`EntryRow.vue` 正常渲染 chip，颜色和标签均保留（因为该维度 key 仍在配置中，只是 `deleted: true`）
+
+      > **Superseded by [2026-07-01-dimension-colors-design.md](./2026-07-01-dimension-colors-design.md)**:
+      > 配色从硬编码 key 改为均分色轮 + 软删除灰色。历史 entry 的 chip 颜色不再保留——位置驱动配色下"原色"本会随增删维度漂移；软删除统一用固定中性灰更自洽。
 - **左栏可见可恢复**：编辑器左栏底部「Show deleted」开关（默认关闭）。开启后已删除维度以 `opacity-40` 显示，选中后右侧显示只读详情 +「Restore」按钮
 - **排序**：已删除维度排在列表末尾，不参与拖拽排序
 - **模板推广**：软删除状态随「Save as template」写入 `dimensions.template.yaml`
