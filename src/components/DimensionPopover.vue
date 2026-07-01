@@ -2,7 +2,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import type { Dimension, Commitment } from "../types";
-import { dimBarClass } from "../utils/dimensionColor";
+import { dimensionHues, dimBar } from "../utils/dimensionColor";
 
 const props = defineProps<{
   dimensions: Dimension[];
@@ -52,9 +52,9 @@ const activeValues = computed(() => {
   return d.source === "monthly" ? goalOptions.value : (d.values || []);
 });
 
-// Map a dimension key to its left-bar token class.
-function barClass(key: string): string {
-  return dimBarClass(key);
+const hues = computed(() => dimensionHues(props.dimensions));
+function barColor(key: string): string {
+  return dimBar(hues.value.get(key) ?? null);
 }
 
 function defaultValIndex(): number {
@@ -160,7 +160,7 @@ onUnmounted(() => window.removeEventListener("keydown", onWindowKeydown, true));
         @mouseenter="highlightedIndex = i"
         @click="selectDim(d.key)"
       >
-        <span class="w-[3px] h-[18px] rounded-[var(--radius-sm)] flex-shrink-0" :class="barClass(d.key)"></span>
+        <span class="w-[3px] h-[18px] rounded-[var(--radius-sm)] flex-shrink-0" :style="{ background: barColor(d.key) }"></span>
         {{ d.name }}
         <span
           v-if="dimValues[d.key]"
