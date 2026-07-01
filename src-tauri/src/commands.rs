@@ -5,6 +5,7 @@ use crate::files::{self, read_root_path, save_root_path};
 use crate::models::*;
 use chrono::Datelike;
 use regex::Regex;
+use std::collections::BTreeMap;
 use std::sync::LazyLock;
 use tauri::{AppHandle, Manager};
 use tauri_plugin_opener::OpenerExt;
@@ -627,6 +628,40 @@ fn monthly_dim_key(root: &std::path::Path, year: i32, month: u32) -> String {
         .ok()
         .and_then(|dims| dims.into_iter().find(|d| d.source == "monthly").map(|d| d.key))
         .unwrap_or_else(|| "goal".to_string())
+}
+
+fn compute_attribution(
+    dimensions: &BTreeMap<String, String>,
+    goal_key: &str,
+    goal_to_role: &std::collections::HashMap<String, String>,
+    role_to_goals: &std::collections::HashMap<String, Vec<String>>,
+) -> crate::models::Attribution {
+    use crate::models::Attribution;
+    let role = dimensions.get("role");
+    let goal = dimensions.get(goal_key);
+
+    match (role, goal) {
+        (None, None) => Attribution::Unattributed,
+        (None, Some(g)) => {
+            if goal_to_role.contains_key(g.as_str()) {
+                Attribution::Ok
+            } else {
+                Attribution::Unattributed
+            }
+        }
+        (Some(_), None) => Attribution::Ok,
+        (Some(r), Some(g)) => {
+            if let Some(goals) = role_to_goals.get(r.as_str()) {
+                if goals.contains(g) {
+                    Attribution::Ok
+                } else {
+                    Attribution::Mismatch
+                }
+            } else {
+                Attribution::Unattributed
+            }
+        }
+    }
 }
 
 #[tauri::command]
@@ -1876,5 +1911,100 @@ mod tests {
         assert!(!t.select);
 
         let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_compute_attribution_unattributed_no_dimensions() {
+        use std::collections::HashMap;
+        let dims = BTreeMap::new();
+        let goal_to_role: HashMap<String, String> = HashMap::new();
+        let role_to_goals: HashMap<String, Vec<String>> = HashMap::new();
+        let result = compute_attribution(&dims, "goal", &goal_to_role, &role_to_goals);
+        assert_eq!(result, Attribution::Unattributed);
+    }
+
+    #[test]
+    fn test_compute_attribution_ok_via_goal_fallback() {
+        use std::collections::HashMap;
+        let mut dims = BTreeMap::new();
+        dims.insert("goal".to_string(), "Ship X".to_string());
+        let mut goal_to_role: HashMap<String, String> = HashMap::new();
+        goal_to_role.insert("Ship X".to_string(), "Dev".to_string());
+        let role_to_goals: HashMap<String, Vec<String>> = HashMap::new();
+        let result = compute_attribution(&dims, "goal", &goal_to_role, &role_to_goals);
+        assert_eq!(result, Attribution::Ok);
+    }
+
+    #[test]
+    fn test_compute_attribution_unattributed_unknown_goal() {
+        use std::collections::HashMap;
+        let mut dims = BTreeMap::new();
+        dims.insert("goal".to_string(), "Unknown".to_string());
+        let goal_to_role: HashMap<String, String> = HashMap::new();
+        let role_to_goals: HashMap<String, Vec<String>> = HashMap::new();
+        let result = compute_attribution(&dims, "goal", &goal_to_role, &role_to_goals);
+        assert_eq!(result, Attribution::Unattributed);
+    }
+
+    #[test]
+    fn test_compute_attribution_ok_role_only() {
+        use std::collections::HashMap;
+        let mut dims = BTreeMap::new();
+        dims.insert("role".to_string(), "Dev".to_string());
+        let goal_to_role: HashMap<String, String> = HashMap::new();
+        let mut role_to_goals: HashMap<String, Vec<String>> = HashMap::new();
+        role_to_goals.insert("Dev".to_string(), vec!["Ship X".to_string()]);
+        let result = compute_attribution(&dims, "goal", &goal_to_role, &role_to_goals);
+        assert_eq!(result, Attribution::Ok);
+    }
+
+    #[test]
+    fn test_compute_attribution_ok_role_and_matching_goal() {
+        use std::collections::HashMap;
+        let mut dims = BTreeMap::new();
+        dims.insert("role".to_string(), "Dev".to_string());
+        dims.insert("goal".to_string(), "Ship X".to_string());
+        let goal_to_role: HashMap<String, String> = HashMap::new();
+        let mut role_to_goals: HashMap<String, Vec<String>> = HashMap::new();
+        role_to_goals.insert("Dev".to_string(), vec!["Ship X".to_string()]);
+        let result = compute_attribution(&dims, "goal", &goal_to_role, &role_to_goals);
+        assert_eq!(result, Attribution::Ok);
+    }
+
+    #[test]
+    fn test_compute_attribution_mismatch() {
+        use std::collections::HashMap;
+        let mut dims = BTreeMap::new();
+        dims.insert("role".to_string(), "Dev".to_string());
+        dims.insert("goal".to_string(), "Design review".to_string());
+        let goal_to_role: HashMap<String, String> = HashMap::new();
+        let mut role_to_goals: HashMap<String, Vec<String>> = HashMap::new();
+        role_to_goals.insert("Dev".to_string(), vec!["Ship X".to_string()]);
+        let result = compute_attribution(&dims, "goal", &goal_to_role, &role_to_goals);
+        assert_eq!(result, Attribution::Mismatch);
+    }
+
+    #[test]
+    fn test_compute_attribution_unattributed_unknown_role() {
+        use std::collections::HashMap;
+        let mut dims = BTreeMap::new();
+        dims.insert("role".to_string(), "Ghost".to_string());
+        dims.insert("goal".to_string(), "Ship X".to_string());
+        let goal_to_role: HashMap<String, String> = HashMap::new();
+        let role_to_goals: HashMap<String, Vec<String>> = HashMap::new();
+        let result = compute_attribution(&dims, "goal", &goal_to_role, &role_to_goals);
+        assert_eq!(result, Attribution::Unattributed);
+    }
+
+    #[test]
+    fn test_compute_attribution_dynamic_goal_key() {
+        use std::collections::HashMap;
+        let mut dims = BTreeMap::new();
+        dims.insert("objective".to_string(), "Launch".to_string());
+        let mut goal_to_role: HashMap<String, String> = HashMap::new();
+        goal_to_role.insert("Launch".to_string(), "PM".to_string());
+        let role_to_goals: HashMap<String, Vec<String>> = HashMap::new();
+        let result = compute_attribution(&dims, "objective", &goal_to_role, &role_to_goals);
+        assert_eq!(result, Attribution::Ok);
     }
 }
