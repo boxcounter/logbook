@@ -934,6 +934,70 @@ pub fn set_commitments(
         rename_goal_in_entries(root, year, month, old_name, new_name)?;
     }
 
+    // 6b. Detect and apply role renames
+    let month_dir = root.join(year.to_string()).join(format!("{:02}", month));
+    let role_changes = detect_role_changes(&old_commitments, &commitments);
+    for (old_name, new_name) in &role_changes {
+        if let Ok(entries) = std::fs::read_dir(&month_dir) {
+            for entry in entries {
+                let entry = match entry {
+                    Ok(e) => e,
+                    Err(_) => continue,
+                };
+                let path = entry.path();
+                let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                if file_name == "_monthly.md" || !file_name.ends_with(".md") {
+                    continue;
+                }
+                if let Ok(mut day_file) = crate::files::read_day_file(root, file_name.trim_end_matches(".md")) {
+                    let mut changed = false;
+                    for e in &mut day_file.entries {
+                        if e.dimensions.get("role").map(|r| r == old_name).unwrap_or(false) {
+                            e.dimensions.insert("role".to_string(), new_name.to_string());
+                            changed = true;
+                        }
+                    }
+                    if changed {
+                        let _ = crate::files::write_day_file(root, file_name.trim_end_matches(".md"), &day_file);
+                    }
+                }
+            }
+        }
+    }
+
+    // 6c. Detect and clear role dimension for deleted roles
+    let old_role_names: std::collections::BTreeSet<&String> = old_commitments.iter().map(|c| &c.role).collect();
+    let new_role_names: std::collections::BTreeSet<&String> = commitments.iter().map(|c| &c.role).collect();
+    let deleted_roles: Vec<&String> = old_role_names.difference(&new_role_names).cloned().collect();
+
+    for role_name in &deleted_roles {
+        if let Ok(entries) = std::fs::read_dir(&month_dir) {
+            for entry in entries {
+                let entry = match entry {
+                    Ok(e) => e,
+                    Err(_) => continue,
+                };
+                let path = entry.path();
+                let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                if file_name == "_monthly.md" || !file_name.ends_with(".md") {
+                    continue;
+                }
+                if let Ok(mut day_file) = crate::files::read_day_file(root, file_name.trim_end_matches(".md")) {
+                    let mut changed = false;
+                    for e in &mut day_file.entries {
+                        if e.dimensions.get("role").map(|r| r == *role_name).unwrap_or(false) {
+                            e.dimensions.remove("role");
+                            changed = true;
+                        }
+                    }
+                    if changed {
+                        let _ = crate::files::write_day_file(root, file_name.trim_end_matches(".md"), &day_file);
+                    }
+                }
+            }
+        }
+    }
+
     // 7. Write commitments.yaml
     files::write_commitments_file(root, year, month, &commitments)?;
 
@@ -1159,6 +1223,22 @@ fn detect_goal_changes(old: &[Commitment], new: &[Commitment]) -> GoalChanges {
         .collect();
 
     GoalChanges { renames, deleted }
+}
+
+/// 检测 role 改名：新旧 commitments 之间，role 名变了但 goals 集合相同。
+/// 返回 (old_name, new_name) 列表。
+fn detect_role_changes(old: &[crate::models::Commitment], new: &[crate::models::Commitment]) -> Vec<(String, String)> {
+    let mut changes = Vec::new();
+    for o in old {
+        let old_goals: std::collections::BTreeSet<&String> = o.goals.iter().collect();
+        if let Some(n) = new.iter().find(|n| {
+            let new_goals: std::collections::BTreeSet<&String> = n.goals.iter().collect();
+            old_goals == new_goals && o.role != n.role
+        }) {
+            changes.push((o.role.clone(), n.role.clone()));
+        }
+    }
+    changes
 }
 
 #[tauri::command]
