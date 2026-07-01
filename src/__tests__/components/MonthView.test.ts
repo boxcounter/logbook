@@ -11,6 +11,7 @@ const invokeMock = vi.fn();
 vi.mock("@tauri-apps/api/core", () => ({ invoke: (...args: unknown[]) => invokeMock(...args) }));
 vi.mock("@tauri-apps/api/app", () => ({ getVersion: vi.fn().mockResolvedValue("0.0.0") }));
 vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: vi.fn().mockReturnValue({ setTitle: vi.fn() }) }));
+import { getCurrentWindow } from "@tauri-apps/api/window";
 
 // Compute today's date string at test runtime (not hardcoded) so isSelectedToday works
 function todayDateStr(): string {
@@ -229,6 +230,11 @@ describe("MonthView", () => {
   it("does not render version string in the DOM (version is now in OS window title)", () => {
     const wrapper = mountView();
     expect(wrapper.text()).not.toMatch(/v\d+\.\d+\.\d+/);
+  });
+
+  it("sets the OS window title to Logbook v{version} on mount", () => {
+    mountView();
+    expect(getCurrentWindow().setTitle).toHaveBeenCalledWith("Logbook v0.0.0");
   });
 });
 
