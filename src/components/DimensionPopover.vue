@@ -2,6 +2,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import type { Dimension, Commitment } from "../types";
+import { dimBarClass } from "../utils/dimensionColor";
 
 const props = defineProps<{
   dimensions: Dimension[];
@@ -53,13 +54,7 @@ const activeValues = computed(() => {
 
 // Map a dimension key to its left-bar token class.
 function barClass(key: string): string {
-  const map: Record<string, string> = {
-    category: "bg-[var(--dim-bar-cat)]",
-    "business-line": "bg-[var(--dim-bar-biz)]",
-    "importance-urgency": "bg-[var(--dim-bar-imp)]",
-    goal: "bg-[var(--dim-bar-goal)]",
-  };
-  return map[key] || "bg-[var(--dim-bar-cat)]";
+  return dimBarClass(key);
 }
 
 function defaultValIndex(): number {

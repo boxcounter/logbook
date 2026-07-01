@@ -3,6 +3,7 @@ import { ref, computed, watch, nextTick } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { VueDraggable } from "vue-draggable-plus";
 import type { Dimension } from "../../types";
+import { dimBarColor } from "../../utils/dimensionColor";
 
 const props = defineProps<{
   open: boolean;
@@ -252,7 +253,7 @@ const monthLabel = new Date(props.year, props.month - 1, 1)
                       ]">⠿</span>
                     <div
                       class="w-[3px] h-[16px] rounded-[1px] flex-shrink-0"
-                      :style="{ background: `var(--dim-bar-${dim.key})` }"
+                      :style="{ background: dimBarColor(dim.key) }"
                     ></div>
                     <span class="text-body text-[var(--color-text-primary)] flex-1">{{ dim.name }}</span>
                     <span class="text-micro text-[var(--color-text-muted)]">{{ dim.source }}</span>
