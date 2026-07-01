@@ -346,7 +346,9 @@ function onGlobalKeydown(e: KeyboardEvent) {
 
 onMounted(async () => {
   window.addEventListener("keydown", onGlobalKeydown);
-  getVersion().then(v => { getCurrentWindow().setTitle("Logbook v" + v); }).catch(() => {});
+  getVersion()
+    .then(v => { getCurrentWindow().setTitle("Logbook v" + v); })
+    .catch((e: unknown) => { logError("MonthView.setTitle", e); });
   if (store.rootPath) {
     const { year, month } = yearMonthFromDate(store.currentDate);
     await loadMonth(year, month);
