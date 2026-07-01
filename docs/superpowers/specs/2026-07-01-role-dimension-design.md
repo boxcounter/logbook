@@ -4,7 +4,7 @@
 
 ## 数据模型
 
-Entry 的 `dimensions` 新增可选 key `role`。值和 Commitment 中声明的 role 名对应。不新增 Entry 一级字段。
+### Entry.dimensions 新增 role key
 
 ```
 dimensions: {
@@ -14,6 +14,18 @@ dimensions: {
 ```
 
 role 的值来源为 `commitments.yaml` 中声明的 role 列表（动态，按月存放），不在 `dimensions.template.yaml` 的 `dimensions` 里声明。语义和 goal 的 `source: "monthly"` 相同。
+
+### Entry 新增 attribution 字段
+
+```rust
+enum Attribution {
+    Ok,            // 正常归属
+    Unattributed,  // 无 role 且无 goal（或 goal 未声明）
+    Mismatch,      // 有 role 有 goal，但 goal 不在该 role 下声明
+}
+```
+
+后端读 entry 时（结合当月 commitments 的 goal→role 映射）判定并填入。前端 `EntryRow` 直接读此字段决定 amber 标记。`serde` 序列化为 `"ok"` / `"unattributed"` / `"mismatch"` 小写字符串传给前端。
 
 ## 归属规则
 
@@ -33,22 +45,27 @@ goal_spent[goal]  = sum(entries with dimensions.goal == goal)  // 不变
 
 ## Command API 变更
 
-### DayFile — 携带归属信息
+### Entry — 携带归属状态
 
-`DayFile` 新增两个字段，每条 entry 读出来时同时判定归属状态：
+`Entry` 新增 `attribution` 字段，后端读 entry 时（结合当月 commitments）直接判定：
 
 ```rust
-struct DayFile {
-    note: Option<String>,
-    entries: Vec<Entry>,
-    unattributed_entry_ids: Vec<String>,  // 新增：无 role 且无 goal（或 goal 未声明）的 entry ID
-    mismatch_entry_ids: Vec<String>,      // 新增：role-goal 不匹配的 entry ID
+struct Entry {
+    id: String,
+    item: String,
+    duration: u32,
+    dimensions: HashMap<String, String>,
+    attribution: Attribution,  // 新增
+}
+
+enum Attribution {
+    Ok,            // 正常归属（有 role，或通过 goal → role 映射）
+    Unattributed,  // 无 role 且无 goal（或 goal 未声明）
+    Mismatch,      // 有 role 有 goal，但 goal 不在该 role 下声明
 }
 ```
 
-`get_entries`、`append_entry`、`update_entry`、`delete_entry` 均返回 `DayFile`，前端拿到后直接用于 EntryRow amber 标记判定（`Set.has(entry.id)`），不跨 API 来源拼接。
-
-`InitResult::Ready` 通过 `today: DayFile` 字段自然携带当月归属信息，不需要额外字段。
+`EntryRow` 直接读 `entry.attribution` 决定 amber 标记，不跨层级拼接。`DayFile` 保持不变（不新增字段）。
 
 ### `get_commitment_progress` 返回值
 
