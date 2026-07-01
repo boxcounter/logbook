@@ -30,7 +30,7 @@ pub fn run() {
 
             let (width, height, x, y) = window_state::default_window_geometry(&app_handle);
             let title = format!("Logbook v{}", app.package_info().version);
-            let window = tauri::WebviewWindowBuilder::new(
+            let _window = tauri::WebviewWindowBuilder::new(
                 app,
                 "main",
                 tauri::WebviewUrl::App("index.html".into()),
@@ -44,9 +44,6 @@ pub fn run() {
             .disable_drag_drop_handler()
             .build()
             .expect("failed to create main window");
-            // productName in tauri.conf.json can override the builder .title()
-            // after initialization — set it again post-creation as a safeguard.
-            window.set_title(&title).ok();
 
             if let Some(root_path) = files::read_root_path(&app_data_dir) {
                 if root_path.exists() {
