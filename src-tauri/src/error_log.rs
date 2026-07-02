@@ -13,7 +13,9 @@ pub fn init(app_data_dir: &std::path::Path) {
         *path = Some(log_path.clone());
     }
     let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
-    let _ = append_log("START", "", &format!("Logbook started at {}", timestamp));
+    if let Err(e) = append_log("START", "", &format!("Logbook started at {}", timestamp)) {
+        eprintln!("[logbook:START] log write failed: {e}");
+    }
 }
 
 /// Append a line to the log. Non-blocking, best-effort.
@@ -23,7 +25,9 @@ fn append_log(level: &str, context: &str, message: &str) -> Result<(), String> {
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     let path = path.as_ref().ok_or("Log not initialized")?;
     if let Some(parent) = path.parent() {
-        let _ = fs::create_dir_all(parent);
+        if let Err(e) = fs::create_dir_all(parent) {
+            eprintln!("[logbook] failed to create log dir: {e}");
+        }
     }
     let mut file = OpenOptions::new()
         .create(true)
@@ -49,33 +53,45 @@ fn append_log(level: &str, context: &str, message: &str) -> Result<(), String> {
 
 /// Log an informational message.
 pub fn log_info(context: &str, message: &str) {
-    let _ = append_log("INFO", context, message);
+    if let Err(e) = append_log("INFO", context, message) {
+        eprintln!("[logbook:INFO] [{context}] log write failed: {e}");
+    }
 }
 
 /// Log an error with context.
 pub fn log_error(context: &str, error: &str) {
-    let _ = append_log("ERROR", context, error);
+    if let Err(e) = append_log("ERROR", context, error) {
+        eprintln!("[logbook:ERROR] [{context}] log write failed: {e}");
+    }
 }
 
 /// Log a frontend error (called via Tauri command).
 pub fn log_frontend_error(message: &str) {
-    let _ = append_log("ERROR", "FRONTEND", message);
+    if let Err(e) = append_log("ERROR", "FRONTEND", message) {
+        eprintln!("[logbook:ERROR] [FRONTEND] log write failed: {e}");
+    }
 }
 
 /// Log a frontend info message (called via Tauri command).
 pub fn log_frontend_info(message: &str) {
-    let _ = append_log("INFO", "FRONTEND", message);
+    if let Err(e) = append_log("INFO", "FRONTEND", message) {
+        eprintln!("[logbook:INFO] [FRONTEND] log write failed: {e}");
+    }
 }
 
 /// Log command entry with serialized args.
 pub fn log_command_enter(name: &str, args: &str) {
-    let _ = append_log("CMD>", name, args);
+    if let Err(e) = append_log("CMD>", name, args) {
+        eprintln!("[logbook:CMD>] [{name}] log write failed: {e}");
+    }
 }
 
 /// Log command exit with result summary.
 pub fn log_command_exit(name: &str, ok: bool, detail: &str) {
     let status = if ok { "OK" } else { "ERR" };
-    let _ = append_log("CMD<", name, &format!("{} {}", status, detail));
+    if let Err(e) = append_log("CMD<", name, &format!("{} {}", status, detail)) {
+        eprintln!("[logbook:CMD<] [{name}] log write failed: {e}");
+    }
 }
 
 // ---- Panic hook ----
@@ -89,7 +105,7 @@ pub fn install_panic_hook() {
         // Bypass the mutex to avoid deadlock if the panic happened while holding it
         let path = LOG_PATH.try_lock().ok().and_then(|p| p.clone());
         if let Some(ref log_path) = path {
-            let _ = (|| -> Result<(), String> {
+            if let Err(e) = (|| -> Result<(), String> {
                 let mut file = std::fs::OpenOptions::new()
                     .create(true)
                     .append(true)
@@ -97,7 +113,9 @@ pub fn install_panic_hook() {
                     .map_err(|e| format!("{e}"))?;
                 let ts = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
                 writeln!(file, "[{ts}] [PANIC] {msg}").map_err(|e| format!("{e}"))
-            })();
+            })() {
+                eprintln!("[logbook:PANIC] failed to write panic log: {e}");
+            }
         }
     }));
 }

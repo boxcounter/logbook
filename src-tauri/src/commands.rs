@@ -918,9 +918,10 @@ pub fn set_commitments(
     // 4. Detect changes
     let changes = detect_goal_changes(&old_commitments, &commitments);
 
-    // 5. Check deleted goals for existing entries
+    // 5. Check deleted goals for existing entries (single scan for all goals).
+    let goal_counts = batch_count_entries_for_goals(root, year, month, &changes.deleted)?;
     for goal_name in &changes.deleted {
-        let count = count_entries_with_goal(root, year, month, goal_name)?;
+        let count = goal_counts.get(goal_name).copied().unwrap_or(0);
         if count > 0 {
             return Err(format!(
                 "Cannot delete goal '{}': used by {} entries this month",
@@ -929,14 +930,24 @@ pub fn set_commitments(
         }
     }
 
-    // 6. Apply renames to all day files
-    for (old_name, new_name) in &changes.renames {
-        rename_goal_in_entries(root, year, month, old_name, new_name)?;
-    }
+    // 5b. Clean up orphaned goal dimension values in day files.
+    //     Even though the guard above ensures count == 0 for every deleted
+    //     goal, dimension-key fallback edge-cases could leave ghost values.
+    cleanup_deleted_goals_in_entries(root, year, month, &changes.deleted)?;
 
-    // 6b. Detect and apply role renames
+    // 6. Write commitments.yaml FIRST — before mutating day files.
+    //    If a crash occurs after this point, the commitments reflect the new
+    //    state and day files still have old names (consistent & recoverable).
+    //    If a crash occurs before this point, nothing changed at all.
+    files::write_commitments_file(root, year, month, &commitments)?;
+
+    // 7. Apply goal renames to day files (single scan for all renames).
+    batch_rename_goals_in_entries(root, year, month, &changes.renames)?;
+
+    // 7b. Detect and apply role renames.
     let month_dir = root.join(year.to_string()).join(format!("{:02}", month));
     let role_changes = detect_role_changes(&old_commitments, &commitments);
+    let mut write_errors: Vec<String> = Vec::new();
     for (old_name, new_name) in &role_changes {
         if let Ok(entries) = std::fs::read_dir(&month_dir) {
             for entry in entries {
@@ -958,14 +969,16 @@ pub fn set_commitments(
                         }
                     }
                     if changed {
-                        let _ = crate::files::write_day_file(root, file_name.trim_end_matches(".md"), &day_file);
+                        if let Err(e) = crate::files::write_day_file(root, file_name.trim_end_matches(".md"), &day_file) {
+                            write_errors.push(format!("role rename {}: {}", file_name, e));
+                        }
                     }
                 }
             }
         }
     }
 
-    // 6c. Detect and clear role dimension for deleted roles
+    // 7c. Clear role dimension for deleted roles.
     let old_role_names: std::collections::BTreeSet<&String> = old_commitments.iter().map(|c| &c.role).collect();
     let new_role_names: std::collections::BTreeSet<&String> = commitments.iter().map(|c| &c.role).collect();
     let deleted_roles: Vec<&String> = old_role_names.difference(&new_role_names).cloned().collect();
@@ -991,49 +1004,60 @@ pub fn set_commitments(
                         }
                     }
                     if changed {
-                        let _ = crate::files::write_day_file(root, file_name.trim_end_matches(".md"), &day_file);
+                        if let Err(e) = crate::files::write_day_file(root, file_name.trim_end_matches(".md"), &day_file) {
+                            write_errors.push(format!("role cleanup {}: {}", file_name, e));
+                        }
                     }
                 }
             }
         }
     }
 
-    // 7. Write commitments.yaml
-    files::write_commitments_file(root, year, month, &commitments)?;
+    if !write_errors.is_empty() {
+        error_log::log_error(
+            "set_commitments",
+            &format!("{} day file write(s) failed: {:?}", write_errors.len(), write_errors),
+        );
+        return Err(format!(
+            "{} day file(s) failed to update (commitments were saved). Details: {}",
+            write_errors.len(),
+            write_errors.join("; "),
+        ));
+    }
 
     let ok = true;
     error_log::log_command_exit("set_commitments", ok, "");
     Ok(commitments)
 }
 
-/// Count entries in a month that reference a specific goal.
-fn count_entries_with_goal(
+/// Batch version: scan all day files once and return per-goal entry counts.
+/// Replaces N independent `count_entries_with_goal` scans with one pass.
+fn batch_count_entries_for_goals(
     root: &std::path::Path,
     year: i32,
     month: u32,
-    goal_name: &str,
-) -> Result<usize, String> {
+    goals: &[String],
+) -> Result<std::collections::HashMap<String, usize>, String> {
+    let mut counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    if goals.is_empty() {
+        return Ok(counts);
+    }
     let month_dir = root
         .join(year.to_string())
         .join(format!("{:02}", month));
-
     if !month_dir.exists() {
-        return Ok(0);
+        return Ok(counts);
     }
-
-    let mut count = 0;
     let goal_key = monthly_dim_key(root, year, month);
-    let entries = match std::fs::read_dir(&month_dir) {
-        Ok(e) => e,
-        Err(e) => return Err(format!("Failed to read month dir: {}", e)),
-    };
+    let entries = std::fs::read_dir(&month_dir)
+        .map_err(|e| format!("Failed to read month dir: {}", e))?;
 
     for entry in entries {
         let entry = match entry {
             Ok(e) => e,
             Err(e) => {
                 error_log::log_error(
-                    "count_entries_with_goal",
+                    "batch_count",
                     &format!("Failed to read dir entry in {}-{:02}: {:?}", year, month, e),
                 );
                 continue;
@@ -1045,62 +1069,47 @@ fn count_entries_with_goal(
             continue;
         }
         let date = file_name.trim_end_matches(".md");
-        match files::read_day_file(root, date) {
-            Ok(day_file) => {
-                count += day_file
-                    .entries
-                    .iter()
-                    .filter(|e| e.dimensions.get(&goal_key).map(|g| g == goal_name).unwrap_or(false))
-                    .count();
-            }
-            Err(e) => {
-                error_log::log_error(
-                    "count_entries_with_goal",
-                    &format!("Failed to read day file {}: {}", date, e),
-                );
+        if let Ok(day_file) = files::read_day_file(root, date) {
+            for e in &day_file.entries {
+                if let Some(g) = e.dimensions.get(&goal_key) {
+                    if goals.iter().any(|goal| goal == g) {
+                        *counts.entry(g.clone()).or_insert(0) += 1;
+                    }
+                }
             }
         }
     }
-    Ok(count)
+    Ok(counts)
 }
 
-/// Rename a goal in all day files of a given month.
-fn rename_goal_in_entries(
+/// Batch version: scan all day files once, apply all goal renames in memory,
+/// then write back only changed files. Replaces N independent
+/// `rename_goal_in_entries` calls with one pass.
+fn batch_rename_goals_in_entries(
     root: &std::path::Path,
     year: i32,
     month: u32,
-    old_name: &str,
-    new_name: &str,
+    renames: &[(String, String)],
 ) -> Result<(), String> {
+    if renames.is_empty() {
+        return Ok(());
+    }
     let month_dir = root
         .join(year.to_string())
         .join(format!("{:02}", month));
-
     if !month_dir.exists() {
         return Ok(());
     }
-
-    let entries = match std::fs::read_dir(&month_dir) {
-        Ok(e) => e,
-        Err(e) => return Err(format!("Failed to read month dir: {}", e)),
-    };
-
+    let entries = std::fs::read_dir(&month_dir)
+        .map_err(|e| format!("Failed to read month dir: {}", e))?;
     let goal_key = monthly_dim_key(root, year, month);
 
-    // Phase 1: read + transform every affected day file in memory. A stray
-    // non-date .md is skipped (tolerant); a valid-date file that fails to read
-    // aborts here, BEFORE any write, so we never leave a partial rename.
+    // Phase 1: read + transform every affected day file in memory.
     let mut pending: Vec<(String, crate::models::DayFile)> = Vec::new();
     for entry in entries {
         let entry = match entry {
             Ok(e) => e,
-            Err(e) => {
-                error_log::log_error(
-                    "rename_goal_in_entries",
-                    &format!("Failed to read dir entry in {}-{:02}: {:?}", year, month, e),
-                );
-                continue;
-            }
+            Err(_) => continue,
         };
         let path = entry.path();
         let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
@@ -1108,7 +1117,6 @@ fn rename_goal_in_entries(
             continue;
         }
         let date = file_name.trim_end_matches(".md");
-        // Skip files whose name is not a valid date (user scratch files etc.).
         if validate_date_format(date).is_err() {
             continue;
         }
@@ -1116,8 +1124,8 @@ fn rename_goal_in_entries(
         let mut changed = false;
         for e in &mut day_file.entries {
             if let Some(goal) = e.dimensions.get(&goal_key) {
-                if goal == old_name {
-                    e.dimensions.insert(goal_key.clone(), new_name.to_string());
+                if let Some((_, new_name)) = renames.iter().find(|(old, _)| old == goal) {
+                    e.dimensions.insert(goal_key.clone(), new_name.clone());
                     changed = true;
                 }
             }
@@ -1130,6 +1138,60 @@ fn rename_goal_in_entries(
     // Phase 2: all reads succeeded — now commit the writes.
     for (date, day_file) in &pending {
         files::write_day_file(root, date, day_file)?;
+    }
+    Ok(())
+}
+
+/// Remove orphaned goal dimension values from day files when goals are
+/// deleted from commitments. This is a safety net: even though the deletion
+/// guard (batch_count_entries_for_goals returns 0 for every deleted goal)
+/// should prevent this, dimension-key fallback edge-cases could leave entries
+/// with ghost goal values.
+fn cleanup_deleted_goals_in_entries(
+    root: &std::path::Path,
+    year: i32,
+    month: u32,
+    deleted_goals: &[String],
+) -> Result<(), String> {
+    if deleted_goals.is_empty() {
+        return Ok(());
+    }
+    let goal_key = monthly_dim_key(root, year, month);
+    let month_dir = root
+        .join(year.to_string())
+        .join(format!("{:02}", month));
+    if !month_dir.exists() {
+        return Ok(());
+    }
+    let entries = std::fs::read_dir(&month_dir)
+        .map_err(|e| format!("Failed to read month dir: {}", e))?;
+    for entry in entries {
+        let entry = match entry {
+            Ok(e) => e,
+            Err(_) => continue,
+        };
+        let path = entry.path();
+        let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+        if file_name == "_monthly.md" || !file_name.ends_with(".md") {
+            continue;
+        }
+        let date = file_name.trim_end_matches(".md");
+        let mut day_file = match files::read_day_file(root, date) {
+            Ok(df) => df,
+            Err(_) => continue,
+        };
+        let mut changed = false;
+        for e in &mut day_file.entries {
+            if let Some(val) = e.dimensions.get(&goal_key) {
+                if deleted_goals.iter().any(|g| g == val) {
+                    e.dimensions.remove(&goal_key);
+                    changed = true;
+                }
+            }
+        }
+        if changed {
+            files::write_day_file(root, date, &day_file)?;
+        }
     }
     Ok(())
 }
@@ -1228,14 +1290,38 @@ fn detect_goal_changes(old: &[Commitment], new: &[Commitment]) -> GoalChanges {
 /// 检测 role 改名：新旧 commitments 之间，role 名变了但 goals 集合相同。
 /// 返回 (old_name, new_name) 列表。
 fn detect_role_changes(old: &[crate::models::Commitment], new: &[crate::models::Commitment]) -> Vec<(String, String)> {
+    // Heuristic: an old role was renamed when (1) same goals, (2) different name,
+    // (3) old name vanished from new, (4) new name was absent from old.
+    // To avoid false renames when multiple old roles could map to the same new
+    // role (merging, or ambiguous empty-goal matching), we require a 1:1
+    // correspondence — each new role may be matched by at most one old role.
+    let candidate = |o: &crate::models::Commitment| -> Option<&crate::models::Commitment> {
+        let old_goals: std::collections::BTreeSet<&String> = o.goals.iter().collect();
+        new.iter().find(|n| {
+            let new_goals: std::collections::BTreeSet<&String> = n.goals.iter().collect();
+            old_goals == new_goals
+                && o.role != n.role
+                && !new.iter().any(|c| c.role == o.role)
+                && !old.iter().any(|c| c.role == n.role)
+        })
+    };
+
+    // First pass: count how many old roles could map to each new role
+    let mut new_role_candidates: std::collections::HashMap<&String, usize> =
+        std::collections::HashMap::new();
+    for o in old {
+        if let Some(n) = candidate(o) {
+            *new_role_candidates.entry(&n.role).or_insert(0) += 1;
+        }
+    }
+
+    // Second pass: only accept unambiguous 1:1 renames
     let mut changes = Vec::new();
     for o in old {
-        let old_goals: std::collections::BTreeSet<&String> = o.goals.iter().collect();
-        if let Some(n) = new.iter().find(|n| {
-            let new_goals: std::collections::BTreeSet<&String> = n.goals.iter().collect();
-            old_goals == new_goals && o.role != n.role
-        }) {
-            changes.push((o.role.clone(), n.role.clone()));
+        if let Some(n) = candidate(o) {
+            if new_role_candidates.get(&n.role).copied().unwrap_or(0) == 1 {
+                changes.push((o.role.clone(), n.role.clone()));
+            }
         }
     }
     changes
@@ -1545,6 +1631,12 @@ pub fn log_error(message: String) {
 #[tauri::command]
 pub fn log_info(message: String) {
     crate::error_log::log_frontend_info(&message);
+}
+
+#[tauri::command]
+pub fn check_watcher_health(app: tauri::AppHandle) -> Result<bool, String> {
+    let state = app.state::<crate::config::WatcherState>();
+    Ok(state.is_watcher_alive())
 }
 
 #[cfg(test)]
@@ -2289,5 +2381,47 @@ entries:
         let role_to_goals: HashMap<String, Vec<String>> = HashMap::new();
         let result = compute_attribution(&dims, "objective", &goal_to_role, &role_to_goals);
         assert_eq!(result, Attribution::Ok);
+    }
+
+    // --- detect_role_changes tests ---
+
+    #[test]
+    fn test_detect_role_changes_empty_goals_no_false_rename() {
+        let old = vec![
+            crate::models::Commitment { role: "Eng".into(), allocation: 20, goals: vec![] },
+            crate::models::Commitment { role: "Design".into(), allocation: 20, goals: vec![] },
+        ];
+        let new = vec![
+            crate::models::Commitment { role: "Engineering".into(), allocation: 40, goals: vec![] },
+        ];
+        let changes = detect_role_changes(&old, &new);
+        assert!(changes.is_empty(), "empty-goal roles should not produce false renames, got {:?}", changes);
+    }
+
+    #[test]
+    fn test_detect_role_changes_goal_swap_not_rename() {
+        let old = vec![
+            crate::models::Commitment { role: "Frontend".into(), allocation: 20, goals: vec!["UI".into()] },
+            crate::models::Commitment { role: "Backend".into(), allocation: 20, goals: vec!["API".into()] },
+        ];
+        let new = vec![
+            crate::models::Commitment { role: "Frontend".into(), allocation: 20, goals: vec!["API".into()] },
+            crate::models::Commitment { role: "Backend".into(), allocation: 20, goals: vec!["UI".into()] },
+        ];
+        let changes = detect_role_changes(&old, &new);
+        assert!(changes.is_empty(), "goal swap should not produce role renames, got {:?}", changes);
+    }
+
+    #[test]
+    fn test_detect_role_changes_true_rename() {
+        let old = vec![
+            crate::models::Commitment { role: "OldName".into(), allocation: 30, goals: vec!["Task1".into(), "Task2".into()] },
+        ];
+        let new = vec![
+            crate::models::Commitment { role: "NewName".into(), allocation: 30, goals: vec!["Task1".into(), "Task2".into()] },
+        ];
+        let changes = detect_role_changes(&old, &new);
+        assert_eq!(changes.len(), 1);
+        assert_eq!(changes[0], ("OldName".to_string(), "NewName".to_string()));
     }
 }

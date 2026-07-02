@@ -127,6 +127,7 @@ async function loadDayNote(dateStr: string) {
 }
 
 async function handleSelectDay(dateStr: string) {
+  if (!guardUnsaved()) return;
   store.currentDate = dateStr;
   if (dateStr in store.monthEntries) {
     store.today = { note: null, entries: store.monthEntries[dateStr] };
@@ -135,6 +136,7 @@ async function handleSelectDay(dateStr: string) {
 }
 
 async function handleNavigate({ year, month }: { year: number; month: number }) {
+  if (!guardUnsaved()) return;
   await loadMonth(year, month);
 }
 
@@ -158,7 +160,6 @@ async function handleSubmit(item: string, durationMinutes: number, dimensions: R
   const newEntry = { item, duration: String(durationMinutes), dimensions: finalDimensions };
   try {
     const result = await invoke("append_entry", { rootPath: store.rootPath, date: store.currentDate, entry: newEntry });
-    inputRef.value?.clearInput();
     const added = result as Entry;
     if (store.today) {
       const entries = [...store.today.entries, added];
@@ -169,7 +170,12 @@ async function handleSubmit(item: string, durationMinutes: number, dimensions: R
     if (highlightTimer) clearTimeout(highlightTimer);
     highlightTimer = setTimeout(() => { justAddedId.value = null; }, 1500);
     await loadCommitmentProgress(selectedYear.value, selectedMonth.value);
-  } catch (e) { logError("MonthView.handleSubmit", e); }
+    // Only clear on success so the user's input survives a failed save.
+    inputRef.value?.clearInput();
+  } catch (e) {
+    logError("MonthView.handleSubmit", e);
+    triggerSavedToast("Failed to save entry");
+  }
 }
 
 // ---- Entry mutations ----
@@ -228,7 +234,11 @@ async function handleDeleteEntry(entryId: string) {
   triggerUndoToast(() => {
     cancelled = true;
     if (pendingDeleteTimer) clearTimeout(pendingDeleteTimer);
-    if (entries.findIndex(e => e.id === entryId) === -1) entries.splice(idx, 0, removed);
+    if (entries.findIndex(e => e.id === entryId) === -1) {
+      entries.splice(idx, 0, removed);
+      // Keep the month cache in sync with the restored entry.
+      store.monthEntries[date] = [...entries];
+    }
   });
 }
 
@@ -302,8 +312,16 @@ async function copyFilePath(e: MouseEvent) {
   copyTimer = setTimeout(() => { copiedFeedback.value = false; }, 1500);
 }
 
+function guardUnsaved(): boolean {
+  if (inputRef.value?.hasUnsavedContent?.()) {
+    return confirm("Discard unsaved entry?");
+  }
+  return true;
+}
+
 // ---- Keyboard month navigation (⌘[ / ⌘]) ----
 function shiftMonth(delta: number) {
+  if (!guardUnsaved()) return;
   let m = selectedMonth.value + delta;
   let y = selectedYear.value;
   if (m < 1) { m = 12; y--; } else if (m > 12) { m = 1; y++; }
@@ -311,6 +329,7 @@ function shiftMonth(delta: number) {
 }
 function shiftDay(delta: number) {
   if (delta > 0 && isSelectedToday.value) return; // never navigate into the future
+  if (!guardUnsaved()) return;
   const next = addDays(store.currentDate, delta);
   if (next in store.monthEntries) {
     handleSelectDay(next);
@@ -346,8 +365,15 @@ function onGlobalKeydown(e: KeyboardEvent) {
   }
 }
 
+function onBeforeUnload(e: BeforeUnloadEvent) {
+  if (pendingDeleteTimer) {
+    e.preventDefault();
+  }
+}
+
 onMounted(async () => {
   window.addEventListener("keydown", onGlobalKeydown);
+  window.addEventListener("beforeunload", onBeforeUnload);
   getVersion()
     .then(v => { getCurrentWindow().setTitle("Logbook v" + v); })
     .catch((e: unknown) => { logError("MonthView.setTitle", e); });
@@ -358,6 +384,7 @@ onMounted(async () => {
 });
 onUnmounted(() => {
   window.removeEventListener("keydown", onGlobalKeydown);
+  window.removeEventListener("beforeunload", onBeforeUnload);
   if (pendingDeleteTimer) clearTimeout(pendingDeleteTimer);
   if (highlightTimer) clearTimeout(highlightTimer);
   if (copyTimer) clearTimeout(copyTimer);

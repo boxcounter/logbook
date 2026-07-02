@@ -37,6 +37,7 @@ function todayStr(): string {
 }
 let lastKnownToday = todayStr();
 let rolloverTimer: ReturnType<typeof setInterval> | null = null;
+let watcherHealthTimer: ReturnType<typeof setInterval> | null = null;
 
 // Advance the view if the calendar day changed while we were following "today".
 // Shared by the focus handler and the periodic timer so both behave identically.
@@ -118,6 +119,22 @@ onMounted(async () => {
     rolloverTimer = setInterval(maybeRollover, props.rolloverIntervalMs);
   }
 
+  // Watcher health check — every 60 s confirm the file-watcher receiver thread
+  // is still running. Gated on rolloverIntervalMs > 0 so tests (which pass 0)
+  // can opt out of the recurring timer.
+  if (props.rolloverIntervalMs > 0) {
+    let watcherWasAlive = true;
+    watcherHealthTimer = setInterval(async () => {
+      try {
+        const alive = await invoke<boolean>("check_watcher_health");
+        if (!alive && watcherWasAlive) {
+          triggerSavedToast("File watcher stopped — restart the app to resume live updates");
+        }
+        watcherWasAlive = alive;
+      } catch { /* silently skip — the command itself failing is not actionable */ }
+    }, 60000);
+  }
+
   initApp();
 });
 
@@ -128,6 +145,7 @@ onUnmounted(() => {
   if (undoTimer) clearTimeout(undoTimer);
   if (savedToastTimer) clearTimeout(savedToastTimer);
   if (rolloverTimer) clearInterval(rolloverTimer);
+  if (watcherHealthTimer) clearInterval(watcherHealthTimer);
 });
 
 async function initApp() {

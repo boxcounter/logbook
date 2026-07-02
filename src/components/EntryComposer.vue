@@ -123,7 +123,11 @@ function focusInput() {
   inputEl.value?.focus();
 }
 
-defineExpose({ clearInput, focusInput });
+function hasUnsavedContent(): boolean {
+  return text.value.trim() !== "" || Object.keys(dimValues.value).length > 0;
+}
+
+defineExpose({ clearInput, focusInput, hasUnsavedContent });
 
 const focusRequestId = inject<Ref<number>>("focusRequestId", ref(0));
 watch(focusRequestId, () => {

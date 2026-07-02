@@ -3,7 +3,8 @@ use crate::models::{ConfigErrorDetail, Dimension, MonthlyFile};
 use notify::{Config as NotifyConfig, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager};
 
@@ -165,6 +166,17 @@ impl WatcherState {
     pub fn new() -> Self {
         Self { inner: Mutex::new(None) }
     }
+
+    /// Returns true if the watcher is currently running and its receiver
+    /// thread has not exited (checked via the alive flag).
+    pub fn is_watcher_alive(&self) -> bool {
+        self.inner
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .as_ref()
+            .map(|h| h.alive.load(Ordering::Acquire))
+            .unwrap_or(false)
+    }
 }
 
 impl Default for WatcherState {
@@ -176,6 +188,7 @@ impl Default for WatcherState {
 struct WatcherHandle {
     path: PathBuf,
     _watcher: RecommendedWatcher, // kept alive; drop = stop watching
+    alive: Arc<AtomicBool>,       // set to false when the receiver thread exits
 }
 
 /// Pure decision: do we need to (re)start the watcher for `requested`?
@@ -192,9 +205,9 @@ pub fn ensure_watcher(app: &AppHandle, root_path: PathBuf) {
         return;
     }
     match spawn_watcher(app.clone(), root_path.clone()) {
-        Ok(watcher) => {
+        Ok((watcher, alive)) => {
             // Assigning Some replaces (and drops) any previous handle → old watcher stops.
-            *guard = Some(WatcherHandle { path: root_path, _watcher: watcher });
+            *guard = Some(WatcherHandle { path: root_path, _watcher: watcher, alive });
         }
         Err(e) => {
             crate::error_log::log_error("ensure_watcher", &e);
@@ -205,7 +218,10 @@ pub fn ensure_watcher(app: &AppHandle, root_path: PathBuf) {
 
 /// Build the watcher and spawn its receiver thread. Returns the watcher to be
 /// held in WatcherState; the receiver thread exits when the watcher is dropped.
-fn spawn_watcher(app_handle: AppHandle, root_path: PathBuf) -> Result<RecommendedWatcher, String> {
+fn spawn_watcher(
+    app_handle: AppHandle,
+    root_path: PathBuf,
+) -> Result<(RecommendedWatcher, Arc<AtomicBool>), String> {
     crate::error_log::log_info("file_watcher", &format!("Watching {}", root_path.display()));
     let (tx, rx) = std::sync::mpsc::channel();
 
@@ -229,8 +245,21 @@ fn spawn_watcher(app_handle: AppHandle, root_path: PathBuf) -> Result<Recommende
         .watch(&root_path, RecursiveMode::Recursive)
         .map_err(|e| format!("Failed to watch {}: {}", root_path.display(), e))?;
 
+    let alive = Arc::new(AtomicBool::new(true));
+    let alive_clone = Arc::clone(&alive);
+
     let watch_root = root_path.clone();
     std::thread::spawn(move || {
+        // Guard: unconditionally mark the watcher as dead when this thread
+        // exits — whether normally or via panic unwind.
+        struct AliveGuard(Arc<AtomicBool>);
+        impl Drop for AliveGuard {
+            fn drop(&mut self) {
+                self.0.store(false, Ordering::Release);
+            }
+        }
+        let _guard = AliveGuard(Arc::clone(&alive_clone));
+
         let debounce_ms = Duration::from_millis(300);
         let mut last_event: HashMap<std::path::PathBuf, Instant> = HashMap::new();
 
@@ -346,7 +375,7 @@ fn spawn_watcher(app_handle: AppHandle, root_path: PathBuf) -> Result<Recommende
         crate::error_log::log_info("file_watcher", "receiver thread exited");
     });
 
-    Ok(watcher)
+    Ok((watcher, alive))
 }
 
 #[cfg(test)]

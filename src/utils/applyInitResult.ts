@@ -22,6 +22,7 @@ export function applyInitResult(store: AppStore, result: InitResult): ScanWarnin
       store.dimensions = result.data.dimensions;
       store.fromTemplate = result.data.from_template;
       store.today = result.data.today;
+      store.commitments = result.data.commitments;
       store.configCategory = null;
       store.status = "ready";
       return result.data.scan_warnings;

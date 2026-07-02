@@ -99,8 +99,8 @@ describe("SetupScreen", () => {
     expect(store.status).toBe("ready");
     expect(store.rootPath).toBe("/my/path");
     expect(store.dimensions).toEqual(dimensions);
-    // SetupScreen no longer owns commitments — loadMonth (in MonthView) loads them.
-    expect(store.commitments).toEqual([]);
+    // Commitments are now set from init result (applyInitResult Ready branch).
+    expect(store.commitments).toEqual([makeCommitment()]);
   });
 
   it("ConfigError result: updates store to error screen", async () => {

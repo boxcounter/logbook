@@ -11,12 +11,12 @@ fn with_file_lock<T, F: FnOnce() -> Result<T, String>>(path: &Path, f: F) -> Res
     let lock = {
         let mut map = FILE_LOCKS
             .lock()
-            .map_err(|e| format!("Lock error: {}", e))?;
+            .unwrap_or_else(|e| e.into_inner());
         map.entry(path.to_path_buf())
             .or_insert_with(|| Arc::new(Mutex::new(())))
             .clone()
     };
-    let _guard = lock.lock().map_err(|e| format!("File lock error: {}", e))?;
+    let _guard = lock.lock().unwrap_or_else(|e| e.into_inner());
     f()
 }
 
