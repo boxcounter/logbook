@@ -8,6 +8,17 @@ Logbook — 个人工作时间记录工具。Tauri 2.x + Vue 3 + TypeScript。
 **交互原则**：`docs/interaction-principles.md`（不丢输入、消解一致性、快捷键按频率分配、尊重输入上下文——治理所有前端交互）
 **命名约定**：`docs/naming-conventions.md`（组件按职责命名、DTO 用 `*Input`、落盘格式与标识符解耦——治理命名）
 
+## 命令字典
+
+用户指令 → 具体命令的直映射。**不猜测，查到即执行。** 新增命令时同步更新此表。
+
+| 用户说 | 执行命令 | 产物 |
+|--------|---------|------|
+| 打包正式版 / 生产版本 / production build | `pnpm tauri:build` | `Logbook.app`（`com.boxcounter.logbook`），含 CLI |
+| 打包开发版 / dev build | `pnpm tauri:build:dev` | `Logbook Dev.app`（`com.boxcounter.logbook.dev`） |
+| 启动 / run / dev | `pnpm tauri dev` | 开发模式热重载 |
+| 测试 / test | `pnpm test` | vitest + cargo test |
+
 ## 项目级规则
 
 ### Phase checkpoint
