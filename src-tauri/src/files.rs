@@ -399,49 +399,6 @@ pub fn ensure_month_instantiated(root: &Path, year: i32, month: u32) -> Result<(
     write_monthly_file(root, year, month, &monthly)
 }
 
-/// Migrate old _monthly.md → dimensions.yaml + commitments.yaml.
-/// Returns (had_dimensions, had_commitments) on success.
-/// Idempotent: skips writing if dimensions.yaml or commitments.yaml already exist.
-/// Renames _monthly.md → _monthly.md.bak (safe, recoverable).
-pub fn migrate_monthly_file(
-    root: &Path,
-    year: i32,
-    month: u32,
-) -> Result<(bool, bool), String> {
-    let old_path = monthly_path(root, year, month);
-    if !old_path.exists() {
-        return Ok((false, false));
-    }
-
-    let monthly = read_monthly_file(root, year, month)?;
-    let had_dims = !monthly.dimensions.is_empty();
-    let had_commits = !monthly.commitments.is_empty();
-
-    // Write dimensions.yaml if dimensions exist and file doesn't already exist
-    if had_dims && !dimensions_path(root, year, month).exists() {
-        write_dimensions_file(root, year, month, &monthly.dimensions)?;
-    }
-
-    // Write commitments.yaml if commitments exist and file doesn't already exist
-    if had_commits && !commitments_path(root, year, month).exists() {
-        write_commitments_file(root, year, month, &monthly.commitments)?;
-    }
-
-    // Rename old file to .bak (don't delete — user can recover)
-    let bak_path = old_path.with_extension("md.bak");
-    fs::rename(&old_path, &bak_path)
-        .map_err(|e| {
-            format!(
-                "Failed to rename {} to {}: {}",
-                old_path.display(),
-                bak_path.display(),
-                e
-            )
-        })?;
-
-    Ok((had_dims, had_commits))
-}
-
 /// Remove orphaned .tmp files from the data tree (crashed mid-write).
 pub fn cleanup_tmp_files(root: &Path) {
     fn recurse(dir: &Path) {
