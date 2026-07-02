@@ -1,7 +1,7 @@
 <!-- src/components/CommitmentsPanel.vue -->
 <script setup lang="ts">
 import { ref, computed } from "vue";
-import type { Commitment, CommitmentProgress } from "../types";
+import type { Commitment, CommitmentProgress, CommitmentProgressResult } from "../types";
 import { formatDurationCompact } from "../utils/format";
 import CommitmentsModal from "./composite/CommitmentsModal.vue";
 
@@ -11,7 +11,21 @@ const props = defineProps<{
   rootPath?: string;
   selectedYear: number;
   selectedMonth: number;
+  progressResult?: CommitmentProgressResult | null;
 }>();
+
+const warningVisible = computed(() => {
+  if (!props.progressResult) return false;
+  return props.progressResult.unattributed_count > 0 || props.progressResult.mismatch_count > 0;
+});
+
+const warningUnattributedMinutes = computed(() =>
+  props.progressResult?.unattributed_total_minutes ?? 0
+);
+
+const warningMismatchCount = computed(() =>
+  props.progressResult?.mismatch_count ?? 0
+);
 
 const emit = defineEmits<{ saved: [Commitment[]] }>();
 
@@ -54,14 +68,27 @@ function onSaved(c: Commitment[]) { modalOpen.value = false; emit("saved", c); }
           {{ s.role }} {{ collapsed[s.role] ? "▸" : "▾" }}
         </span>
         <span class="text-secondary font-semibold text-[var(--color-text-primary)]">
-          <span class="mono">{{ formatDurationCompact(s.spent_minutes) }}</span><span class="mono font-normal text-[var(--color-text-secondary)]"> / {{ (s.allocation_minutes / 60).toFixed(0) }}h</span>
+          <span class="mono">{{ formatDurationCompact(s.goal_spent_minutes + s.general_spent_minutes) }}</span><span class="mono font-normal text-[var(--color-text-secondary)]"> / {{ (s.allocation_minutes / 60).toFixed(0) }}h</span>
         </span>
       </div>
-      <div class="h-[4px] bg-[var(--color-divider)] rounded-[var(--radius-sm)] overflow-hidden mt-xs">
+      <div class="h-[4px] bg-[var(--color-divider)] rounded-[var(--radius-sm)] overflow-hidden flex mt-xs">
         <div
-          data-test="progress-fill"
-          class="h-full rounded-[var(--radius-sm)] transition-all"
-          :style="{ width: pct(s.spent_minutes, s.allocation_minutes), background: 'linear-gradient(90deg, var(--color-brand-gradient-from), var(--color-brand-gradient-to))' }"
+          v-if="s.goal_spent_minutes > 0"
+          data-test="progress-goal"
+          class="h-full transition-all"
+          :style="{
+            width: pct(s.goal_spent_minutes, s.allocation_minutes),
+            background: 'linear-gradient(90deg, var(--color-brand-gradient-from), var(--color-brand-gradient-to))'
+          }"
+        />
+        <div
+          v-if="s.general_spent_minutes > 0"
+          data-test="progress-general"
+          class="h-full transition-all"
+          :style="{
+            width: pct(s.general_spent_minutes, s.allocation_minutes),
+            background: 'linear-gradient(90deg, #c4b5fd, #ddd6fe)'
+          }"
         />
       </div>
       <div v-if="!collapsed[s.role]" class="mt-sm flex flex-col gap-2xs">
@@ -75,6 +102,34 @@ function onSaved(c: Commitment[]) { modalOpen.value = false; emit("saved", c); }
           <span v-else class="mono text-[var(--color-text-secondary)] flex-shrink-0 ml-sm">0</span>
         </div>
       </div>
+    </div>
+
+    <div
+      v-if="hasCommitments"
+      class="flex gap-lg text-micro text-[var(--color-text-secondary)] pt-md mt-sm border-t border-[var(--color-divider)]"
+    >
+      <span class="flex items-center gap-xs">
+        <span class="w-[10px] h-[10px] rounded-[2px] flex-shrink-0" style="background: linear-gradient(90deg, var(--color-brand-gradient-from), var(--color-brand-gradient-to))"></span>
+        Goal
+      </span>
+      <span class="flex items-center gap-xs">
+        <span class="w-[10px] h-[10px] rounded-[2px] flex-shrink-0" style="background: linear-gradient(90deg, #c4b5fd, #ddd6fe)"></span>
+        General
+      </span>
+    </div>
+
+    <div
+      v-if="warningVisible"
+      data-test="warning-bar"
+      class="mt-md p-sm rounded-[var(--radius-form)] bg-[#fffbeb] border border-[#fde68a] text-secondary flex items-center justify-between text-[#92400e]"
+    >
+      <span>
+        ⚠ 未归属耗时：<strong>{{ formatDurationCompact(warningUnattributedMinutes) }}</strong>
+        <template v-if="warningMismatchCount > 0">
+          / role/goal 不匹配：{{ warningMismatchCount }} 条
+        </template>
+      </span>
+      <span class="text-micro" style="color: #b45309">entry 缺少 role 或 goal 维度</span>
     </div>
 
     <button

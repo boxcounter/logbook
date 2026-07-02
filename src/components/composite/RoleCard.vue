@@ -65,7 +65,8 @@ function goalNameInvalid(g: GoalRowModel): boolean {
 
 const roleSpent = computed(() => {
   if (!props.role.origRole) return 0;
-  return props.progress.find(p => p.role === props.role.origRole)?.spent_minutes ?? 0;
+  const p = props.progress.find(p => p.role === props.role.origRole);
+  return (p?.goal_spent_minutes ?? 0) + (p?.general_spent_minutes ?? 0);
 });
 const allocMinutes = computed(() => props.role.allocation * 60);
 const isOver = computed(() => roleSpent.value > allocMinutes.value);

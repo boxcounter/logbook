@@ -69,7 +69,7 @@ const monthLabel = computed(() =>
 );
 
 const committedHours = computed(() => draft.value.reduce((s, r) => s + (r.allocation || 0), 0));
-const loggedTotal = computed(() => props.progress.reduce((s, p) => s + p.spent_minutes, 0));
+const loggedTotal = computed(() => props.progress.reduce((s, p) => s + p.goal_spent_minutes + p.general_spent_minutes, 0));
 
 function dupSet(names: string[]): Set<string> {
   const seen = new Set<string>(), dup = new Set<string>();

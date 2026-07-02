@@ -109,7 +109,7 @@ describe("DimensionPopover", () => {
   });
 
   it("ArrowDown / Ctrl+N move highlight down with wrap", async () => {
-    const wrapper = mountPop(); // active index 0, 3 dims
+    const wrapper = mountPop(); // active index 0, 3 dims + role = 4 items
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown" }));
     await wrapper.vm.$nextTick();
     expect(activeDimIndex(wrapper)).toBe(1);
@@ -118,21 +118,26 @@ describe("DimensionPopover", () => {
     await wrapper.vm.$nextTick();
     expect(activeDimIndex(wrapper)).toBe(2);
 
-    // wrap 2 -> 0
+    // move to role (index 3)
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown" }));
+    await wrapper.vm.$nextTick();
+    expect(activeDimIndex(wrapper)).toBe(-1); // role is not [data-test='dim-item']
+
+    // wrap 3 -> 0
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown" }));
     await wrapper.vm.$nextTick();
     expect(activeDimIndex(wrapper)).toBe(0);
   });
 
   it("ArrowUp / Ctrl+P move highlight up with wrap", async () => {
-    const wrapper = mountPop(); // active index 0
+    const wrapper = mountPop(); // active index 0, 3 dims + role = 4 items
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp" }));
     await wrapper.vm.$nextTick();
-    expect(activeDimIndex(wrapper)).toBe(2); // wrap 0 -> 2
+    expect(activeDimIndex(wrapper)).toBe(-1); // wrap 0 -> 3 (role)
 
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "p", ctrlKey: true }));
     await wrapper.vm.$nextTick();
-    expect(activeDimIndex(wrapper)).toBe(1);
+    expect(activeDimIndex(wrapper)).toBe(2);
   });
 
   it("prevents default on navigation keys", async () => {
@@ -259,5 +264,115 @@ describe("DimensionPopover", () => {
     expect(items.length).toBe(1);
     expect(items[0].text()).toContain("Visible");
     expect(wrapper.text()).not.toContain("Deleted");
+  });
+
+  // ---- role dimension support ----
+
+  it("shows role option in dim stage when commitments are present", () => {
+    const wrapper = mountPop();
+    const roleItem = wrapper.find("[data-test='dim-role']");
+    expect(roleItem.exists()).toBe(true);
+    expect(roleItem.text()).toContain("Role");
+  });
+
+  it("does not show role option when commitments are empty", () => {
+    const wrapper = mount(DimensionPopover, {
+      props: { dimensions, commitments: [], dimValues: {} },
+    });
+    expect(wrapper.find("[data-test='dim-role']").exists()).toBe(false);
+  });
+
+  it("selecting role shows role names from commitments in val stage", async () => {
+    const roleCommitments = [
+      makeCommitment({ role: "Dev", goals: ["Bug fixes"] }),
+      makeCommitment({ role: "PM", goals: ["Planning"] }),
+    ];
+    const wrapper = mount(DimensionPopover, {
+      props: { dimensions, commitments: roleCommitments, dimValues: {} },
+    });
+    await wrapper.find("[data-test='dim-role']").trigger("click");
+    const vals = wrapper.findAll("[data-test='val-item']");
+    expect(vals.length).toBe(2);
+    expect(vals[0].text()).toContain("Dev");
+    expect(vals[1].text()).toContain("PM");
+  });
+
+  it("selecting role emits select with key 'role' and the chosen value", async () => {
+    const roleCommitments = [
+      makeCommitment({ role: "Dev", goals: ["Bug fixes"] }),
+    ];
+    const wrapper = mount(DimensionPopover, {
+      props: { dimensions, commitments: roleCommitments, dimValues: {} },
+    });
+    await wrapper.find("[data-test='dim-role']").trigger("click");
+    await wrapper.findAll("[data-test='val-item']")[0].trigger("click");
+    expect(wrapper.emitted("select")?.[0]).toEqual(["role", "Dev"]);
+  });
+
+  it("shows val header as 'Role' when role dimension is selected", async () => {
+    const wrapper = mountPop();
+    await wrapper.find("[data-test='dim-role']").trigger("click");
+    // val stage header should contain "Role"
+    expect(wrapper.text()).toContain("Role");
+  });
+
+  it("cross-filters goals to selected role's goals", async () => {
+    const roleCommitments = [
+      makeCommitment({ role: "Dev", goals: ["Bug fixes", "Code review"] }),
+      makeCommitment({ role: "PM", goals: ["Planning", "Design"] }),
+    ];
+    const wrapper = mount(DimensionPopover, {
+      props: { dimensions, commitments: roleCommitments, dimValues: { role: "Dev" } },
+    });
+    // Select Goal dimension (index 1)
+    await wrapper.findAll("[data-test='dim-item']")[1].trigger("click");
+    const vals = wrapper.findAll("[data-test='val-item']");
+    expect(vals.length).toBe(2);
+    expect(vals[0].text()).toContain("Bug fixes");
+    expect(vals[1].text()).toContain("Code review");
+    expect(wrapper.text()).not.toContain("Planning");
+    expect(wrapper.text()).not.toContain("Design");
+  });
+
+  it("cross-filters roles to roles containing the selected goal", async () => {
+    const roleCommitments = [
+      makeCommitment({ role: "Dev", goals: ["Bug fixes", "Code review"] }),
+      makeCommitment({ role: "PM", goals: ["Planning"] }),
+    ];
+    const wrapper = mount(DimensionPopover, {
+      props: { dimensions, commitments: roleCommitments, dimValues: { goal: "Bug fixes" } },
+    });
+    // Select Role
+    await wrapper.find("[data-test='dim-role']").trigger("click");
+    const vals = wrapper.findAll("[data-test='val-item']");
+    expect(vals.length).toBe(1);
+    expect(vals[0].text()).toContain("Dev");
+    expect(wrapper.text()).not.toContain("PM");
+  });
+
+  it("Enter key selects role when highlighted in dim stage", async () => {
+    const wrapper = mountPop(); // 3 dims + role = 4 items, active index 0
+    // Move highlight to role (index 3)
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp" })); // wrap 0 -> 3
+    await wrapper.vm.$nextTick();
+    // Press Enter
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+    await wrapper.vm.$nextTick();
+    // Should be in val stage showing role values
+    expect(wrapper.find("[data-test='back-btn']").exists()).toBe(true);
+    expect(wrapper.text()).toContain("Role");
+  });
+
+  it("role item shows selected role value with checkmark", async () => {
+    const wrapper = mountPop({ role: "Dev" });
+    const roleItem = wrapper.find("[data-test='dim-role']");
+    expect(roleItem.text()).toContain("Dev");
+    expect(roleItem.text()).toContain("✓");
+  });
+
+  it("role item shows 'optional' badge when no role selected", () => {
+    const wrapper = mountPop();
+    const roleItem = wrapper.find("[data-test='dim-role']");
+    expect(roleItem.text()).toContain("optional");
   });
 });

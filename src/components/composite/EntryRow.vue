@@ -33,6 +33,10 @@ function onEditTrigger() {
 const dimensions = computed(() => store.dimensions);
 const filledDims = computed(() => dimensions.value.filter(d => props.entry.dimensions[d.key]));
 
+const isProblemEntry = computed(() =>
+  props.entry.attribution === "unattributed" || props.entry.attribution === "mismatch"
+);
+
 const chipHues = computed(() => dimensionHues(dimensions.value));
 function chipStyle(key: string) {
   return dimChipStyle(chipHues.value.get(key) ?? null);
@@ -62,11 +66,23 @@ function onSave(item: string, durationMinutes: number, dims: Record<string, stri
   <div
     v-else
     data-test="entry-row"
-    class="group flex justify-between items-start gap-sm px-md py-sm
-           hover:bg-[var(--color-surface-muted)] transition-colors"
-    :class="[{ 'just-added': justAdded }, index > 0 ? 'border-t border-[var(--color-divider)]' : '']"
+    class="group flex justify-between items-start gap-sm px-md py-sm transition-colors"
+    :class="[
+      { 'just-added': justAdded },
+      isProblemEntry
+        ? 'bg-[#fffbeb] hover:bg-[#fef3c7]'
+        : 'hover:bg-[var(--color-surface-muted)]',
+      index > 0 ? 'border-t border-[var(--color-divider)]' : '',
+      isProblemEntry && index > 0 ? '!border-[#fde68a]' : '',
+    ]"
     @dblclick="onDblClick"
   >
+    <span
+      v-if="isProblemEntry"
+      class="flex-shrink-0 text-[#d97706]"
+      style="font-size: 14px; width: 16px; text-align: center;"
+      title="未归属任何 role 或 role/goal 不匹配"
+    >●</span>
     <div class="flex-1 min-w-0" data-edit-target="item">
       <div
         data-test="item-display"
@@ -85,7 +101,8 @@ function onSave(item: string, durationMinutes: number, dims: Record<string, stri
     <span
       data-test="duration-display"
       data-edit-target="duration"
-      class="mono text-secondary text-[var(--color-text-primary)] flex-shrink-0 ml-lg pt-2xs"
+      class="mono text-secondary flex-shrink-0 ml-lg pt-2xs"
+      :class="isProblemEntry ? '!text-[#d97706] font-medium' : 'text-[var(--color-text-primary)]'"
     >
       {{ entry.duration > 0 ? formatDuration(entry.duration) : "—" }}
     </span>

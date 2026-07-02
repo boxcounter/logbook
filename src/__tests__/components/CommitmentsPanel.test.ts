@@ -17,7 +17,7 @@ vi.mock("vue-draggable-plus", () => ({
 function mountPanel(overrides = {}) {
   return mount(CommitmentsPanel, {
     props: {
-      progress: [makeCommitmentProgress({ role: "Developer", spent_minutes: 1230, allocation_minutes: 2400 })],
+      progress: [makeCommitmentProgress({ role: "Developer", goal_spent_minutes: 800, general_spent_minutes: 430, allocation_minutes: 2400 })],
       commitments: [makeCommitment()],
       rootPath: "/x", selectedYear: 2026, selectedMonth: 6,
       ...overrides,
@@ -33,10 +33,14 @@ describe("CommitmentsPanel", () => {
     expect(w.text()).toContain("20.5h");
     expect(w.text()).toContain("40");
   });
-  it("progress fill uses the brand gradient (single style, no status colors)", () => {
+  it("progress segments use gradient backgrounds (no status colors)", () => {
     const w = mountPanel();
-    const fill = w.find("[data-test='progress-fill']");
-    expect(fill.attributes("class") || "").not.toMatch(/bg-(orange|yellow|green|red)-/);
+    const goal = w.find("[data-test='progress-goal']");
+    const general = w.find("[data-test='progress-general']");
+    expect(goal.exists()).toBe(true);
+    expect(general.exists()).toBe(true);
+    expect(goal.attributes("class") || "").not.toMatch(/bg-(orange|yellow|green|red)-/);
+    expect(general.attributes("class") || "").not.toMatch(/bg-(orange|yellow|green|red)-/);
   });
   it("opens the modal on Edit click", async () => {
     const w = mountPanel();

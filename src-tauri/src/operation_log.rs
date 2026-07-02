@@ -224,6 +224,7 @@ pub fn verify_op_log(root_path: &str) -> Result<(), Vec<OpLogMismatch>> {
                     item,
                     duration,
                     dimensions,
+                    attribution: crate::models::Attribution::default(),
                 };
                 crate::files::append_to_day_file(&replay_root, date, &entry)
                     .map(|_| ())
@@ -475,6 +476,7 @@ mod tests {
             item: "Test entry".to_string(),
             duration: 30,
             dimensions: BTreeMap::new(),
+            attribution: crate::models::Attribution::default(),
         }
     }
 

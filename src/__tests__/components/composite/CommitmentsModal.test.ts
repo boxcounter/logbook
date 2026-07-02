@@ -24,10 +24,10 @@ const baseProps = () => ({
   ],
   progress: [
     makeCommitmentProgress({
-      role: "Developer", allocation_minutes: 2400, spent_minutes: 870,
+      role: "Developer", allocation_minutes: 2400, goal_spent_minutes: 870, general_spent_minutes: 0,
       goals: [
         { name: "Ship onboarding v2", spent_minutes: 865 },
-        { name: "Review auth PR", spent_minutes: 5 },
+        { name: "Review auth PR", spent_minutes: 5},
       ],
     }),
   ],
@@ -120,7 +120,7 @@ describe("CommitmentsModal — allocation stepper", () => {
   it("disables - at the 5h floor and never goes below 5", async () => {
     const w = mountModal({
       commitments: [makeCommitment({ role: "Developer", allocation: 5, goals: [] })],
-      progress: [makeCommitmentProgress({ role: "Developer", allocation_minutes: 300, spent_minutes: 0, goals: [] })],
+      progress: [makeCommitmentProgress({ role: "Developer", allocation_minutes: 300, goal_spent_minutes: 0, general_spent_minutes: 0, goals: [] })],
     });
     const dec = w.find("[data-test='alloc-dec']");
     expect((dec.element as HTMLButtonElement).disabled).toBe(true);
@@ -147,7 +147,7 @@ describe("CommitmentsModal — allocation stepper", () => {
   it("clamps a cleared field to 1 and re-syncs the input (no desync)", async () => {
     const w = mountModal({
       commitments: [makeCommitment({ role: "Developer", allocation: 1, goals: [] })],
-      progress: [makeCommitmentProgress({ role: "Developer", allocation_minutes: 60, spent_minutes: 0, goals: [] })],
+      progress: [makeCommitmentProgress({ role: "Developer", allocation_minutes: 60, goal_spent_minutes: 0, general_spent_minutes: 0, goals: [] })],
     });
     const inp = w.find("[data-test='alloc']");
     await inp.setValue("");
@@ -221,8 +221,8 @@ describe("CommitmentsModal — delete constraints", () => {
         makeCommitment({ role: "Advisor", allocation: 5, goals: ["Office hours"] }),
       ],
       progress: [
-        makeCommitmentProgress({ role: "Developer", spent_minutes: 870, allocation_minutes: 2400, goals: [{ name: "Ship onboarding v2", spent_minutes: 870 }] }),
-        makeCommitmentProgress({ role: "Advisor", spent_minutes: 0, allocation_minutes: 300, goals: [{ name: "Office hours", spent_minutes: 0 }] }),
+        makeCommitmentProgress({ role: "Developer", goal_spent_minutes: 870, general_spent_minutes: 0, allocation_minutes: 2400, goals: [{ name: "Ship onboarding v2", spent_minutes: 870}] }),
+        makeCommitmentProgress({ role: "Advisor", goal_spent_minutes: 0, general_spent_minutes: 0, allocation_minutes: 300, goals: [{ name: "Office hours", spent_minutes: 0}] }),
       ],
     });
     const advisorDel = w.findAll("[data-test='role-delete']")[1];
@@ -239,8 +239,8 @@ describe("CommitmentsModal — delete constraints", () => {
         makeCommitment({ role: "Advisor", allocation: 5, goals: ["Office hours"] }),
       ],
       progress: [
-        makeCommitmentProgress({ role: "Developer", spent_minutes: 870, allocation_minutes: 2400, goals: [{ name: "Ship onboarding v2", spent_minutes: 870 }] }),
-        makeCommitmentProgress({ role: "Advisor", spent_minutes: 0, allocation_minutes: 300, goals: [{ name: "Office hours", spent_minutes: 0 }] }),
+        makeCommitmentProgress({ role: "Developer", goal_spent_minutes: 870, general_spent_minutes: 0, allocation_minutes: 2400, goals: [{ name: "Ship onboarding v2", spent_minutes: 870}] }),
+        makeCommitmentProgress({ role: "Advisor", goal_spent_minutes: 0, general_spent_minutes: 0, allocation_minutes: 300, goals: [{ name: "Office hours", spent_minutes: 0}] }),
       ],
     });
     await w.findAll("[data-test='role-delete']")[1].trigger("click"); // Advisor → confirm
@@ -294,7 +294,7 @@ describe("CommitmentsModal — validation", () => {
     (invoke as any).mockResolvedValue([]);
     const w = mountModal({
       commitments: [makeCommitment({ role: "Developer", allocation: 40, goals: ["Ship onboarding v2"] })],
-      progress: [makeCommitmentProgress({ role: "Developer", spent_minutes: 0, allocation_minutes: 2400, goals: [{ name: "Ship onboarding v2", spent_minutes: 0 }] })],
+      progress: [makeCommitmentProgress({ role: "Developer", goal_spent_minutes: 0, general_spent_minutes: 0, allocation_minutes: 2400, goals: [{ name: "Ship onboarding v2", spent_minutes: 0}] })],
     });
     await w.find("[data-test='add-goal']").trigger("click");
     await w.find("[data-test='save']").trigger("click");
@@ -342,7 +342,7 @@ describe("CommitmentsModal — validation", () => {
   it("blocks save with 'At least one role is required' when the draft is empty", async () => {
     const w = mountModal({
       commitments: [makeCommitment({ role: "Solo", allocation: 40, goals: [] })],
-      progress: [makeCommitmentProgress({ role: "Solo", allocation_minutes: 2400, spent_minutes: 0, goals: [] })],
+      progress: [makeCommitmentProgress({ role: "Solo", allocation_minutes: 2400, goal_spent_minutes: 0, general_spent_minutes: 0, goals: [] })],
     });
     await w.find("[data-test='role-delete']").trigger("click");      // 0-logged role → inline confirm
     await w.find("[data-test='role-delete-confirm']").trigger("click"); // remove it → draft empty

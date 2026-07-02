@@ -30,6 +30,7 @@ export function makeEntry(overrides?: Partial<Entry>): Entry {
     item: "Test entry",
     duration: 30,
     dimensions: {},
+    attribution: "ok",
     ...overrides,
   };
 }
@@ -66,7 +67,8 @@ export function makeCommitmentProgress(overrides?: Partial<CommitmentProgress>):
   return {
     role: "Developer",
     allocation_minutes: 2400,
-    spent_minutes: 0,
+    goal_spent_minutes: 0,
+    general_spent_minutes: 0,
     goals: [
       { name: "Ship feature X", spent_minutes: 0 },
       { name: "Code review", spent_minutes: 0 },
