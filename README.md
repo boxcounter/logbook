@@ -15,4 +15,4 @@ pnpm tauri dev
 
 ## Documents
 
-- [SPEC.md](./SPEC.md) — Technical specification (Rust API, component tree, data flow, implementation phases)
+- [CLAUDE.md](./CLAUDE.md) — Project conventions, command dictionary, frontend architecture, data flow

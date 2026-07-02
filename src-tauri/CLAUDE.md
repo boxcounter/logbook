@@ -26,7 +26,7 @@ src/
 ├── error_log.rs     // init, log_error, log_frontend_error
 ├── operation_log.rs // 操作日志（JSONL 写入 + 回放验证）
 ├── scan.rs          // 数据目录完整性扫描（挂掉的 .tmp、格式异常文件等）
-├── cli/             // CLI 子命令（mod.rs, commitments.rs, entries.rs, output.rs, root_path.rs）
+├── cli/             // CLI 子命令（mod.rs, commitments.rs, dimensions.rs, entries.rs, install.rs, output.rs, root_path.rs）
 │   └── bin/logbook-cli.rs  // CLI 入口
 └── window_state.rs  // default window geometry (90% primary monitor, centered)
 ```
@@ -36,7 +36,7 @@ src/
 - **单元测试**：`src/` 内 `#[cfg(test)] mod tests`。纯函数、无 IO、无文件系统、milliseconds
 - **集成测试**：`tests/` 目录。可读写 fixture 目录、调 Tauri commands、访问 `crate::files` 等
 - 判断标准：`use crate::files` 或碰文件系统？→ 集成测试
-- Fixture 目录：`~/Downloads/logbook-test/`（config.yaml + 2026/06/_monthly.md）
+- Fixture 目录：`~/Downloads/logbook-test/`（dimensions.template.yaml + 2026/06/ 含测试数据）
 - 集成测试中写临时文件用 `std::env::temp_dir()`，事后清理
 
 ## 关键约定
@@ -45,8 +45,8 @@ src/
 - Entry duration 存储为分钟整数（u32），录入时前端预扫描求和后传字符串，Rust `parse_duration` 做最终转换
 - 文件写入：先写 `.tmp` 再 rename（原子写入）
 - Frontmatter 解析：手动定位 `---` 边界 + `yaml_serde::from_str`
-- 维度集合按月存放：`template.yaml`（全局默认，旧 `config.yaml` 已弃用）→ 每月首次写入时 `ensure_month_instantiated` 快照进该月 `_monthly.md` 的 `dimensions:` 块；`resolve_month_dimensions` 取月度块否则 template（缺文件容错返回空）。改 template 不回溯影响已实例化的月份；纯读不实例化
-- Goal 维度 `source: "monthly"`，值列表来自 `_monthly.md` 的 commitments goals 并集，不在 template/维度块的 values 里
-- Commitments 经 `set_commitments` 命令写入（校验 + goal 改名批量更新 entry + 原子写 `_monthly.md`，写回时保留 `dimensions:` 块）；外部直接编辑 `_monthly.md` 仍由 `notify` watcher 重新读取
+- 维度集合按月存放：`dimensions.template.yaml`（全局默认，旧 `config.yaml`、`template.yaml` 已弃用）→ 每月首次写入时 `create_dimensions_if_missing` 快照进该月 `dimensions.yaml`；`resolve_month_dimensions` 取 `dimensions.yaml` 否则 `dimensions.template.yaml`（缺文件容错返回空）。改 template 不回溯影响已实例化的月份；纯读不实例化
+- Goal 维度 `source: "monthly"`，值列表来自 `commitments.yaml` 的 commitments goals 并集，不在 template/维度块的 values 里
+- Commitments 经 `set_commitments` 命令写入（校验 + goal/role 改名批量更新 entry + 原子写 `commitments.yaml`）；外部直接编辑 `commitments.yaml` 仍由 `notify` watcher 重新读取
 - `root_path` 由前端持有，每次 command 调用时传入；Rust 端通过 `root_path.txt` 持久化选择
 - **Phase checkpoint**：每完成一个独立 phase 停下来确认，不要连续推进多个 phase 不征求同意（规则见根目录 CLAUDE.md）
