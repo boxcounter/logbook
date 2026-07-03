@@ -71,7 +71,17 @@ async function loadMonth(year: number, month: number, defaultDay?: number) {
     try {
       const df = (await invoke("get_entries", { rootPath: store.rootPath, date })) as DayFile;
       map[date] = df.entries;
-    } catch (e) { logError("MonthView.loadMonth", e); map[date] = []; }
+    } catch (e) {
+      logError("MonthView.loadMonth", e);
+      map[date] = [];
+      const msg = String(e);
+      if (msg.includes("source dimension") || msg.includes("dimensions.template.yaml missing")) {
+        store.configErrors = [{ kind: "ConfigError", message: msg }];
+        store.configCategory = "in_place";
+        store.status = "error";
+        return;
+      }
+    }
   }
   store.monthEntries = map;
   await loadCommitmentProgress(year, month);
@@ -88,7 +98,17 @@ async function loadCommitmentProgress(year: number, month: number) {
     const result = await invoke<CommitmentProgressResult>("get_commitment_progress", { rootPath: store.rootPath, year, month });
     store.commitmentProgress = result.roles;
     store.commitmentProgressResult = result;
-  } catch (e) { logError("MonthView.loadCommitmentProgress", e); store.commitmentProgress = []; store.commitmentProgressResult = null; }
+  } catch (e) {
+    logError("MonthView.loadCommitmentProgress", e);
+    store.commitmentProgress = [];
+    store.commitmentProgressResult = null;
+    const msg = String(e);
+    if (msg.includes("source dimension") || msg.includes("dimensions.template.yaml missing")) {
+      store.configErrors = [{ kind: "ConfigError", message: msg }];
+      store.configCategory = "in_place";
+      store.status = "error";
+    }
+  }
 }
 
 async function loadCommitments(year: number, month: number) {
@@ -107,7 +127,15 @@ async function loadMonthDimensions(year: number, month: number) {
       store.dimensions = md.dimensions;
       store.usingDefaultDimensions = md.usingDefaultDimensions;
     }
-  } catch (e) { logError("MonthView.loadMonthDimensions", e); }
+  } catch (e) {
+    logError("MonthView.loadMonthDimensions", e);
+    const msg = String(e);
+    if (msg.includes("source dimension") || msg.includes("dimensions.template.yaml missing")) {
+      store.configErrors = [{ kind: "ConfigError", message: msg }];
+      store.configCategory = "in_place";
+      store.status = "error";
+    }
+  }
 }
 
 // Optimistically reflect the just-saved commitments so the panel's Edit/Set-up
