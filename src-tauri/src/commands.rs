@@ -214,15 +214,6 @@ pub fn load_root_state(root: &std::path::Path) -> InitResult {
         }
     };
 
-    if !all_errors.is_empty() {
-        return InitResult::ConfigError {
-            category: RecoveryCategory::InPlace,
-            root_path: root.to_string_lossy().into_owned(),
-            errors: all_errors,
-            scan_warnings,
-        };
-    }
-
     let using_default_dimensions = files::read_dimensions_file(root, now.year(), now.month()).unwrap_or_default().is_empty();
     let dimensions = files::resolve_month_dimensions(root, now.year(), now.month()).unwrap_or_default();
 
@@ -251,6 +242,15 @@ pub fn load_root_state(root: &std::path::Path) -> InitResult {
         };
         let (goal_to_role, role_to_goals) = build_commitment_maps(&commitments);
         annotate_day_file(&mut today, &role_key, &goal_key, &goal_to_role, &role_to_goals);
+    }
+
+    if !all_errors.is_empty() {
+        return InitResult::ConfigError {
+            category: RecoveryCategory::InPlace,
+            root_path: root.to_string_lossy().into_owned(),
+            errors: all_errors,
+            scan_warnings,
+        };
     }
 
     InitResult::Ready {
