@@ -33,6 +33,12 @@
   --color-danger: #ef4444;
   --color-warning: #f59e0b;
 
+  /* === Problem Entry (unattributed / mismatch) === */
+  --color-problem-entry-bg: #fffbeb;
+  --color-problem-entry-hover-bg: #fef3c7;
+  --color-problem-entry-border: #fde68a;
+  --color-problem-entry-text: #d97706;
+
   /* === Duration Token (editing state) === */
   --color-token-dur-bg: #fff7ed;
   --color-token-dur-text: #c2410c;
@@ -135,6 +141,10 @@
     --color-missing-border: #334155;
     --color-missing-text: #64748b;
     --color-missing-dot: #475569;
+    --color-problem-entry-bg: #422006;
+    --color-problem-entry-hover-bg: #5c2d0a;
+    --color-problem-entry-border: #78350f;
+    --color-problem-entry-text: #f59e0b;
     --color-popover-dim-header-bg: #1e1b3a;
     --color-popover-val-header-bg: #1e1e1a;
     --shadow-card: none;

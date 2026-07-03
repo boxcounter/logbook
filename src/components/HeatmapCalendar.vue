@@ -1,10 +1,11 @@
 <!-- src/components/HeatmapCalendar.vue -->
 <script setup lang="ts">
-import { ref, computed, watch, onUnmounted } from "vue";
+import { ref, computed } from "vue";
 import type { Entry } from "../types";
 import type { AvailableMonth } from "../stores/useStore";
 import { datesInMonth, parseDate, formatDate } from "../utils/dates";
 import { heatLevel } from "../utils/heatmap";
+import { useClickOutside } from "../composables/useClickOutside";
 import QuickJumpPopover from "./QuickJumpPopover.vue";
 
 const MONTH_NAMES = [
@@ -94,19 +95,8 @@ function onJump(payload: { year: number; month: number }) {
   emit("navigate", payload);
 }
 
-// Close the jump popover on a click anywhere outside the label trigger + popover
-// (jumpAnchor wraps both). The listener only lives while the popover is open.
-const jumpAnchor = ref<HTMLElement>();
-function onDocMousedown(e: MouseEvent) {
-  if (jumpAnchor.value && !jumpAnchor.value.contains(e.target as Node)) {
-    showJump.value = false;
-  }
-}
-watch(showJump, (open) => {
-  if (open) document.addEventListener("mousedown", onDocMousedown, true);
-  else document.removeEventListener("mousedown", onDocMousedown, true);
-});
-onUnmounted(() => document.removeEventListener("mousedown", onDocMousedown, true));
+const jumpAnchor = ref<HTMLElement | null>(null);
+useClickOutside(jumpAnchor, showJump);
 </script>
 
 <template>

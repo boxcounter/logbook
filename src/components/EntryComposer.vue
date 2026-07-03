@@ -1,6 +1,7 @@
 <!-- src/components/EntryComposer.vue -->
 <script setup lang="ts">
-import { ref, computed, inject, watch, onUnmounted, type Ref } from "vue";
+import { ref, computed, inject, watch, type Ref } from "vue";
+import { useClickOutside } from "../composables/useClickOutside";
 import type { Dimension, Commitment } from "../types";
 import { parseDurationFromText, stripDurations, formatDuration } from "../utils/format";
 import { dimensionHues, dimTokenChipStyle } from "../utils/dimensionColor";
@@ -52,21 +53,8 @@ function closePopover() {
   inputEl.value?.focus();
 }
 
-// Close the popover on a click anywhere outside the composer (rootEl wraps the
-// input, the chips that open it, and the popover itself, so in-composer clicks
-// never self-close). Esc is owned by DimensionPopover (phase-aware). Listener
-// only lives while the popover is open.
 const rootEl = ref<HTMLElement | null>(null);
-function onDocMousedown(e: MouseEvent) {
-  if (rootEl.value && !rootEl.value.contains(e.target as Node)) {
-    popoverOpen.value = false;
-  }
-}
-watch(popoverOpen, (open) => {
-  if (open) document.addEventListener("mousedown", onDocMousedown, true);
-  else document.removeEventListener("mousedown", onDocMousedown, true);
-});
-onUnmounted(() => document.removeEventListener("mousedown", onDocMousedown, true));
+useClickOutside(rootEl, popoverOpen);
 
 function onKeydown(e: KeyboardEvent) {
   // Esc when the popover is closed: clear the in-progress entry. While the

@@ -69,16 +69,16 @@ function onSave(item: string, durationMinutes: number, dims: Record<string, stri
     :class="[
       { 'just-added': justAdded },
       isProblemEntry
-        ? 'bg-[#fffbeb] hover:bg-[#fef3c7]'
+        ? 'bg-[var(--color-problem-entry-bg)] hover:bg-[var(--color-problem-entry-hover-bg)]'
         : 'hover:bg-[var(--color-surface-muted)]',
       index > 0 ? 'border-t border-[var(--color-divider)]' : '',
-      isProblemEntry && index > 0 ? '!border-[#fde68a]' : '',
+      isProblemEntry && index > 0 ? '!border-[var(--color-problem-entry-border)]' : '',
     ]"
     @dblclick="onDblClick"
   >
     <span
       v-if="isProblemEntry"
-      class="flex-shrink-0 text-[#d97706]"
+      class="flex-shrink-0 text-[var(--color-problem-entry-text)]"
       style="font-size: 14px; width: 16px; text-align: center;"
       title="未归属任何 role 或 role/goal 不匹配"
     >●</span>
@@ -101,7 +101,7 @@ function onSave(item: string, durationMinutes: number, dims: Record<string, stri
       data-test="duration-display"
       data-edit-target="duration"
       class="mono text-secondary flex-shrink-0 ml-lg pt-2xs"
-      :class="isProblemEntry ? '!text-[#d97706] font-medium' : 'text-[var(--color-text-primary)]'"
+      :class="isProblemEntry ? '!text-[var(--color-problem-entry-text)] font-medium' : 'text-[var(--color-text-primary)]'"
     >
       {{ entry.duration > 0 ? formatDuration(entry.duration) : "—" }}
     </span>
