@@ -630,11 +630,10 @@ fn goal_dim_key(root: &std::path::Path, year: i32, month: u32) -> Result<String,
         .map(|d| d.key)
         .ok_or_else(|| format!(
             "dimensions.template.yaml is missing a Goal dimension.\n\
-             Expected a dimension entry like:\n\
+             Add this to the `dimensions:` list:\n\
                - name: Goal\n\
                  key: goal\n\
-                 source: commitments:goals\n\
-             Open dimensions.template.yaml and add or fix the Goal dimension."
+                 source: commitments:goals"
         ))
 }
 
@@ -645,11 +644,10 @@ fn role_dim_key(root: &std::path::Path, year: i32, month: u32) -> Result<String,
         .map(|d| d.key)
         .ok_or_else(|| format!(
             "dimensions.template.yaml is missing a Role dimension.\n\
-             Expected a dimension entry like:\n\
+             Add this to the `dimensions:` list:\n\
                - name: Role\n\
                  key: role\n\
-                 source: commitments:role\n\
-             Open dimensions.template.yaml and add or fix the Role dimension."
+                 source: commitments:role"
         ))
 }
 
