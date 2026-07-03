@@ -1734,7 +1734,7 @@ mod tests {
                 Dimension {
                     name: "Goal".into(),
                     key: "goal".into(),
-                    source: "monthly".into(),
+                    source: "commitments:goals".into(),
                     values: None,
                     required: required_keys.contains(&"goal"),
                     deleted: false,
