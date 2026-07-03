@@ -9,7 +9,7 @@ export interface Dimension {
 
 export interface MonthDimensions {
   dimensions: Dimension[];
-  from_template: boolean;
+  usingDefaultDimensions: boolean;
 }
 
 export interface Commitment {
@@ -98,7 +98,7 @@ export type InitResult =
       data: {
         root_path: string;
         dimensions: Dimension[];
-        from_template: boolean;
+        usingDefaultDimensions: boolean;
         today: DayFile;
         commitments: Commitment[];
         scan_warnings: ScanWarning[];

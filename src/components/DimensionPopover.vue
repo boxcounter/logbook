@@ -32,7 +32,7 @@ function firstUnfilledIndex(justFilled?: string): number {
 
 function listLength(): number {
   if (stage.value === "dim") {
-    return visibleDims.value.length + (props.commitments.length > 0 ? 1 : 0);
+    return visibleDims.value.length + (!hasRoleDimension.value && props.commitments.length > 0 ? 1 : 0);
   }
   return activeValues.value.length;
 }
@@ -54,11 +54,20 @@ const goalKey = computed(() => {
   return monthly?.key ?? "goal";
 });
 
+const roleKey = computed(() => {
+  const r = props.dimensions.find(d => d.source === "commitments:role");
+  return r?.key ?? "role";
+});
+
+const hasRoleDimension = computed(() =>
+  props.dimensions.some(d => d.source === "commitments:role")
+);
+
 const activeValues = computed(() => {
   if (stage.value !== "val") return [];
 
   // Role dimension: values from commitments
-  if (selectedDimKey.value === "role") {
+  if (selectedDimKey.value === roleKey.value) {
     let roles = props.commitments.map(c => c.role);
     // Cross-filter: if goal is already selected, only show roles containing that goal
     const existingGoal = props.dimValues[goalKey.value];
@@ -74,7 +83,7 @@ const activeValues = computed(() => {
   if (selectedDimKey.value === goalKey.value) {
     let goals = goalOptions.value;
     // Cross-filter: if role is already selected, only show goals under that role
-    const existingRole = props.dimValues["role"];
+    const existingRole = props.dimValues[roleKey.value];
     if (existingRole) {
       const roleCommitment = props.commitments.find(c => c.role === existingRole);
       if (roleCommitment) goals = roleCommitment.goals;
@@ -91,7 +100,10 @@ const activeValues = computed(() => {
 
 const valHeaderName = computed(() => {
   if (stage.value !== "val") return "";
-  if (selectedDimKey.value === "role") return "Role";
+  if (selectedDimKey.value === roleKey.value) {
+    const d = visibleDims.value.find(d => d.key === roleKey.value);
+    return d?.name ?? "Role";
+  }
   return visibleDims.value.find(d => d.key === selectedDimKey.value)?.name ?? "";
 });
 
@@ -160,8 +172,8 @@ function onWindowKeydown(e: KeyboardEvent) {
       if (highlightedIndex.value < visibleDims.value.length) {
         const d = visibleDims.value[highlightedIndex.value];
         if (d) selectDim(d.key);
-      } else if (props.commitments.length > 0) {
-        selectDim("role");
+      } else if (!hasRoleDimension.value && props.commitments.length > 0) {
+        selectDim(roleKey.value);
       }
     } else {
       const v = activeValues.value[highlightedIndex.value];
@@ -229,7 +241,7 @@ onUnmounted(() => window.removeEventListener("keydown", onWindowKeydown, true));
       </div>
       </template>
       <div
-        v-if="commitments.length > 0"
+        v-if="!hasRoleDimension && commitments.length > 0"
         data-test="dim-role"
         :data-active="visibleDims.length === highlightedIndex"
         class="px-md py-sm text-secondary
@@ -237,20 +249,20 @@ onUnmounted(() => window.removeEventListener("keydown", onWindowKeydown, true));
         :class="
           visibleDims.length === highlightedIndex
             ? 'bg-[var(--color-brand-solid)] text-white'
-            : (dimValues['role']
+            : (dimValues[roleKey]
                 ? 'text-[var(--color-brand-solid)] font-semibold'
                 : 'text-[var(--color-text-primary)]')
         "
         @mouseenter="highlightedIndex = visibleDims.length"
-        @click="selectDim('role')"
+        @click="selectDim(roleKey)"
       >
-        <span class="w-[3px] h-[18px] rounded-[var(--radius-sm)] flex-shrink-0" :style="{ background: barColor('role') }"></span>
+        <span class="w-[3px] h-[18px] rounded-[var(--radius-sm)] flex-shrink-0" :style="{ background: barColor(roleKey) }"></span>
         Role
         <span
-          v-if="dimValues['role']"
+          v-if="dimValues[roleKey]"
           class="ml-auto flex items-center gap-xs text-micro max-w-[110px]"
         >
-          <span class="truncate">{{ dimValues['role'] }}</span>
+          <span class="truncate">{{ dimValues[roleKey] }}</span>
           <span class="flex-shrink-0">✓</span>
         </span>
         <span

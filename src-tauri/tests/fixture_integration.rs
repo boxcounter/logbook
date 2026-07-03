@@ -44,15 +44,21 @@ fn test_read_and_validate_config() {
 }
 
 #[test]
-fn test_read_and_validate_monthly() {
+fn test_read_and_validate_commitments() {
     skip_if_no_fixture!();
     let root = fixture_root();
-    let monthly = tauri_app_lib::files::read_monthly_file(&root, 2026, 6)
-        .expect("read_monthly_file should succeed");
-    let errors = tauri_app_lib::config::validate_monthly(&monthly);
+    let commitments = tauri_app_lib::files::read_commitments_file(&root, 2026, 6)
+        .expect("read_commitments_file should succeed");
+    let errors = match tauri_app_lib::config::validate_commitments(&commitments) {
+        Ok(()) => vec![],
+        Err(e) => vec![tauri_app_lib::models::ConfigErrorDetail {
+            kind: "Validation".to_string(),
+            message: e,
+        }],
+    };
     assert!(
         errors.is_empty(),
-        "Monthly validation failed:\n{}",
+        "Commitment validation failed:\n{}",
         errors
             .iter()
             .map(|e| format!("  [{}] {}", e.kind, e.message))
@@ -80,8 +86,8 @@ fn test_config_dimensions_count() {
 fn test_monthly_commitments_count() {
     skip_if_no_fixture!();
     let root = fixture_root();
-    let monthly = tauri_app_lib::files::read_monthly_file(&root, 2026, 6).unwrap();
-    assert_eq!(monthly.commitments.len(), 2);
-    assert_eq!(monthly.commitments[0].role, "Developer");
-    assert_eq!(monthly.commitments[1].role, "Director");
+    let commitments = tauri_app_lib::files::read_commitments_file(&root, 2026, 6).unwrap();
+    assert_eq!(commitments.len(), 2);
+    assert_eq!(commitments[0].role, "Developer");
+    assert_eq!(commitments[1].role, "Director");
 }

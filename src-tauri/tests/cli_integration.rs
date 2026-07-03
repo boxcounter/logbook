@@ -21,7 +21,7 @@ fn cli_binary() -> std::path::PathBuf {
 /// Create a minimal fixture with dimensions.template.yaml.
 fn setup_fixture(tmp: &Path) {
     fs::create_dir_all(tmp).unwrap();
-    let config = "dimensions:\n  - name: Goal\n    key: goal\n    source: commitments:goals\n";
+    let config = "dimensions:\n  - name: Goal\n    key: goal\n    source: commitments:goals\n  - name: Role\n    key: role\n    source: commitments:role\n";
     fs::write(tmp.join("dimensions.template.yaml"), config).unwrap();
 }
 
@@ -297,7 +297,7 @@ fn test_commitments_set_preserves_dimensions_block() {
     fs::create_dir_all(&dir).unwrap();
     fs::write(
         dir.join("dimensions.yaml"),
-        "- name: Biz\n  key: biz\n  source: static\n  values: [Product]\n",
+        "- name: Biz\n  key: biz\n  source: static\n  values: [Product]\n- name: Goal\n  key: goal\n  source: commitments:goals\n- name: Role\n  key: role\n  source: commitments:role\n",
     ).unwrap();
     // Old commitments in commitments.yaml (to test rename detection doesn't wipe dimensions).
     setup_commitments(&tmp, 2026, 8, "- role: Dev\n  allocation: 40\n  goals:\n    - Feature A");

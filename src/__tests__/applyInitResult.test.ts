@@ -30,7 +30,7 @@ describe("applyInitResult", () => {
     expect(warnings).toHaveLength(1);
   });
 
-  it("Ready → status ready, dimensions + fromTemplate set, category cleared", () => {
+  it("Ready → status ready, dimensions + usingDefaultDimensions set, category cleared", () => {
     const store = createStore();
     store.configCategory = "in_place";
     const result: InitResult = {
@@ -38,7 +38,7 @@ describe("applyInitResult", () => {
       data: {
         root_path: "/data/logbook",
         dimensions: [{ name: "Goal", key: "goal", source: "commitments:goals", required: false, deleted: false }],
-        from_template: true,
+        usingDefaultDimensions: true,
         today: { note: null, entries: [] },
         commitments: [],
         scan_warnings: [],
@@ -48,7 +48,7 @@ describe("applyInitResult", () => {
     expect(store.status).toBe("ready");
     expect(store.rootPath).toBe("/data/logbook");
     expect(store.dimensions).toHaveLength(1);
-    expect(store.fromTemplate).toBe(true);
+    expect(store.usingDefaultDimensions).toBe(true);
     expect(store.configCategory).toBeNull();
   });
 });

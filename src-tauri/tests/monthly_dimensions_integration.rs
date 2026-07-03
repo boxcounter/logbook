@@ -15,42 +15,40 @@ fn write_template(root: &PathBuf, body: &str) {
     fs::write(root.join("dimensions.template.yaml"), body).unwrap();
 }
 
-const TPL_BIZ_GOAL: &str =
-    "dimensions:\n  - name: Biz\n    key: biz\n    source: static\n    values: [产品, 市场]\n  - name: Goal\n    key: goal\n    source: commitments:goals\n";
+const TPL: &str =
+    "dimensions:\n  - name: Biz\n    key: biz\n    source: static\n    values: [产品, 市场]\n  - name: Goal\n    key: goal\n    source: commitments:goals\n  - name: Role\n    key: role\n    source: commitments:role\n";
 
-// 1. Pure read of a fresh month returns template dims, from_template=true, no file written.
+// 1. Pure read of a fresh month returns template dims, no file written.
 #[test]
 fn fresh_month_reads_template_without_writing() {
     let root = fresh_root("logbook_md_fresh_read");
-    write_template(&root, TPL_BIZ_GOAL);
+    write_template(&root, TPL);
 
     let dims = files::resolve_month_dimensions(&root, 2026, 7).unwrap();
-    assert_eq!(dims.len(), 2);
+    assert_eq!(dims.len(), 3);
     assert_eq!(dims[0].key, "biz");
 
-    // resolve must NOT have created _monthly.md
-    let monthly = files::monthly_path(&root, 2026, 7);
-    assert!(!monthly.exists(), "resolve must not write _monthly.md");
+    // resolve must NOT have created dimensions.yaml
+    assert!(
+        !files::dimensions_path(&root, 2026, 7).exists(),
+        "resolve must not write dimensions.yaml"
+    );
 
     let _ = fs::remove_dir_all(&root);
 }
 
-// 1b. A dimensions.template.yaml saved with a leading UTF-8 BOM (external editors do this)
-// must still parse, and validation must see its dimensions. Otherwise the
-// failure is swallowed into empty dimensions and required-dimension validation
-// is silently bypassed.
+// 1b. A dimensions.template.yaml saved with a leading UTF-8 BOM must still parse.
 #[test]
 fn template_with_utf8_bom_still_parses() {
     let root = fresh_root("logbook_md_bom_template");
-    write_template(&root, &format!("\u{feff}{}", TPL_BIZ_GOAL));
+    write_template(&root, &format!("\u{feff}{}", TPL));
 
     let tpl = files::read_dimensions_template(&root).expect("read_dimensions_template must tolerate a leading BOM");
-    assert_eq!(tpl.dimensions.len(), 2);
+    assert_eq!(tpl.dimensions.len(), 3);
     assert_eq!(tpl.dimensions[0].key, "biz");
 
-    // The BOM month must resolve real dims, not the empty-fallback.
     let dims = files::resolve_month_dimensions(&root, 2026, 7).unwrap();
-    assert_eq!(dims.len(), 2, "BOM template must not collapse to empty dims");
+    assert_eq!(dims.len(), 3, "BOM template must not collapse to empty dims");
 
     let _ = fs::remove_dir_all(&root);
 }
@@ -59,7 +57,7 @@ fn template_with_utf8_bom_still_parses() {
 #[test]
 fn first_append_snapshots_template() {
     let root = fresh_root("logbook_md_snapshot");
-    write_template(&root, TPL_BIZ_GOAL);
+    write_template(&root, TPL);
 
     let input = CreateEntryInput {
         item: "task".into(),
@@ -70,21 +68,14 @@ fn first_append_snapshots_template() {
 
     // dimensions.yaml now carries the template snapshot
     let dims = files::read_dimensions_file(&root, 2026, 7).unwrap();
-    assert_eq!(dims.len(), 2, "append must snapshot template to dimensions.yaml");
-
-    // _monthly.md must NOT be written by append (dimensions live in dimensions.yaml).
-    assert!(
-        !files::monthly_path(&root, 2026, 7).exists(),
-        "append must not write _monthly.md"
-    );
+    assert_eq!(dims.len(), 3, "append must snapshot template to dimensions.yaml");
 
     // Change the template; the month keeps its snapshot.
-    write_template(
-        &root,
-        "dimensions:\n  - name: Other\n    key: other\n    source: static\n    values: [x]\n",
+    write_template(&root,
+        "dimensions:\n  - name: Other\n    key: other\n    source: static\n    values: [x]\n  - name: Goal\n    key: goal\n    source: commitments:goals\n  - name: Role\n    key: role\n    source: commitments:role\n",
     );
     let resolved = files::resolve_month_dimensions(&root, 2026, 7).unwrap();
-    assert_eq!(resolved.len(), 2, "snapshot must not follow template changes");
+    assert_eq!(resolved.len(), 3, "snapshot must not follow template changes");
     assert_eq!(resolved[0].key, "biz");
 
     let _ = fs::remove_dir_all(&root);
@@ -94,7 +85,7 @@ fn first_append_snapshots_template() {
 #[test]
 fn month_block_overrides_template() {
     let root = fresh_root("logbook_md_override");
-    write_template(&root, TPL_BIZ_GOAL);
+    write_template(&root, TPL);
     let client_dim = Dimension {
         name: "Client".into(),
         key: "client".into(),
@@ -112,38 +103,15 @@ fn month_block_overrides_template() {
     let _ = fs::remove_dir_all(&root);
 }
 
-// 4. ensure_month_instantiated preserves existing commitments (merge, not overwrite).
+// 4. set_commitments must NOT wipe an existing dimensions.yaml.
 #[test]
-fn instantiate_preserves_commitments() {
-    let root = fresh_root("logbook_md_preserve");
-    write_template(&root, TPL_BIZ_GOAL);
-    let month_dir = root.join("2026").join("09");
-    fs::create_dir_all(&month_dir).unwrap();
-    fs::write(
-        month_dir.join("_monthly.md"),
-        "---\ncommitments:\n  - role: Dev\n    allocation: 40\n    goals:\n      - Ship it\n---\n",
-    )
-    .unwrap();
-
-    files::ensure_month_instantiated(&root, 2026, 9).unwrap();
-
-    let monthly = files::read_monthly_file(&root, 2026, 9).unwrap();
-    assert_eq!(monthly.dimensions.len(), 2, "dims snapshotted");
-    assert_eq!(monthly.commitments.len(), 1, "commitments preserved");
-    assert_eq!(monthly.commitments[0].role, "Dev");
-
-    let _ = fs::remove_dir_all(&root);
-}
-
-// 6. set_commitments (the command) must NOT wipe an existing dimensions.yaml.
-#[test]
-fn set_commitments_preserves_dimensions_block() {
+fn set_commitments_preserves_dimensions_yaml() {
     let root = fresh_root("logbook_md_setcommit");
-    write_template(&root, TPL_BIZ_GOAL);
+    write_template(&root, TPL);
 
     // Instantiate the month (dimensions.yaml now present, no commitments yet).
     files::create_dimensions_if_missing(&root, 2026, 10).unwrap();
-    assert_eq!(files::read_dimensions_file(&root, 2026, 10).unwrap().len(), 2);
+    assert_eq!(files::read_dimensions_file(&root, 2026, 10).unwrap().len(), 3);
 
     // Set commitments via the command.
     let commitments = vec![Commitment {
@@ -161,7 +129,7 @@ fn set_commitments_preserves_dimensions_block() {
 
     // Both dimensions.yaml AND commitments.yaml must be present.
     let dims = files::read_dimensions_file(&root, 2026, 10).unwrap();
-    assert_eq!(dims.len(), 2, "set_commitments must preserve dimensions");
+    assert_eq!(dims.len(), 3, "set_commitments must preserve dimensions");
     let comms = files::read_commitments_file(&root, 2026, 10).unwrap();
     assert_eq!(comms.len(), 1);
     assert_eq!(comms[0].role, "Dev");
@@ -169,85 +137,76 @@ fn set_commitments_preserves_dimensions_block() {
     let _ = fs::remove_dir_all(&root);
 }
 
-// 7. get_month_dimensions reports from_template: true before instantiation, false after.
+// 5. get_month_dimensions reports usingDefaultDimensions: true before instantiation, false after.
 #[test]
-fn get_month_dimensions_reports_from_template_flag() {
+fn get_month_dimensions_reports_usingDefaultDimensions_flag() {
     let root = fresh_root("logbook_md_fromtemplate");
-    write_template(&root, TPL_BIZ_GOAL);
+    write_template(&root, TPL);
     let root_str = root.to_string_lossy().into_owned();
 
     // Fresh month: serves the template, flagged as not-yet-customized.
     let md = tauri_app_lib::commands::get_month_dimensions(root_str.clone(), 2026, 11).unwrap();
-    assert!(md.from_template, "fresh month must report from_template = true");
-    assert_eq!(md.dimensions.len(), 2);
+    assert!(md.usingDefaultDimensions, "fresh month must report usingDefaultDimensions = true");
+    assert_eq!(md.dimensions.len(), 3);
 
     // After instantiation: own snapshot, flag flips.
-    files::ensure_month_instantiated(&root, 2026, 11).unwrap();
-    // Write dimensions.yaml so resolve_month_dimensions finds the snapshot.
-    let monthly = files::read_monthly_file(&root, 2026, 11).unwrap();
-    files::write_dimensions_file(&root, 2026, 11, &monthly.dimensions).unwrap();
+    files::create_dimensions_if_missing(&root, 2026, 11).unwrap();
     let md2 = tauri_app_lib::commands::get_month_dimensions(root_str, 2026, 11).unwrap();
-    assert!(!md2.from_template, "instantiated month must report from_template = false");
-    assert_eq!(md2.dimensions.len(), 2);
+    assert!(!md2.usingDefaultDimensions, "instantiated month must report usingDefaultDimensions = false");
+    assert_eq!(md2.dimensions.len(), 3);
 
     let _ = fs::remove_dir_all(&root);
 }
 
-// 8. A day note must NOT instantiate the month (narrowed trigger): writing a note
-//    is not customizing dimensions, so the month stays on the live template.
+// 6. A day note must NOT instantiate the month.
 #[test]
 fn set_day_note_does_not_instantiate() {
     let root = fresh_root("logbook_md_noteonly");
-    write_template(&root, TPL_BIZ_GOAL);
+    write_template(&root, TPL);
     let root_str = root.to_string_lossy().into_owned();
 
     tauri_app_lib::commands::set_day_note(root_str.clone(), "2026-12-05".into(), "a note".into())
         .unwrap();
 
-    let monthly = files::read_monthly_file(&root, 2026, 12).unwrap();
-    assert!(monthly.dimensions.is_empty(), "set_day_note must not snapshot dimensions");
+    // dimensions.yaml must NOT exist.
+    assert!(
+        !files::dimensions_path(&root, 2026, 12).exists(),
+        "set_day_note must not create dimensions.yaml"
+    );
 
     let md = tauri_app_lib::commands::get_month_dimensions(root_str, 2026, 12).unwrap();
-    assert!(md.from_template, "note-only month must remain from_template = true");
+    assert!(md.usingDefaultDimensions, "note-only month must remain usingDefaultDimensions = true");
 
     let _ = fs::remove_dir_all(&root);
 }
 
-// 5. Missing template → resolve is lenient (empty), ensure is a no-op.
+// 7. Missing template → resolve is lenient (empty), create_dimensions is a no-op.
 #[test]
 fn missing_template_is_lenient() {
     let root = fresh_root("logbook_md_notpl");
     // no dimensions.template.yaml written
     let dims = files::resolve_month_dimensions(&root, 2026, 7).unwrap();
     assert!(dims.is_empty());
-    files::ensure_month_instantiated(&root, 2026, 7).unwrap(); // no panic, no-op
-    assert!(!files::monthly_path(&root, 2026, 7).exists());
+    files::create_dimensions_if_missing(&root, 2026, 7).unwrap(); // no panic, no-op
+    assert!(!files::dimensions_path(&root, 2026, 7).exists());
     let _ = fs::remove_dir_all(&root);
 }
 
-// 5b. A MALFORMED template (exists but unparseable) must NOT be swallowed into
-// empty dimensions: that would silently bypass required-dimension validation
-// and let entries through with missing required dims. Contrast with case 5: a
-// MISSING template is tolerated, a BROKEN one is surfaced.
+// 8. A MALFORMED template must surface an error, not return empty dims.
 #[test]
 fn malformed_template_surfaces_error_not_empty() {
     let root = fresh_root("logbook_md_badtpl");
-    // `dimensions` as a scalar string fails to deserialize into Vec<Dimension>.
     write_template(&root, "dimensions: not-a-list\n");
 
     // resolve must surface the parse error, not return empty dims.
     let resolved = files::resolve_month_dimensions(&root, 2026, 7);
     assert!(
         resolved.is_err(),
-        "malformed template must surface an error, got empty-fallback: {:?}",
+        "malformed template must surface an error, got: {:?}",
         resolved
     );
 
-    // ensure_month_instantiated must also surface it rather than no-op.
-    assert!(files::ensure_month_instantiated(&root, 2026, 7).is_err());
-
-    // The amplifier: appending an entry must be rejected, not silently accepted
-    // with validation bypassed.
+    // Appending an entry must be rejected.
     let input = CreateEntryInput {
         item: "leak".to_string(),
         duration: "30m".to_string(),
@@ -260,4 +219,3 @@ fn malformed_template_surfaces_error_not_empty() {
 
     let _ = fs::remove_dir_all(&root);
 }
-

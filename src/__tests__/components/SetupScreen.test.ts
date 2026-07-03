@@ -87,7 +87,7 @@ describe("SetupScreen", () => {
       data: {
         root_path: "/my/path",
         dimensions,
-        from_template: false,
+        usingDefaultDimensions: false,
         today: { note: null, entries: [] },
         commitments: [makeCommitment()],
       },

@@ -7,7 +7,7 @@ import { STORE_KEY } from "../../stores/useStore";
 import { makeEntry, makeDimensions, makeCommitment } from "../mocks/fixtures";
 
 function mountList(entries = [makeEntry({ item: "A", duration: 60 }), makeEntry({ item: "B", duration: 30 })]) {
-  const store = reactive({ dimensions: makeDimensions(), fromTemplate: false, commitments: [makeCommitment()] });
+  const store = reactive({ dimensions: makeDimensions(), usingDefaultDimensions: false, commitments: [makeCommitment()] });
   return mount(EntryList, {
     props: { entries },
     global: { provide: { [STORE_KEY as symbol]: store } },
@@ -33,7 +33,7 @@ describe("EntryList", () => {
   });
 
   it("shows the full CTA message when isToday is true", () => {
-    const store = reactive({ dimensions: makeDimensions(), fromTemplate: false, commitments: [makeCommitment()] });
+    const store = reactive({ dimensions: makeDimensions(), usingDefaultDimensions: false, commitments: [makeCommitment()] });
     const wrapper = mount(EntryList, {
       props: { entries: [], isToday: true },
       global: { provide: { [STORE_KEY as symbol]: store } },

@@ -133,7 +133,7 @@ describe("App", () => {
     const today = makeDayFile();
     mockInvoke.mockResolvedValue({
       status: "Ready",
-      data: { root_path: "/test", dimensions, from_template: false, today, commitments: [], scan_warnings: [] },
+      data: { root_path: "/test", dimensions, usingDefaultDimensions: false, today, commitments: [], scan_warnings: [] },
     });
     const { wrapper, store } = mountApp();
     await vi.runAllTimersAsync();
@@ -172,7 +172,7 @@ describe("App", () => {
     vi.clearAllMocks();
     mockInvoke.mockResolvedValue({
       status: "Ready",
-      data: { root_path: "/test", dimensions: makeDimensions(), from_template: false, today: makeDayFile(), commitments: [], scan_warnings: [] },
+      data: { root_path: "/test", dimensions: makeDimensions(), usingDefaultDimensions: false, today: makeDayFile(), commitments: [], scan_warnings: [] },
     });
 
     await wrapper.get('[data-testid="retry"]').trigger("click");
@@ -226,7 +226,7 @@ describe("App", () => {
     const dims = makeDimensions();
     mockInvoke.mockResolvedValue({
       status: "Ready",
-      data: { root_path: "/test", dimensions: dims, from_template: false, today: makeDayFile(), commitments: [], scan_warnings: [] },
+      data: { root_path: "/test", dimensions: dims, usingDefaultDimensions: false, today: makeDayFile(), commitments: [], scan_warnings: [] },
     });
     const { store } = mountApp();
     await vi.runAllTimersAsync();
@@ -234,7 +234,7 @@ describe("App", () => {
 
     vi.clearAllMocks();
     const newDims = [makeDimension({ name: "Updated", key: "updated", source: "static", required: false })];
-    mockInvoke.mockResolvedValue({ dimensions: newDims, from_template: true });
+    mockInvoke.mockResolvedValue({ dimensions: newDims, usingDefaultDimensions: true });
 
     // Simulate dimensions-changed event with empty error list
     if (dimensionsChangedCallback) {
@@ -244,13 +244,13 @@ describe("App", () => {
 
     expect(mockInvoke).toHaveBeenCalledWith("get_month_dimensions", expect.objectContaining({ year: 2026, month: 6 }));
     expect(store.dimensions).toEqual(newDims);
-    expect(store.fromTemplate).toBe(true);
+    expect(store.usingDefaultDimensions).toBe(true);
   });
 
   it("dimensions-changed event with errors shows error screen", async () => {
     mockInvoke.mockResolvedValue({
       status: "Ready",
-      data: { root_path: "/test", dimensions: makeDimensions(), from_template: false, today: makeDayFile(), commitments: [], scan_warnings: [] },
+      data: { root_path: "/test", dimensions: makeDimensions(), usingDefaultDimensions: false, today: makeDayFile(), commitments: [], scan_warnings: [] },
     });
     const { store } = mountApp();
     await vi.runAllTimersAsync();
@@ -270,7 +270,7 @@ describe("App", () => {
     vi.setSystemTime(new Date(2026, 5, 20, 10, 0, 0)); // 当前月 = 2026-06
     mockInvoke.mockResolvedValue({
       status: "Ready",
-      data: { root_path: "/test", dimensions: makeDimensions(), from_template: false, today: makeDayFile(), commitments: [], scan_warnings: [] },
+      data: { root_path: "/test", dimensions: makeDimensions(), usingDefaultDimensions: false, today: makeDayFile(), commitments: [], scan_warnings: [] },
     });
     const { store } = mountApp();
     await vi.runAllTimersAsync();
@@ -283,7 +283,7 @@ describe("App", () => {
 
     // 按月路由：7 月空，其它月有数据
     mockInvoke.mockImplementation(async (cmd: string, args: { month: number }) => {
-      if (cmd === "get_month_dimensions") return { dimensions: makeDimensions(), from_template: false };
+      if (cmd === "get_month_dimensions") return { dimensions: makeDimensions(), usingDefaultDimensions: false };
       if (cmd === "get_commitments") return args.month === 7 ? [] : [makeCommitment()];
       if (cmd === "get_commitment_progress") return [];
       return undefined;
@@ -317,7 +317,7 @@ describe("App", () => {
     vi.setSystemTime(new Date(2026, 5, 20, 10, 0, 0));
     mockInvoke.mockResolvedValue({
       status: "Ready",
-      data: { root_path: "/test", dimensions: makeDimensions(), from_template: false, today: makeDayFile(), commitments: [makeCommitment()], scan_warnings: [] },
+      data: { root_path: "/test", dimensions: makeDimensions(), usingDefaultDimensions: false, today: makeDayFile(), commitments: [makeCommitment()], scan_warnings: [] },
     });
     const { store } = mountApp();
     await vi.runAllTimersAsync();
@@ -328,13 +328,13 @@ describe("App", () => {
     store.commitments = sentinel; // 选中月（7 月）当前持有的数据
     vi.clearAllMocks();
     const newDims = [makeDimension({ name: "NewDim", key: "new", source: "static", required: false })];
-    mockInvoke.mockResolvedValue({ dimensions: newDims, from_template: true });
+    mockInvoke.mockResolvedValue({ dimensions: newDims, usingDefaultDimensions: true });
 
     dimensionsChangedCallback?.({ payload: [] }); // 触发 get_month_dimensions
     await vi.runAllTimersAsync();
 
     expect(store.dimensions).toEqual(newDims);
-    expect(store.fromTemplate).toBe(true);
+    expect(store.usingDefaultDimensions).toBe(true);
     expect(store.commitments).toStrictEqual(sentinel); // commitments untouched
   });
 
@@ -348,7 +348,7 @@ describe("App", () => {
     vi.setSystemTime(new Date(2026, 5, 20, 10, 0, 0));
     mockInvoke.mockResolvedValue({
       status: "Ready",
-      data: { root_path: "/test", dimensions: makeDimensions(), from_template: false, today: makeDayFile(), commitments: [], scan_warnings: [] },
+      data: { root_path: "/test", dimensions: makeDimensions(), usingDefaultDimensions: false, today: makeDayFile(), commitments: [], scan_warnings: [] },
     });
     const { store } = mountApp();
     await vi.runAllTimersAsync();
@@ -368,7 +368,7 @@ describe("App", () => {
     vi.setSystemTime(new Date(2026, 5, 20, 23, 59, 0));
     mockInvoke.mockResolvedValue({
       status: "Ready",
-      data: { root_path: "/test", dimensions: makeDimensions(), from_template: false, today: makeDayFile(), commitments: [], scan_warnings: [] },
+      data: { root_path: "/test", dimensions: makeDimensions(), usingDefaultDimensions: false, today: makeDayFile(), commitments: [], scan_warnings: [] },
     });
     const { store } = mountApp();
     await vi.runAllTimersAsync();
@@ -388,7 +388,7 @@ describe("App", () => {
     vi.setSystemTime(new Date(2026, 5, 20, 23, 59, 0));
     mockInvoke.mockResolvedValue({
       status: "Ready",
-      data: { root_path: "/test", dimensions: makeDimensions(), from_template: false, today: makeDayFile(), commitments: [], scan_warnings: [] },
+      data: { root_path: "/test", dimensions: makeDimensions(), usingDefaultDimensions: false, today: makeDayFile(), commitments: [], scan_warnings: [] },
     });
     const { store } = mountApp();
     await vi.runAllTimersAsync();
@@ -411,7 +411,7 @@ describe("App", () => {
     vi.setSystemTime(new Date(2026, 5, 20, 23, 59, 0));
     mockInvoke.mockResolvedValue({
       status: "Ready",
-      data: { root_path: "/test", dimensions: makeDimensions(), from_template: false, today: makeDayFile(), commitments: [], scan_warnings: [] },
+      data: { root_path: "/test", dimensions: makeDimensions(), usingDefaultDimensions: false, today: makeDayFile(), commitments: [], scan_warnings: [] },
     });
     const store = createTestStore();
     const wrapper = mount(App, {
@@ -442,7 +442,7 @@ describe("App", () => {
   it("triggerUndoToast: shows undo toast with Undo and Dismiss buttons", async () => {
     mockInvoke.mockResolvedValue({
       status: "Ready",
-      data: { root_path: "/test", dimensions: makeDimensions(), from_template: false, today: makeDayFile(), commitments: [], scan_warnings: [] },
+      data: { root_path: "/test", dimensions: makeDimensions(), usingDefaultDimensions: false, today: makeDayFile(), commitments: [], scan_warnings: [] },
     });
     // Replace MonthView with a probe that captures App's provided triggerUndoToast.
     const { wrapper } = mountApp({ MonthView: InjectProbe });
@@ -472,7 +472,7 @@ describe("App", () => {
   it("undo toast: auto-dismisses after 5 seconds", async () => {
     mockInvoke.mockResolvedValue({
       status: "Ready",
-      data: { root_path: "/test", dimensions: makeDimensions(), from_template: false, today: makeDayFile(), commitments: [], scan_warnings: [] },
+      data: { root_path: "/test", dimensions: makeDimensions(), usingDefaultDimensions: false, today: makeDayFile(), commitments: [], scan_warnings: [] },
     });
     const { wrapper } = mountApp({ MonthView: InjectProbe });
     await vi.runAllTimersAsync();
@@ -505,7 +505,7 @@ describe("App", () => {
       data: {
         root_path: "/test",
         dimensions: makeDimensions(),
-        from_template: false,
+        usingDefaultDimensions: false,
         today: makeDayFile(),
         commitments: [],
         scan_warnings: scanWarnings,
@@ -550,7 +550,7 @@ describe("App", () => {
       data: {
         root_path: "/test",
         dimensions: makeDimensions(),
-        from_template: false,
+        usingDefaultDimensions: false,
         today: makeDayFile(),
         commitments: [],
         scan_warnings: [],
@@ -572,7 +572,7 @@ describe("App", () => {
       data: {
         root_path: "/test",
         dimensions: makeDimensions(),
-        from_template: false,
+        usingDefaultDimensions: false,
         today: makeDayFile(),
         commitments: [],
         scan_warnings: scanWarnings,

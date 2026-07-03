@@ -25,7 +25,7 @@ function openDimEditor() { showDimEditor.value = true; }
 
 function onDimensionsSaved(dims: Dimension[]) {
   store.dimensions = dims;
-  store.fromTemplate = false;
+  store.usingDefaultDimensions = false;
   showDimEditor.value = false;
 }
 
@@ -98,14 +98,14 @@ async function loadCommitments(year: number, month: number) {
 }
 
 // Refresh the dimension set for the viewed month: a month's own snapshot if
-// instantiated, else the global template (from_template = true → preview state).
+// instantiated, else the global template (usingDefaultDimensions = true → preview state).
 async function loadMonthDimensions(year: number, month: number) {
   try {
     const md = (await invoke("get_month_dimensions", { rootPath: store.rootPath, year, month })) as MonthDimensions;
     // Only adopt a well-formed response; never wipe dimensions on a malformed/missing one.
     if (md && Array.isArray(md.dimensions)) {
       store.dimensions = md.dimensions;
-      store.fromTemplate = md.from_template;
+      store.usingDefaultDimensions = md.usingDefaultDimensions;
     }
   } catch (e) { logError("MonthView.loadMonthDimensions", e); }
 }
@@ -446,7 +446,7 @@ logInfo("MonthView", "mounted");
         ></div>
       </div>
 
-      <p v-if="store.fromTemplate" class="mb-sm text-micro text-[var(--color-text-disabled)]">
+      <p v-if="store.usingDefaultDimensions" class="mb-sm text-micro text-[var(--color-text-disabled)]">
         Using default template (no custom dimensions this month)
       </p>
 
