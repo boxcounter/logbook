@@ -130,7 +130,7 @@ fn test_set_commitments_goal_rename_syncs_entries() {
         "2026-06-01",
         &CreateEntryInput {
             item: "Coding".into(),
-            duration: "60".into(),
+            duration: "60m".into(),
             dimensions: dims.clone(),
         },
     )
@@ -141,7 +141,7 @@ fn test_set_commitments_goal_rename_syncs_entries() {
         "2026-06-02",
         &CreateEntryInput {
             item: "More coding".into(),
-            duration: "30".into(),
+            duration: "30m".into(),
             dimensions: dims,
         },
     )
@@ -181,7 +181,7 @@ fn test_set_commitments_delete_goal_rejected_when_entries_exist() {
         "2026-06-01",
         &CreateEntryInput {
             item: "Reviewing".into(),
-            duration: "30".into(),
+            duration: "30m".into(),
             dimensions: dims,
         },
     )
@@ -229,7 +229,7 @@ fn test_set_commitments_rename_tolerates_stray_md_file() {
     tauri_app_lib::files::append_new_entry(
         &root,
         "2026-06-01",
-        &CreateEntryInput { item: "Coding".into(), duration: "60".into(), dimensions: dims },
+        &CreateEntryInput { item: "Coding".into(), duration: "60m".into(), dimensions: dims },
     )
     .unwrap();
 
@@ -264,7 +264,7 @@ fn test_set_commitments_rename_aborts_before_write_on_corrupt_file() {
         tauri_app_lib::files::append_new_entry(
             &root,
             date,
-            &CreateEntryInput { item: "Coding".into(), duration: "60".into(), dimensions: dims.clone() },
+            &CreateEntryInput { item: "Coding".into(), duration: "60m".into(), dimensions: dims.clone() },
         )
         .unwrap();
     }

@@ -19,7 +19,7 @@ cases:
       date: "2026-06-15"
       entry:
         item: new task
-        duration: "45"
+        duration: "45m"
         dimensions:
           goal: Ship it
     expect:
@@ -59,10 +59,10 @@ cases:
       date: "2026-06-15"
       entry:
         item: zero duration
-        duration: "0"
+        duration: "0m"
         dimensions: {}
     expect:
-      err_contains: Duration must be positive
+      err_contains: Parsed duration is zero
 
   - name: invalid date format returns error
     input:
@@ -70,7 +70,7 @@ cases:
       date: "bad"
       entry:
         item: test
-        duration: "30"
+        duration: "30m"
         dimensions: {}
     expect:
       err_contains: Invalid date

@@ -25,7 +25,7 @@ cases:
       entry_id: e1
       update:
         item: updated item
-        duration: "90"
+        duration: "90m"
     expect:
       ok:
         entries.len: 2

@@ -45,7 +45,7 @@ fn test_append_read_update_delete_roundtrip() {
 
     let new_entry = CreateEntryInput {
         item: "Integration test entry".to_string(),
-        duration: "45".to_string(),
+        duration: "45m".to_string(),
         dimensions: dims,
     };
 
@@ -65,7 +65,7 @@ fn test_append_read_update_delete_roundtrip() {
     // Update entry
     let update = UpdateEntryInput {
         item: Some("Updated entry".to_string()),
-        duration: Some("90".to_string()),
+        duration: Some("90m".to_string()),
         dimensions: None,
     };
     let updated = tauri_app_lib::files::update_entry_in_file(&root, date, &entry.id, &update);
@@ -126,7 +126,7 @@ fn test_parse_duration_via_append() {
     let cases = vec![
         ("1.5h", 90),
         ("30m", 30),
-        ("90", 90),
+        ("90m", 90),
         ("2h", 120),
         ("1h 30m", 90),
     ];
@@ -169,7 +169,7 @@ fn test_append_entry_rejects_missing_required_dimension() {
     let date = "2026-06-12";
     let new_entry = CreateEntryInput {
         item: "Missing required dim".to_string(),
-        duration: "30".to_string(),
+        duration: "30m".to_string(),
         dimensions: BTreeMap::new(), // biz is required but missing
     };
 
@@ -206,7 +206,7 @@ fn test_append_entry_accepts_when_required_dimensions_present() {
 
     let new_entry = CreateEntryInput {
         item: "Has required dim".to_string(),
-        duration: "30".to_string(),
+        duration: "30m".to_string(),
         dimensions: dims,
     };
 
@@ -245,7 +245,7 @@ fn test_update_entry_rejects_clearing_required_dimension() {
         date,
         &CreateEntryInput {
             item: "Original".into(),
-            duration: "30".into(),
+            duration: "30m".into(),
             dimensions: dims,
         },
     )

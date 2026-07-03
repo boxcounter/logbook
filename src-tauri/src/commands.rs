@@ -69,22 +69,6 @@ pub fn parse_duration(input: &str) -> Result<u32, String> {
         return Err("Duration is empty".to_string());
     }
 
-    // Try plain number first
-    if let Ok(n) = input.parse::<u32>() {
-        if n > 0 {
-            return Ok(n);
-        }
-        return Err("Duration must be positive".to_string());
-    }
-
-    // Try float (e.g. "1.5")
-    if let Ok(n) = input.parse::<f64>() {
-        if n > 0.0 {
-            return Ok(n.round() as u32);
-        }
-        return Err("Duration must be positive".to_string());
-    }
-
     // Scan for all duration patterns (compiled once via LazyLock)
     let re = &*DURATION_RE;
     let mut total: f64 = 0.0;
@@ -124,7 +108,7 @@ pub fn parse_duration(input: &str) -> Result<u32, String> {
 
     if !matched {
         return Err(format!(
-            "Could not parse duration from '{}'. Examples: 1.5h, 30m, 2h 15m",
+            "Could not parse duration from '{}'. Expected format like 1.5h, 30m, or 2h 15m",
             input
         ));
     }
@@ -1626,13 +1610,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_duration_plain_number() {
-        assert_eq!(parse_duration("90").unwrap(), 90);
+    fn test_parse_duration_rejects_plain_number() {
+        assert!(parse_duration("90").is_err());
     }
 
     #[test]
-    fn test_parse_duration_float() {
-        assert_eq!(parse_duration("1.5").unwrap(), 2);
+    fn test_parse_duration_rejects_float_without_unit() {
+        assert!(parse_duration("1.5").is_err());
     }
 
     #[test]

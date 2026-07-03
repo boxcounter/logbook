@@ -31,7 +31,7 @@ fn test_verify_consistent_after_append() {
         date,
         &CreateEntryInput {
             item: "test entry".to_string(),
-            duration: "30".to_string(),
+            duration: "30m".to_string(),
             dimensions: BTreeMap::new(),
         },
     )
@@ -45,7 +45,7 @@ fn test_verify_consistent_after_append() {
             entry_id: entry.id.clone(),
             params: serde_json::json!({
                 "item": "test entry",
-                "duration": "30",
+                "duration": "30m",
                 "dimensions": {}
             }),
         },

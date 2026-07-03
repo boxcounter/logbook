@@ -72,7 +72,7 @@ fn test_progress_aggregates_across_multiple_days() {
         "2026-06-01",
         &CreateEntryInput {
             item: "Day 1 feature".into(),
-            duration: "60".into(),
+            duration: "60m".into(),
             dimensions: dims_a.clone(),
         },
     )
@@ -83,7 +83,7 @@ fn test_progress_aggregates_across_multiple_days() {
         "2026-06-01",
         &CreateEntryInput {
             item: "Day 1 strategy".into(),
-            duration: "30".into(),
+            duration: "30m".into(),
             dimensions: dims_s.clone(),
         },
     )
@@ -94,7 +94,7 @@ fn test_progress_aggregates_across_multiple_days() {
         "2026-06-05",
         &CreateEntryInput {
             item: "Day 5 bugs".into(),
-            duration: "45".into(),
+            duration: "45m".into(),
             dimensions: dims_b.clone(),
         },
     )
@@ -168,7 +168,7 @@ fn test_progress_with_non_goal_monthly_key() {
     tauri_app_lib::files::append_new_entry(
         &root,
         "2026-06-01",
-        &CreateEntryInput { item: "work".into(), duration: "90".into(), dimensions: dims },
+        &CreateEntryInput { item: "work".into(), duration: "90m".into(), dimensions: dims },
     )
     .unwrap();
 

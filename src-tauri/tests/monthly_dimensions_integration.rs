@@ -63,7 +63,7 @@ fn first_append_snapshots_template() {
 
     let input = CreateEntryInput {
         item: "task".into(),
-        duration: "30".into(),
+        duration: "30m".into(),
         dimensions: BTreeMap::new(),
     };
     files::append_new_entry(&root, "2026-07-15", &input).unwrap();

@@ -157,7 +157,7 @@ function sanitizeValues(vals: Record<string, string>): Record<string, string> {
 
 async function handleSubmit(item: string, durationMinutes: number, dimensions: Record<string, string>) {
   const finalDimensions = sanitizeValues(dimensions);
-  const newEntry = { item, duration: String(durationMinutes), dimensions: finalDimensions };
+  const newEntry = { item, duration: String(durationMinutes) + 'm', dimensions: finalDimensions };
   try {
     const result = await invoke("append_entry", { rootPath: store.rootPath, date: store.currentDate, entry: newEntry });
     const added = result as Entry;
@@ -186,7 +186,7 @@ async function handleUpdateEntry(entryId: string, item: string, durationMinutes:
   if (!entry) return;
   const update: Record<string, unknown> = {};
   if (item !== entry.item) update.item = item;
-  if (durationMinutes !== entry.duration) update.duration = String(durationMinutes);
+  if (durationMinutes !== entry.duration) update.duration = String(durationMinutes) + 'm';
   if (Object.keys(update).length === 0) return;
   try {
     const df = (await invoke("update_entry", { rootPath: store.rootPath, date: store.currentDate, entryId, update })) as DayFile;

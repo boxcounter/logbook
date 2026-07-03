@@ -516,7 +516,7 @@ mod tests {
             Operation::Append {
                 date: "2026-06-14".into(),
                 entry_id: "e1".into(),
-                params: serde_json::json!({"item": "Test", "duration": "30", "dimensions": {}}),
+                params: serde_json::json!({"item": "Test", "duration": "30m", "dimensions": {}}),
             },
         )
         .unwrap();
@@ -545,7 +545,7 @@ mod tests {
                 date: "2026-06-14".into(),
                 entry_id: before.id.clone(),
                 before: before.clone(),
-                params: serde_json::json!({"item": "Updated", "duration": "60"}),
+                params: serde_json::json!({"item": "Updated", "duration": "60m"}),
             },
         )
         .unwrap();
@@ -661,7 +661,7 @@ mod tests {
             Operation::Append {
                 date: date.into(),
                 entry_id: "e1".into(),
-                params: serde_json::json!({"item": "First", "duration": "30", "dimensions": {}}),
+                params: serde_json::json!({"item": "First", "duration": "30m", "dimensions": {}}),
             },
         )
         .unwrap();
@@ -670,7 +670,7 @@ mod tests {
             Operation::Append {
                 date: date.into(),
                 entry_id: "e2".into(),
-                params: serde_json::json!({"item": "Second", "duration": "45", "dimensions": {}}),
+                params: serde_json::json!({"item": "Second", "duration": "45m", "dimensions": {}}),
             },
         )
         .unwrap();
@@ -719,7 +719,7 @@ mod tests {
             "2026-06-15",
             &crate::models::CreateEntryInput {
                 item: "test entry".into(),
-                duration: "30".into(),
+                duration: "30m".into(),
                 dimensions: std::collections::BTreeMap::new(),
             },
         ).unwrap();
@@ -732,7 +732,7 @@ mod tests {
                 entry_id: entry.id.clone(),
                 params: serde_json::json!({
                     "item": "test entry",
-                    "duration": "30",
+                    "duration": "30m",
                     "dimensions": {}
                 }),
             },

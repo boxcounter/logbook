@@ -47,7 +47,7 @@ fn test_append_operation_writes_valid_jsonl() {
         operation_log::Operation::Append {
             date: date.into(),
             entry_id: "e1".into(),
-            params: serde_json::json!({"item": "Test", "duration": "30", "dimensions": {}}),
+            params: serde_json::json!({"item": "Test", "duration": "30m", "dimensions": {}}),
         },
     )
     .unwrap();
@@ -61,7 +61,7 @@ fn test_append_operation_writes_valid_jsonl() {
     assert_eq!(log["date"], date);
     assert!(log["ts"].as_str().unwrap().len() > 0);
     assert_eq!(log["params"]["item"], "Test");
-    assert_eq!(log["params"]["duration"], "30");
+    assert_eq!(log["params"]["duration"], "30m");
     assert!(log.get("before").is_none());
 
     let _ = fs::remove_dir_all(&tmp);
@@ -81,7 +81,7 @@ fn test_update_operation_writes_before_and_params() {
             date: date.into(),
             entry_id: "e1".into(),
             before,
-            params: serde_json::json!({"item": "Modified", "duration": "60"}),
+            params: serde_json::json!({"item": "Modified", "duration": "60m"}),
         },
     )
     .unwrap();
@@ -94,7 +94,7 @@ fn test_update_operation_writes_before_and_params() {
     assert_eq!(log["before"]["item"], "Original");
     assert_eq!(log["before"]["duration"], 30);
     assert_eq!(log["params"]["item"], "Modified");
-    assert_eq!(log["params"]["duration"], "60");
+    assert_eq!(log["params"]["duration"], "60m");
 
     let _ = fs::remove_dir_all(&tmp);
 }
@@ -186,7 +186,7 @@ fn test_multiple_ops_same_file_append_only() {
         operation_log::Operation::Append {
             date: date.into(),
             entry_id: "e1".into(),
-            params: serde_json::json!({"item": "Entry", "duration": "30", "dimensions": {}}),
+            params: serde_json::json!({"item": "Entry", "duration": "30m", "dimensions": {}}),
         },
     )
     .unwrap();
