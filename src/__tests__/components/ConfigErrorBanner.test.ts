@@ -22,8 +22,11 @@ describe("ConfigErrorBanner", () => {
     expect(wrapper.text()).toContain("MissingKey");
   });
 
-  it("renders instruction text", () => {
-    const store = createTestStore({ configErrors: makeConfigErrors() });
+  it("renders instruction text with referenced files", () => {
+    const errors = [
+      { kind: "MissingName", message: "dimensions.template.yaml has an error" },
+    ];
+    const store = createTestStore({ configErrors: errors });
     const wrapper = mount(ConfigErrorBanner, {
       global: {
         provide: {

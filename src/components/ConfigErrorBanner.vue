@@ -1,6 +1,16 @@
 <script setup lang="ts">
+import { computed } from "vue";
 import { useStore } from "../stores/useStore";
 const store = useStore();
+
+const referencedFiles = computed(() => {
+  const files = new Set<string>();
+  for (const err of store.configErrors) {
+    const m = err.message.match(/^(\S+)\s/);
+    if (m) files.add(m[1]);
+  }
+  return [...files];
+});
 </script>
 
 <template>
@@ -9,7 +19,12 @@ const store = useStore();
       Configuration Errors ({{ store.configErrors.length }})
     </h2>
     <p class="text-[var(--color-danger)] text-secondary mb-md">
-      Fix these errors in your dimensions.template.yaml, dimensions.yaml, or commitments.yaml file.
+      Fix these errors in
+      <template v-for="(f, i) in referencedFiles" :key="f">
+        <code v-if="i > 0 && i === referencedFiles.length - 1"> or </code>
+        <code v-else-if="i > 0">, </code>
+        <code class="bg-[var(--color-danger)]/10 px-xs rounded">{{ f }}</code>
+      </template>.
       Changes are detected automatically.
     </p>
     <ul class="list-disc list-inside space-y-xs">
