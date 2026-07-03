@@ -14,6 +14,7 @@ import DimensionEditorModal from "./composite/DimensionEditorModal.vue";
 import type { DayFile, Entry, Commitment, CommitmentProgressResult, MonthDimensions, Dimension } from "../types";
 import { logError, logInfo } from "../utils/errorLog";
 import { datesInMonth, yearMonthFromDate, parseDate, addDays, formatDate } from "../utils/dates";
+import { HIGHLIGHT_DURATION, UNDO_DELETE_DELAY } from "../utils/constants";
 import ConfigErrorBanner from "./ConfigErrorBanner.vue";
 
 const store = useStore();
@@ -194,7 +195,7 @@ async function handleSubmit(item: string, durationMinutes: number, dimensions: R
     }
     justAddedId.value = added.id;
     if (highlightTimer) clearTimeout(highlightTimer);
-    highlightTimer = setTimeout(() => { justAddedId.value = null; }, 1500);
+    highlightTimer = setTimeout(() => { justAddedId.value = null; }, HIGHLIGHT_DURATION);
     await loadCommitmentProgress(selectedYear.value, selectedMonth.value);
     // Only clear on success so the user's input survives a failed save.
     inputRef.value?.clearInput();
@@ -256,7 +257,7 @@ async function handleDeleteEntry(entryId: string) {
       logError("MonthView.handleDeleteEntry", e);
       if (entries.findIndex(e => e.id === entryId) === -1) entries.splice(idx, 0, removed);
     }
-  }, 5000);
+  }, UNDO_DELETE_DELAY);
   triggerUndoToast(() => {
     cancelled = true;
     if (pendingDeleteTimer) clearTimeout(pendingDeleteTimer);
@@ -335,7 +336,7 @@ async function copyFilePath(e: MouseEvent) {
   await navigator.clipboard.writeText(store.rootPath + "/" + dayFilePath.value);
   copiedFeedback.value = true;
   if (copyTimer) clearTimeout(copyTimer);
-  copyTimer = setTimeout(() => { copiedFeedback.value = false; }, 1500);
+  copyTimer = setTimeout(() => { copiedFeedback.value = false; }, HIGHLIGHT_DURATION);
 }
 
 function guardUnsaved(): boolean {

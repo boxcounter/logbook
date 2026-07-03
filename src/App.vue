@@ -5,6 +5,7 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useStore } from "./stores/useStore";
 import { yearMonthFromDate, rolloverDecision, formatDate } from "./utils/dates";
+import { SAVED_TOAST_DURATION, UNDO_DELETE_DELAY } from "./utils/constants";
 import SetupScreen from "./components/SetupScreen.vue";
 import RecoveryScreen from "./components/RecoveryScreen.vue";
 import MonthView from "./components/MonthView.vue";
@@ -183,7 +184,7 @@ function triggerSavedToast(message: string) {
   showSavedToast.value = true;
   savedToastTimer = setTimeout(() => {
     showSavedToast.value = false;
-  }, 2000);
+  }, SAVED_TOAST_DURATION);
 }
 
 function dismissSavedToast() {
@@ -199,7 +200,7 @@ function triggerUndoToast(undoFn: () => void) {
   undoTimer = setTimeout(() => {
     showUndoToast.value = false;
     undoAction.value = null;
-  }, 5000);
+  }, UNDO_DELETE_DELAY);
 }
 
 function dismissUndo() {

@@ -1,0 +1,3 @@
+export const HIGHLIGHT_DURATION = 1500;
+export const SAVED_TOAST_DURATION = 2000;
+export const UNDO_DELETE_DELAY = 5000;
