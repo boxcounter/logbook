@@ -1,8 +1,9 @@
 <!-- src/components/EntryComposer.vue -->
 <script setup lang="ts">
-import { ref, computed, inject, watch, type Ref } from "vue";
+import { ref, computed, inject, watch } from "vue";
 import { useClickOutside } from "../composables/useClickOutside";
 import type { Dimension, Commitment } from "../types";
+import { FOCUS_REQUEST_KEY } from "../types";
 import { parseDurationFromText, stripDurations, formatDuration } from "../utils/format";
 import { dimensionHues, dimTokenChipStyle } from "../utils/dimensionColor";
 import DimensionPopover from "./DimensionPopover.vue";
@@ -117,7 +118,7 @@ function hasUnsavedContent(): boolean {
 
 defineExpose({ clearInput, focusInput, hasUnsavedContent });
 
-const focusRequestId = inject<Ref<number>>("focusRequestId", ref(0));
+const focusRequestId = inject(FOCUS_REQUEST_KEY, ref(0));
 watch(focusRequestId, () => {
   // On a window refocus, claim the input unless the user is actively editing
   // another field (the day note, an entry-edit input, etc.). Checking for an

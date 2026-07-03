@@ -1,3 +1,6 @@
+// types.ts
+import type { InjectionKey, Ref } from "vue";
+
 export interface Dimension {
   name: string;
   key: string;
@@ -113,4 +116,8 @@ export interface ConfigErrorDetail {
 export type RecoveryCategory = "in_place" | "config_missing" | "root_missing";
 
 export type AppStatus = "loading" | "setup" | "error" | "ready";
+
+export const UNDO_TOAST_KEY: InjectionKey<(undoFn: () => void) => void> = Symbol("triggerUndoToast");
+export const SAVED_TOAST_KEY: InjectionKey<(msg: string) => void> = Symbol("triggerSavedToast");
+export const FOCUS_REQUEST_KEY: InjectionKey<Ref<number>> = Symbol("focusRequestId");
 

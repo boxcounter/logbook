@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 import { nextTick } from "vue";
 import { STORE_KEY } from "../../stores/useStore";
+import { UNDO_TOAST_KEY, SAVED_TOAST_KEY } from "../../types";
 import { createTestStore } from "../mocks/store";
 import { makeDimensions, makeDayFile, makeCommitment, makeDimension } from "../mocks/fixtures";
 import App from "../../App.vue";
@@ -41,11 +42,12 @@ function mountApp(extraStubs: Record<string, unknown> = {}) {
   return { wrapper, store };
 }
 
-// Options-API probe that captures App's provided functions so tests can drive
-// the real provide/inject wiring (the production consumer is MonthView).
 const InjectProbe = {
   name: "InjectProbe",
-  inject: ["triggerUndoToast", "triggerSavedToast"],
+  inject: {
+    triggerUndoToast: { from: UNDO_TOAST_KEY },
+    triggerSavedToast: { from: SAVED_TOAST_KEY },
+  },
   template: "<div />",
 };
 

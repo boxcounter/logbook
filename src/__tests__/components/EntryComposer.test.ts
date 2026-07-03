@@ -4,6 +4,7 @@ import { ref } from "vue";
 import { mount, enableAutoUnmount } from "@vue/test-utils";
 import EntryComposer from "../../components/EntryComposer.vue";
 import { makeDimension, makeCommitment } from "../mocks/fixtures";
+import { FOCUS_REQUEST_KEY } from "../../types";
 
 // The popover registers a window keydown listener; unmount after each test.
 enableAutoUnmount(afterEach);
@@ -154,7 +155,7 @@ describe("EntryComposer", () => {
     const wrapper = mount(EntryComposer, {
       props: { dimensions, commitments },
       attachTo: document.body,
-      global: { provide: { focusRequestId: fid } },
+      global: { provide: { [FOCUS_REQUEST_KEY as symbol]: fid } },
     });
     btn.focus();
     expect(document.activeElement).toBe(btn);
@@ -172,7 +173,7 @@ describe("EntryComposer", () => {
     const wrapper = mount(EntryComposer, {
       props: { dimensions, commitments },
       attachTo: document.body,
-      global: { provide: { focusRequestId: fid } },
+      global: { provide: { [FOCUS_REQUEST_KEY as symbol]: fid } },
     });
     other.focus();
     expect(document.activeElement).toBe(other);

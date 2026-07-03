@@ -4,6 +4,7 @@ import { mount, flushPromises } from "@vue/test-utils";
 import { reactive } from "vue";
 import MonthView from "../../components/MonthView.vue";
 import { STORE_KEY } from "../../stores/useStore";
+import { UNDO_TOAST_KEY } from "../../types";
 import { makeDimensions, makeCommitment, makeEntry } from "../mocks/fixtures";
 import { addDays } from "../../utils/dates";
 
@@ -39,7 +40,7 @@ function makeStore() {
 function mountView(store = makeStore()) {
   return mount(MonthView, {
     global: {
-      provide: { [STORE_KEY as symbol]: store, focusRequestId: { value: 0 }, triggerUndoToast: () => {} },
+      provide: { [STORE_KEY as symbol]: store, focusRequestId: { value: 0 }, [UNDO_TOAST_KEY as symbol]: () => {} },
     },
   });
 }
@@ -289,7 +290,7 @@ describe("MonthView delete entry", () => {
         provide: {
           [STORE_KEY as symbol]: store,
           focusRequestId: { value: 0 },
-          triggerUndoToast: (fn: () => void) => { undoFn = fn; },
+          [UNDO_TOAST_KEY as symbol]: (fn: () => void) => { undoFn = fn; },
         },
       },
     });

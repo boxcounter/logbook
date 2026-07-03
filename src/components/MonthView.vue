@@ -12,6 +12,7 @@ import EntryList from "./EntryList.vue";
 import EntryComposer from "./EntryComposer.vue";
 import DimensionEditorModal from "./composite/DimensionEditorModal.vue";
 import type { DayFile, Entry, Commitment, CommitmentProgressResult, MonthDimensions, Dimension } from "../types";
+import { UNDO_TOAST_KEY, SAVED_TOAST_KEY } from "../types";
 import { logError, logInfo } from "../utils/errorLog";
 import { datesInMonth, yearMonthFromDate, parseDate, addDays, formatDate } from "../utils/dates";
 import { HIGHLIGHT_DURATION, UNDO_DELETE_DELAY } from "../utils/constants";
@@ -48,8 +49,8 @@ const dayTitle = computed(() => {
   return d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 });
 
-const triggerUndoToast = inject<(undoFn: () => void) => void>("triggerUndoToast", () => {});
-const triggerSavedToast = inject<(msg: string) => void>("triggerSavedToast", () => {});
+const triggerUndoToast = inject(UNDO_TOAST_KEY, () => {});
+const triggerSavedToast = inject(SAVED_TOAST_KEY, () => {});
 
 // ---- Month loading ----
 async function loadMonth(year: number, month: number, defaultDay?: number) {

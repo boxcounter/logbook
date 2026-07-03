@@ -11,6 +11,7 @@ import RecoveryScreen from "./components/RecoveryScreen.vue";
 import MonthView from "./components/MonthView.vue";
 import Toast from "./components/base/Toast.vue";
 import type { InitResult, ConfigErrorDetail, ScanWarning, Commitment, CommitmentProgressResult, MonthDimensions } from "./types";
+import { UNDO_TOAST_KEY, SAVED_TOAST_KEY, FOCUS_REQUEST_KEY } from "./types";
 import { logError, logInfo } from "./utils/errorLog";
 import { applyInitResult } from "./utils/applyInitResult";
 
@@ -220,10 +221,10 @@ function dismissScanWarning() {
 }
 
 // Provide undo trigger to descendants
-provide("triggerUndoToast", triggerUndoToast);
-provide("triggerSavedToast", triggerSavedToast);
-// #1: window focus → auto-focus input
-provide("focusRequestId", focusRequestId);
+provide(UNDO_TOAST_KEY, triggerUndoToast);
+provide(SAVED_TOAST_KEY, triggerSavedToast);
+
+provide(FOCUS_REQUEST_KEY, focusRequestId);
 </script>
 
 <template>
