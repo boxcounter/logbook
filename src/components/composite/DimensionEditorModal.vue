@@ -27,7 +27,7 @@ const saving = ref(false);
 const showAddForm = ref(false);
 const newDimName = ref("");
 const newDimKey = ref("");
-const newDimSource = ref<"static" | "monthly">("static");
+const newDimSource = ref<"static" | "commitments:goals" | "commitments:role">("static");
 const addFormError = ref("");
 
 // Show deleted
@@ -127,8 +127,8 @@ function validateNewDim(): string | null {
   if (duplicate?.deleted) return `Key '${key}' already exists (deleted). Restore it or choose a different key.`;
   if (duplicate) return `Key '${key}' already exists.`;
 
-  if (newDimSource.value === "monthly" && draft.value.some(d => d.source === "monthly" && !d.deleted)) {
-    return "Only one monthly-source dimension allowed";
+  if (newDimSource.value === "commitments:goals" && draft.value.some(d => d.source === "commitments:goals" && !d.deleted)) {
+    return "Only one commitments:goals source dimension allowed";
   }
 
   return null;
@@ -294,7 +294,7 @@ const monthLabel = new Date(props.year, props.month - 1, 1)
                          outline-none focus:border-[var(--color-brand-solid)]"
                 >
                   <option value="static">Static</option>
-                  <option value="monthly">Monthly</option>
+                  <option value="commitments:goals">Commitments: Goals</option>
                 </select>
                 <div
                   v-if="addFormError"
@@ -438,7 +438,7 @@ const monthLabel = new Date(props.year, props.month - 1, 1)
                 </template>
 
                 <!-- Monthly info card -->
-                <template v-if="selectedDimension.source === 'monthly'">
+                <template v-if="selectedDimension.source === 'commitments:goals'">
                   <div class="border border-[var(--color-border-form)] rounded-[var(--radius-form-lg)] bg-[var(--color-surface-muted)] p-md">
                     <p class="text-secondary text-[var(--color-text-muted)]">Values are derived from commitment goals.</p>
                   </div>
