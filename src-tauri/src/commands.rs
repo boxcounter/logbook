@@ -220,12 +220,25 @@ pub fn load_root_state(root: &std::path::Path) -> InitResult {
         }
     };
 
-    let using_default_dimensions = files::read_dimensions_file(root, now.year(), now.month()).unwrap_or_default().is_empty();
-    let dimensions = files::resolve_month_dimensions(root, now.year(), now.month()).unwrap_or_default();
+    let using_default_dimensions = files::read_dimensions_file(root, now.year(), now.month())
+        .unwrap_or_else(|e| {
+            error_log::log_error("load_root_state:dimensions", &format!("read failed: {e}"));
+            Default::default()
+        })
+        .is_empty();
+    let dimensions = files::resolve_month_dimensions(root, now.year(), now.month())
+        .unwrap_or_else(|e| {
+            error_log::log_error("load_root_state:dimensions", &format!("resolve failed: {e}"));
+            Default::default()
+        });
 
     // Inject attribution into today's entries
     {
-        let commitments = crate::files::read_commitments_file(root, now.year(), now.month()).unwrap_or_default();
+        let commitments = crate::files::read_commitments_file(root, now.year(), now.month())
+            .unwrap_or_else(|e| {
+                error_log::log_error("load_root_state:commitments", &format!("read failed: {e}"));
+                Default::default()
+            });
         let goal_key = match goal_dim_key(root, now.year(), now.month()) {
             Ok(k) => k,
             Err(e) => {

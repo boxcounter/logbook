@@ -70,7 +70,7 @@ async function loadMonth(year: number, month: number, defaultDay?: number) {
   const map: Record<string, Entry[]> = {};
   for (const date of dates) {
     try {
-      const df = (await invoke("get_entries", { rootPath: store.rootPath, date })) as DayFile;
+      const df = await invoke<DayFile>("get_entries", { rootPath: store.rootPath, date });
       map[date] = df.entries;
     } catch (e) {
       logError("MonthView.loadMonth", e);
@@ -112,7 +112,7 @@ async function loadCommitmentProgress(year: number, month: number) {
 
 async function loadCommitments(year: number, month: number) {
   try {
-    store.commitments = (await invoke("get_commitments", { rootPath: store.rootPath, year, month })) as Commitment[];
+    store.commitments = await invoke<Commitment[]>("get_commitments", { rootPath: store.rootPath, year, month });
   } catch (e) { logError("MonthView.loadCommitments", e); store.commitments = []; }
 }
 
@@ -120,7 +120,7 @@ async function loadCommitments(year: number, month: number) {
 // instantiated, else the global template (usingDefaultDimensions = true → preview state).
 async function loadMonthDimensions(year: number, month: number) {
   try {
-    const md = (await invoke("get_month_dimensions", { rootPath: store.rootPath, year, month })) as MonthDimensions;
+    const md = await invoke<MonthDimensions>("get_month_dimensions", { rootPath: store.rootPath, year, month });
     // Only adopt a well-formed response; never wipe dimensions on a malformed/missing one.
     if (md && Array.isArray(md.dimensions)) {
       store.dimensions = md.dimensions;
@@ -147,7 +147,7 @@ async function onCommitmentsSaved(commitments: Commitment[]) {
 
 async function loadDayNote(dateStr: string) {
   try {
-    const df = (await invoke("get_entries", { rootPath: store.rootPath, date: dateStr })) as DayFile;
+    const df = await invoke<DayFile>("get_entries", { rootPath: store.rootPath, date: dateStr });
     if (store.today) store.today.note = df.note;
   } catch (e) { logError("MonthView.loadDayNote", e); }
 }
@@ -215,7 +215,7 @@ async function handleUpdateEntry(entryId: string, item: string, durationMinutes:
   if (durationMinutes !== entry.duration) update.duration = String(durationMinutes) + 'm';
   if (Object.keys(update).length === 0) return;
   try {
-    const df = (await invoke("update_entry", { rootPath: store.rootPath, date: store.currentDate, entryId, update })) as DayFile;
+    const df = await invoke<DayFile>("update_entry", { rootPath: store.rootPath, date: store.currentDate, entryId, update });
     store.today = df;
     store.monthEntries[store.currentDate] = df.entries;
     await loadCommitmentProgress(selectedYear.value, selectedMonth.value);
@@ -225,7 +225,7 @@ async function handleUpdateEntry(entryId: string, item: string, durationMinutes:
 
 async function handleUpdateDimensions(entryId: string, dimensions: Record<string, string>) {
   try {
-    const df = (await invoke("update_entry", { rootPath: store.rootPath, date: store.currentDate, entryId, update: { dimensions } })) as DayFile;
+    const df = await invoke<DayFile>("update_entry", { rootPath: store.rootPath, date: store.currentDate, entryId, update: { dimensions } });
     store.today = df;
     store.monthEntries[store.currentDate] = df.entries;
     await loadCommitmentProgress(selectedYear.value, selectedMonth.value);
