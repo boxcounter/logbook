@@ -1,7 +1,7 @@
 export interface Dimension {
   name: string;
   key: string;
-  source: "static" | "monthly";
+  source: "static" | "commitments:goals" | "commitments:role";
   values?: string[];
   required: boolean;
   deleted: boolean;

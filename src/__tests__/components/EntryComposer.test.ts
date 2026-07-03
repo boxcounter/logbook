@@ -10,7 +10,7 @@ enableAutoUnmount(afterEach);
 
 const dimensions = [
   makeDimension({ name: "Category", key: "category", source: "static", values: ["Engineering"], required: true }),
-  makeDimension({ name: "Goal", key: "goal", source: "monthly", required: true }),
+  makeDimension({ name: "Goal", key: "goal", source: "commitments:goals", required: true }),
 ];
 const commitments = [makeCommitment({ goals: ["Bug fixes"] })];
 

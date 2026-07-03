@@ -29,7 +29,7 @@ describe("useRootFolderPicker", () => {
       status: "Ready",
       data: {
         root_path: "/data/logbook",
-        dimensions: [{ name: "Goal", key: "goal", source: "monthly", required: false, deleted: false }],
+        dimensions: [{ name: "Goal", key: "goal", source: "commitments:goals", required: false, deleted: false }],
         from_template: true,
         today: { note: null, entries: [] },
         commitments: [],
