@@ -12,7 +12,7 @@ fn setup(suffix: &str) -> std::path::PathBuf {
     // Write dimensions.template.yaml
     fs::write(
         root.join("dimensions.template.yaml"),
-        "dimensions:\n  - name: Goal\n    key: goal\n    source: monthly\n",
+        "dimensions:\n  - name: Goal\n    key: goal\n    source: commitments:goals\n",
     )
     .unwrap();
 
@@ -151,7 +151,7 @@ fn test_progress_with_non_goal_monthly_key() {
     // Monthly dimension key is "objective", not "goal".
     fs::write(
         root.join("dimensions.template.yaml"),
-        "dimensions:\n  - name: Objective\n    key: objective\n    source: monthly\n",
+        "dimensions:\n  - name: Objective\n    key: objective\n    source: commitments:goals\n",
     )
     .unwrap();
     let monthly_dir = root.join("2026/06");

@@ -16,7 +16,7 @@ fn write_template(root: &PathBuf, body: &str) {
 }
 
 const TPL_BIZ_GOAL: &str =
-    "dimensions:\n  - name: Biz\n    key: biz\n    source: static\n    values: [产品, 市场]\n  - name: Goal\n    key: goal\n    source: monthly\n";
+    "dimensions:\n  - name: Biz\n    key: biz\n    source: static\n    values: [产品, 市场]\n  - name: Goal\n    key: goal\n    source: commitments:goals\n";
 
 // 1. Pure read of a fresh month returns template dims, from_template=true, no file written.
 #[test]

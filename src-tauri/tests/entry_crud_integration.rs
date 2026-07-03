@@ -15,7 +15,7 @@ fn setup(suffix: &str) {
     // Write minimal dimensions.template.yaml
     fs::write(
         root.join("dimensions.template.yaml"),
-        "dimensions:\n  - name: Goal\n    key: goal\n    source: monthly\n",
+        "dimensions:\n  - name: Goal\n    key: goal\n    source: commitments:goals\n",
     )
     .unwrap();
     // Write minimal _monthly.md for June 2026
@@ -162,7 +162,7 @@ fn test_append_entry_rejects_missing_required_dimension() {
 
     fs::write(
         root.join("dimensions.template.yaml"),
-        "dimensions:\n  - name: Biz\n    key: biz\n    source: static\n    values: [A, B]\n    required: true\n  - name: Goal\n    key: goal\n    source: monthly\n",
+        "dimensions:\n  - name: Biz\n    key: biz\n    source: static\n    values: [A, B]\n    required: true\n  - name: Goal\n    key: goal\n    source: commitments:goals\n",
     )
     .unwrap();
 
@@ -196,7 +196,7 @@ fn test_append_entry_accepts_when_required_dimensions_present() {
 
     fs::write(
         root.join("dimensions.template.yaml"),
-        "dimensions:\n  - name: Biz\n    key: biz\n    source: static\n    values: [A, B]\n    required: true\n  - name: Goal\n    key: goal\n    source: monthly\n",
+        "dimensions:\n  - name: Biz\n    key: biz\n    source: static\n    values: [A, B]\n    required: true\n  - name: Goal\n    key: goal\n    source: commitments:goals\n",
     )
     .unwrap();
 
@@ -232,7 +232,7 @@ fn test_update_entry_rejects_clearing_required_dimension() {
 
     fs::write(
         root.join("dimensions.template.yaml"),
-        "dimensions:\n  - name: Biz\n    key: biz\n    source: static\n    values: [A, B]\n    required: true\n  - name: Goal\n    key: goal\n    source: monthly\n",
+        "dimensions:\n  - name: Biz\n    key: biz\n    source: static\n    values: [A, B]\n    required: true\n  - name: Goal\n    key: goal\n    source: commitments:goals\n",
     )
     .unwrap();
 

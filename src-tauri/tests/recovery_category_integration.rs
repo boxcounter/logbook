@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use tauri_app_lib::commands::load_root_state;
 use tauri_app_lib::models::{InitResult, RecoveryCategory};
 
-const VALID_CONFIG: &str = "dimensions:\n  - name: Goal\n    key: goal\n    source: monthly\n";
+const VALID_CONFIG: &str = "dimensions:\n  - name: Goal\n    key: goal\n    source: commitments:goals\n";
 
 fn temp_root() -> PathBuf {
     std::env::temp_dir().join(format!("logbook_recovery_{}", uuid::Uuid::new_v4()))
