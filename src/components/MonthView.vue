@@ -14,6 +14,7 @@ import DimensionEditorModal from "./composite/DimensionEditorModal.vue";
 import type { DayFile, Entry, Commitment, CommitmentProgressResult, MonthDimensions, Dimension } from "../types";
 import { logError, logInfo } from "../utils/errorLog";
 import { datesInMonth, yearMonthFromDate, parseDate, addDays } from "../utils/dates";
+import ConfigErrorBanner from "./ConfigErrorBanner.vue";
 
 const store = useStore();
 const inputRef = ref<InstanceType<typeof EntryComposer> | null>(null);
@@ -55,6 +56,7 @@ const triggerSavedToast = inject<(msg: string) => void>("triggerSavedToast", () 
 
 // ---- Month loading ----
 async function loadMonth(year: number, month: number, defaultDay?: number) {
+  store.configErrors = [];
   const now = new Date();
   const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
   let day: number;
@@ -75,10 +77,9 @@ async function loadMonth(year: number, month: number, defaultDay?: number) {
       logError("MonthView.loadMonth", e);
       map[date] = [];
       const msg = String(e);
-      if (msg.includes("source dimension") || msg.includes("dimensions.template.yaml missing")) {
+      if (msg.includes("dimensions")) {
         store.configErrors = [{ kind: "ConfigError", message: msg }];
         store.configCategory = "in_place";
-        store.status = "error";
         return;
       }
     }
@@ -103,10 +104,9 @@ async function loadCommitmentProgress(year: number, month: number) {
     store.commitmentProgress = [];
     store.commitmentProgressResult = null;
     const msg = String(e);
-    if (msg.includes("source dimension") || msg.includes("dimensions.template.yaml missing")) {
+    if (msg.includes("dimensions")) {
       store.configErrors = [{ kind: "ConfigError", message: msg }];
       store.configCategory = "in_place";
-      store.status = "error";
     }
   }
 }
@@ -130,10 +130,9 @@ async function loadMonthDimensions(year: number, month: number) {
   } catch (e) {
     logError("MonthView.loadMonthDimensions", e);
     const msg = String(e);
-    if (msg.includes("source dimension") || msg.includes("dimensions.template.yaml missing")) {
+    if (msg.includes("dimensions")) {
       store.configErrors = [{ kind: "ConfigError", message: msg }];
       store.configCategory = "in_place";
-      store.status = "error";
     }
   }
 }
@@ -449,6 +448,9 @@ logInfo("MonthView", "mounted");
 
     <!-- Main -->
     <main class="flex-1 min-w-0 flex flex-col px-2xl py-xl">
+      <ConfigErrorBanner
+        v-if="store.configErrors.length > 0 && store.status === 'ready'"
+      />
       <DayHeader
         :title="dayTitle"
         :is-today="isSelectedToday"
