@@ -434,13 +434,6 @@ fn collect_md_files_recursive(
             }
             collect_md_files_recursive(base, &path, files)?;
         } else if path.extension().map_or(false, |ext| ext == "md") {
-            let file_name = path
-                .file_name()
-                .map(|n| n.to_string_lossy().to_string())
-                .unwrap_or_default();
-            if file_name == "_monthly.md" {
-                continue;
-            }
             let rel_path = path
                 .strip_prefix(base)
                 .map_err(|e| format!("strip_prefix: {}", e))?

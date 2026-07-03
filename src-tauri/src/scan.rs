@@ -67,11 +67,6 @@ fn scan_dir(root: &Path, dir: &Path, warnings: &mut Vec<ScanWarning>) {
             continue;
         }
 
-        // _monthly.md is handled by config module
-        if file_name == "_monthly.md" {
-            continue;
-        }
-
         let stem = &file_name[..file_name.len() - 3]; // strip ".md"
 
         // Validate date stem (YYYY-MM-DD)
@@ -237,26 +232,6 @@ mod tests {
         assert_eq!(warnings[0].kind, "OrphanedTemp");
         assert!(warnings[0].path.contains(".tmp"));
         assert!(!warnings[0].message.is_empty());
-
-        fs::remove_dir_all(&root).expect("cleanup");
-    }
-
-    // ---------------------------------------------------------------------------
-    // 7. _monthly.md skipped
-    // ---------------------------------------------------------------------------
-
-    #[test]
-    fn test_monthly_file_skipped() {
-        let root = temp_root();
-        let monthly = root.join("2026/06/_monthly.md");
-        write_file(&monthly, "garbage content that would be corrupt if scanned\n");
-
-        let warnings = scan_data_dir(&root);
-        assert!(
-            warnings.is_empty(),
-            "_monthly.md should be skipped, got {:?}",
-            warnings
-        );
 
         fs::remove_dir_all(&root).expect("cleanup");
     }

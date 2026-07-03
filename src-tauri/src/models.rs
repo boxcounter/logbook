@@ -1,3 +1,4 @@
+#![allow(non_snake_case)]
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -24,16 +25,6 @@ pub struct Dimension {
 
 fn default_source() -> String {
     "static".to_string()
-}
-
-// --- Monthly file ---
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MonthlyFile {
-    #[serde(default)]
-    pub dimensions: Vec<Dimension>,
-    #[serde(default)]
-    pub commitments: Vec<Commitment>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -148,7 +139,7 @@ pub enum InitResult {
     Ready {
         root_path: String,
         dimensions: Vec<Dimension>,
-        from_template: bool,
+        usingDefaultDimensions: bool,
         today: DayFile,
         commitments: Vec<Commitment>,
         scan_warnings: Vec<ScanWarning>,
@@ -177,7 +168,7 @@ pub struct AvailableMonth {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MonthDimensions {
     pub dimensions: Vec<Dimension>,
-    pub from_template: bool,
+    pub usingDefaultDimensions: bool,
 }
 
 // --- Tests ---
@@ -240,7 +231,7 @@ mod tests {
         let result = InitResult::Ready {
             root_path: "/tmp/logbook-test".to_string(),
             dimensions: vec![],
-            from_template: false,
+            usingDefaultDimensions: false,
             today,
             commitments: vec![],
             scan_warnings: vec![warning],
@@ -267,7 +258,7 @@ mod tests {
         let result = InitResult::Ready {
             root_path: "/tmp/logbook-test".to_string(),
             dimensions: vec![],
-            from_template: false,
+            usingDefaultDimensions: false,
             today,
             commitments: vec![],
             scan_warnings: vec![],
@@ -295,7 +286,7 @@ mod tests {
         }];
         let warnings = vec![ScanWarning {
             kind: "CorruptedFile".to_string(),
-            path: "2026/06/_monthly.md".to_string(),
+            path: "2026/06/dimensions.yaml".to_string(),
             message: "invalid YAML frontmatter".to_string(),
         }];
 
@@ -394,7 +385,7 @@ mod tests {
         let result = InitResult::Ready {
             root_path: "/tmp/lb".to_string(),
             dimensions: vec![],
-            from_template: false,
+            usingDefaultDimensions: false,
             today,
             commitments: vec![],
             scan_warnings: vec![warning],
