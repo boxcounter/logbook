@@ -108,8 +108,20 @@ const unfilledOptional = computed(() =>
   props.dimensions.filter(d => !d.deleted && !d.required && !dimValues.value[d.key])
 );
 
+const knownDimKeys = computed(() => new Set(props.dimensions.map(d => d.key)));
+
 function filled() {
-  return props.dimensions.filter(d => !d.deleted && dimValues.value[d.key]);
+  const known = props.dimensions.filter(d => !d.deleted && dimValues.value[d.key]);
+  const extra = Object.keys(dimValues.value)
+    .filter(k => dimValues.value[k] && !knownDimKeys.value.has(k))
+    .map(k => ({
+      key: k,
+      name: k === 'role' ? 'Role' : k,
+      required: false,
+      source: 'static' as const,
+      deleted: false,
+    } as Dimension));
+  return [...known, ...extra];
 }
 
 const editHues = computed(() => dimensionHues(props.dimensions));

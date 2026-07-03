@@ -127,6 +127,9 @@ pub fn validate_required_dimensions(
     entry_dimensions: &std::collections::BTreeMap<String, String>,
 ) -> Result<(), String> {
     for dim in dimensions {
+        if dim.deleted {
+            continue;
+        }
         if dim.required && !entry_dimensions.contains_key(&dim.key) {
             return Err(format!("Missing required dimension: {}", dim.name));
         }

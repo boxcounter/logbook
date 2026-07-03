@@ -19,10 +19,12 @@ const stage = ref<"dim" | "val">("dim");
 const selectedDimKey = ref<string | null>(null);
 const highlightedIndex = ref(0);
 
+const visibleDims = computed(() => props.dimensions.filter(d => !d.deleted));
+
 // First dimension still missing a value. `justFilled` lets callers treat a
 // key as filled before props.dimValues reflects the just-emitted select.
 function firstUnfilledIndex(justFilled?: string): number {
-  const idx = props.dimensions.findIndex(
+  const idx = visibleDims.value.findIndex(
     (d) => d.key !== justFilled && !props.dimValues[d.key]
   );
   return idx === -1 ? 0 : idx;
@@ -30,7 +32,7 @@ function firstUnfilledIndex(justFilled?: string): number {
 
 function listLength(): number {
   if (stage.value === "dim") {
-    return props.dimensions.length + (props.commitments.length > 0 ? 1 : 0);
+    return visibleDims.value.length + (props.commitments.length > 0 ? 1 : 0);
   }
   return activeValues.value.length;
 }
@@ -90,7 +92,7 @@ const activeValues = computed(() => {
 const valHeaderName = computed(() => {
   if (stage.value !== "val") return "";
   if (selectedDimKey.value === "role") return "Role";
-  return props.dimensions.find(d => d.key === selectedDimKey.value)?.name ?? "";
+  return visibleDims.value.find(d => d.key === selectedDimKey.value)?.name ?? "";
 });
 
 const hues = computed(() => dimensionHues(props.dimensions));
@@ -105,6 +107,8 @@ function defaultValIndex(): number {
 }
 
 function selectDim(key: string) {
+  const d = props.dimensions.find(d => d.key === key);
+  if (d && d.deleted) return;
   selectedDimKey.value = key;
   stage.value = "val";
   highlightedIndex.value = defaultValIndex();
@@ -153,8 +157,8 @@ function onWindowKeydown(e: KeyboardEvent) {
     e.preventDefault();
     e.stopPropagation();
     if (stage.value === "dim") {
-      if (highlightedIndex.value < props.dimensions.length) {
-        const d = props.dimensions[highlightedIndex.value];
+      if (highlightedIndex.value < visibleDims.value.length) {
+        const d = visibleDims.value[highlightedIndex.value];
         if (d) selectDim(d.key);
       } else if (props.commitments.length > 0) {
         selectDim("role");
@@ -188,7 +192,7 @@ onUnmounted(() => window.removeEventListener("keydown", onWindowKeydown, true));
         <span class="bg-[var(--color-brand-solid)] text-white px-sm py-2xs rounded-[var(--radius-sm)] text-micro">DIM</span>
         Pick a dimension
       </div>
-      <template v-for="(d, i) in dimensions" :key="d.key">
+      <template v-for="(d, i) in visibleDims" :key="d.key">
       <div
         v-if="!d.deleted"
         data-test="dim-item"
@@ -227,17 +231,17 @@ onUnmounted(() => window.removeEventListener("keydown", onWindowKeydown, true));
       <div
         v-if="commitments.length > 0"
         data-test="dim-role"
-        :data-active="dimensions.length === highlightedIndex"
+        :data-active="visibleDims.length === highlightedIndex"
         class="px-md py-sm text-secondary
                flex items-center gap-sm cursor-pointer border-b border-[var(--color-surface-muted)]"
         :class="
-          dimensions.length === highlightedIndex
+          visibleDims.length === highlightedIndex
             ? 'bg-[var(--color-brand-solid)] text-white'
             : (dimValues['role']
                 ? 'text-[var(--color-brand-solid)] font-semibold'
                 : 'text-[var(--color-text-primary)]')
         "
-        @mouseenter="highlightedIndex = dimensions.length"
+        @mouseenter="highlightedIndex = visibleDims.length"
         @click="selectDim('role')"
       >
         <span class="w-[3px] h-[18px] rounded-[var(--radius-sm)] flex-shrink-0" :style="{ background: barColor('role') }"></span>
@@ -252,7 +256,7 @@ onUnmounted(() => window.removeEventListener("keydown", onWindowKeydown, true));
         <span
           v-else
           class="ml-auto text-micro"
-          :class="dimensions.length === highlightedIndex
+          :class="visibleDims.length === highlightedIndex
             ? 'text-white'
             : 'text-[var(--color-text-disabled)]'"
         >optional</span>

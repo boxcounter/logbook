@@ -30,14 +30,13 @@ function onEditTrigger() {
   editing.value = true;
 }
 
-const dimensions = computed(() => store.dimensions);
-const filledDims = computed(() => dimensions.value.filter(d => props.entry.dimensions[d.key]));
+const filledDimEntries = computed(() => Object.entries(props.entry.dimensions));
 
 const isProblemEntry = computed(() =>
   props.entry.attribution === "unattributed" || props.entry.attribution === "mismatch"
 );
 
-const chipHues = computed(() => dimensionHues(dimensions.value));
+const chipHues = computed(() => dimensionHues(store.dimensions));
 function chipStyle(key: string) {
   return dimChipStyle(chipHues.value.get(key) ?? null);
 }
@@ -56,7 +55,7 @@ function onSave(item: string, durationMinutes: number, dims: Record<string, stri
   <EntryRowEdit
     v-if="editing"
     :entry="entry"
-    :dimensions="dimensions"
+    :dimensions="store.dimensions"
     :commitments="store.commitments"
     :focus-target="focusTarget"
     @save="onSave"
@@ -89,13 +88,13 @@ function onSave(item: string, durationMinutes: number, dims: Record<string, stri
         class="text-body font-medium text-[var(--color-text-primary)] break-words overflow-hidden [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical]"
         :title="entry.item"
       >{{ entry.item }}</div>
-      <div v-if="filledDims.length" class="flex gap-xs mt-xs flex-wrap">
+      <div v-if="filledDimEntries.length" class="flex gap-xs mt-xs flex-wrap">
         <span
-          v-for="d in filledDims" :key="d.key"
+          v-for="[key, value] in filledDimEntries" :key="key"
           class="text-micro font-[450] px-sm rounded-[var(--radius-sm)] max-w-[100px] overflow-hidden text-ellipsis whitespace-nowrap"
-          :style="chipStyle(d.key)"
-          :title="entry.dimensions[d.key]"
-        >{{ entry.dimensions[d.key] }}</span>
+          :style="chipStyle(key)"
+          :title="value"
+        >{{ value }}</span>
       </div>
     </div>
     <span
