@@ -29,6 +29,13 @@ fn append_log(level: &str, context: &str, message: &str) -> Result<(), String> {
             eprintln!("[logbook] failed to create log dir: {e}");
         }
     }
+    const MAX_LOG_BYTES: u64 = 10 * 1024 * 1024;
+    if let Ok(meta) = std::fs::metadata(path) {
+        if meta.len() > MAX_LOG_BYTES {
+            let old_path = path.with_extension("log.old");
+            let _ = std::fs::rename(path, &old_path);
+        }
+    }
     let mut file = OpenOptions::new()
         .create(true)
         .append(true)

@@ -13,7 +13,7 @@ import EntryComposer from "./EntryComposer.vue";
 import DimensionEditorModal from "./composite/DimensionEditorModal.vue";
 import type { DayFile, Entry, Commitment, CommitmentProgressResult, MonthDimensions, Dimension } from "../types";
 import { logError, logInfo } from "../utils/errorLog";
-import { datesInMonth, yearMonthFromDate, parseDate, addDays } from "../utils/dates";
+import { datesInMonth, yearMonthFromDate, parseDate, addDays, formatDate } from "../utils/dates";
 import ConfigErrorBanner from "./ConfigErrorBanner.vue";
 
 const store = useStore();
@@ -37,11 +37,7 @@ let highlightTimer: ReturnType<typeof setTimeout> | null = null;
 const selectedYear = computed(() => yearMonthFromDate(store.currentDate).year);
 const selectedMonth = computed(() => yearMonthFromDate(store.currentDate).month);
 
-function todayStr(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-}
-const isSelectedToday = computed(() => store.currentDate === todayStr());
+const isSelectedToday = computed(() => store.currentDate === formatDate(new Date()));
 
 const dayEntries = computed(() => store.today?.entries || []);
 const dayTotalMinutes = computed(() => dayEntries.value.reduce((s, e) => s + e.duration, 0));
@@ -370,7 +366,7 @@ function shiftDay(delta: number) {
 }
 // Jump back to today (⌘T) and focus the entry input so typing can start at once.
 async function goToToday() {
-  const t = todayStr();
+  const t = formatDate(new Date());
   if (store.currentDate !== t) {
     if (t in store.monthEntries) await handleSelectDay(t);
     else {

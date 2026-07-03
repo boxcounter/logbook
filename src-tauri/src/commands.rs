@@ -952,7 +952,11 @@ pub fn set_commitments(
             for entry in entries {
                 let entry = match entry {
                     Ok(e) => e,
-                    Err(_) => continue,
+                    Err(e) => {
+                        error_log::log_error("set_commitments:role_rename",
+                            &format!("read_dir entry error in {}: {}", month_dir.display(), e));
+                        continue;
+                    },
                 };
                 let path = entry.path();
                 let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
@@ -974,6 +978,9 @@ pub fn set_commitments(
                     }
                 }
             }
+        } else {
+            error_log::log_error("set_commitments:role_rename",
+                &format!("failed to read month directory: {}", month_dir.display()));
         }
     }
 
@@ -987,7 +994,11 @@ pub fn set_commitments(
             for entry in entries {
                 let entry = match entry {
                     Ok(e) => e,
-                    Err(_) => continue,
+                    Err(e) => {
+                        error_log::log_error("set_commitments:role_cleanup",
+                            &format!("read_dir entry error in {}: {}", month_dir.display(), e));
+                        continue;
+                    },
                 };
                 let path = entry.path();
                 let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
@@ -1009,6 +1020,9 @@ pub fn set_commitments(
                     }
                 }
             }
+        } else {
+            error_log::log_error("set_commitments:role_cleanup",
+                &format!("failed to read month directory: {}", month_dir.display()));
         }
     }
 

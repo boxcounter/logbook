@@ -295,6 +295,7 @@ const monthLabel = new Date(props.year, props.month - 1, 1)
                 >
                   <option value="static">Static</option>
                   <option value="commitments:goals">Commitments: Goals</option>
+                  <option value="commitments:role">Commitments: Role</option>
                 </select>
                 <div
                   v-if="addFormError"

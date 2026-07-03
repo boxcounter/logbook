@@ -4,7 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useStore } from "./stores/useStore";
-import { yearMonthFromDate, rolloverDecision } from "./utils/dates";
+import { yearMonthFromDate, rolloverDecision, formatDate } from "./utils/dates";
 import SetupScreen from "./components/SetupScreen.vue";
 import RecoveryScreen from "./components/RecoveryScreen.vue";
 import MonthView from "./components/MonthView.vue";
@@ -31,11 +31,7 @@ const scanWarnings = ref<ScanWarning[]>([]);
 // #1: window focus → auto-focus input
 const focusRequestId = ref(0);
 
-function todayStr(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-}
-let lastKnownToday = todayStr();
+let lastKnownToday = formatDate(new Date());
 let rolloverTimer: ReturnType<typeof setInterval> | null = null;
 let watcherHealthTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -45,10 +41,10 @@ function maybeRollover() {
   const { rollover, date } = rolloverDecision(
     store.currentDate,
     lastKnownToday,
-    todayStr(),
+    formatDate(new Date()),
     store.status === "ready",
   );
-  lastKnownToday = todayStr();
+  lastKnownToday = formatDate(new Date());
   if (rollover) {
     store.currentDate = date;
     initApp();
