@@ -54,7 +54,8 @@ fn month_from_monthly_path(path: &std::path::Path) -> Option<(i32, u32)> {
 
 pub fn validate_dimensions(dimensions: &[Dimension]) -> Vec<ConfigErrorDetail> {
     let mut errors = Vec::new();
-    let mut monthly_count = 0;
+    let mut goal_source_count = 0;
+    let mut role_source_count = 0;
 
     for (i, dim) in dimensions.iter().enumerate() {
         if dim.name.is_empty() {
@@ -95,13 +96,25 @@ pub fn validate_dimensions(dimensions: &[Dimension]) -> Vec<ConfigErrorDetail> {
                 }),
                 _ => {}
             },
-            "monthly" => {
-                monthly_count += 1;
-                if monthly_count > 1 {
+            "commitments:goals" => {
+                goal_source_count += 1;
+                if goal_source_count > 1 {
                     errors.push(ConfigErrorDetail {
-                        kind: "MultipleMonthly".to_string(),
+                        kind: "MultipleGoalSource".to_string(),
                         message: format!(
-                            "Dimension '{}': only one dimension may have source: monthly",
+                            "Dimension '{}': only one dimension may have source: commitments:goals",
+                            dim.name
+                        ),
+                    });
+                }
+            }
+            "commitments:role" => {
+                role_source_count += 1;
+                if role_source_count > 1 {
+                    errors.push(ConfigErrorDetail {
+                        kind: "MultipleRoleSource".to_string(),
+                        message: format!(
+                            "Dimension '{}': only one dimension may have source: commitments:role",
                             dim.name
                         ),
                     });
@@ -111,7 +124,7 @@ pub fn validate_dimensions(dimensions: &[Dimension]) -> Vec<ConfigErrorDetail> {
                 errors.push(ConfigErrorDetail {
                     kind: "InvalidSource".to_string(),
                     message: format!(
-                        "Dimension '{}': invalid source '{}' (expected 'static' or 'monthly')",
+                        "Dimension '{}': invalid source '{}' (expected 'static', 'commitments:goals', or 'commitments:role')",
                         dim.name, other
                     ),
                 });
