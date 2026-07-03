@@ -19,7 +19,7 @@ function mountWith(category: string, reload = vi.fn()) {
     status: "error",
     configCategory: category as never,
     rootPath: "/data/logbook",
-    configErrors: [{ kind: "ConfigReadError", message: "boom" }],
+    configErrors: [{ kind: "ConfigReadError", message: "dimensions.template.yaml has an error" }],
   });
   const wrapper = mount(RecoveryScreen, {
     props: { reload },
@@ -38,10 +38,10 @@ describe("RecoveryScreen", () => {
     expect(wrapper.text()).toContain("Reveal");
   });
 
-  it("in_place: Reveal calls reveal_template_file", async () => {
+  it("in_place: Reveal calls reveal_file", async () => {
     const { wrapper } = mountWith("in_place");
     await wrapper.get('[data-testid="reveal-config"]').trigger("click");
-    expect(mockInvoke).toHaveBeenCalledWith("reveal_template_file", { rootPath: "/data/logbook" });
+    expect(mockInvoke).toHaveBeenCalledWith("reveal_file", { rootPath: "/data/logbook", relativePath: "dimensions.template.yaml" });
   });
 
   it("config_missing: Recreate calls create_starter_files then reload", async () => {

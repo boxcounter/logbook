@@ -144,6 +144,7 @@ pub fn run() {
             commands::get_available_months,
             commands::reveal_day_file,
             commands::reveal_template_file,
+            commands::reveal_file,
             commands::create_starter_files,
             commands::log_error,
             commands::log_info,

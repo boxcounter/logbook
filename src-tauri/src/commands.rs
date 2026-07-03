@@ -1498,6 +1498,29 @@ pub fn reveal_template_file(app: AppHandle, root_path: String) -> Result<(), Str
 }
 
 #[tauri::command]
+pub fn reveal_file(app: AppHandle, root_path: String, relative_path: String) -> Result<(), String> {
+    error_log::log_command_enter("reveal_file", &format!("root={} rel={}", root_path, relative_path));
+    let root = std::path::Path::new(&root_path);
+    let target = root.join(&relative_path);
+    let (target, select) = if target.exists() {
+        (target, true)
+    } else {
+        (root.to_path_buf(), false)
+    };
+    let result = if select {
+        app.opener()
+            .reveal_item_in_dir(&target)
+            .map_err(|e| format!("Failed to reveal {}: {}", target.display(), e))
+    } else {
+        app.opener()
+            .open_path(target.to_string_lossy().into_owned(), None::<String>)
+            .map_err(|e| format!("Failed to open {}: {}", target.display(), e))
+    };
+    error_log::log_command_exit("reveal_file", result.is_ok(), "");
+    result
+}
+
+#[tauri::command]
 pub fn create_starter_files(path: String) -> Result<(), String> {
     let root = std::path::Path::new(&path);
     if !root.exists() {
@@ -1507,7 +1530,11 @@ pub fn create_starter_files(path: String) -> Result<(), String> {
     if !template_path.exists() {
         std::fs::write(
             &template_path,
-            "dimensions:\n  - name: Goal\n    key: goal\n    source: monthly\n",
+            concat!(
+                "dimensions:\n",
+                "  - name: Goal\n    key: goal\n    source: commitments:goals\n",
+                "  - name: Role\n    key: role\n    source: commitments:role\n",
+            ),
         )
         .map_err(|e| format!("Failed to write dimensions.template.yaml: {}", e))?;
     }
