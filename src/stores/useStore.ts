@@ -11,7 +11,7 @@ export interface AppStore {
   status: AppStatus;
   rootPath: string;
   dimensions: Dimension[];
-  fromTemplate: boolean;
+  usingDefaultDimensions: boolean;
   configErrors: ConfigErrorDetail[];
   configCategory: RecoveryCategory | null;
   today: DayFile | null;
@@ -33,7 +33,7 @@ export function createStore(): AppStore {
     status: "loading",
     rootPath: "",
     dimensions: [],
-    fromTemplate: false,
+    usingDefaultDimensions: false,
     configErrors: [],
     configCategory: null,
     today: null,

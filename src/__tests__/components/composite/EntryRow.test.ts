@@ -9,7 +9,7 @@ import { makeEntry, makeDimensions, makeCommitment } from "../../mocks/fixtures"
 function mountRow(entryOverrides = {}, extraProps: Record<string, unknown> = {}) {
   const store = reactive({
     dimensions: makeDimensions(),
-    fromTemplate: false,
+    usingDefaultDimensions: false,
     commitments: [makeCommitment({ goals: ["Bug fixes"] })],
   });
   const entry = makeEntry({ item: "Review PR", duration: 90, dimensions: { category: "Coding" }, ...entryOverrides });

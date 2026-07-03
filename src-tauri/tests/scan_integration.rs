@@ -15,16 +15,6 @@ dimensions:
     source: commitments:goals
 ";
 
-const MONTHLY_MD: &str = "\
----
-commitments:
-  - role: Dev
-    allocation: 40
-    goals:
-      - Ship it
----
-";
-
 fn temp_root() -> PathBuf {
     std::env::temp_dir().join(format!("logbook_scan_integration_{}", uuid::Uuid::new_v4()))
 }
@@ -44,9 +34,8 @@ fn write_file(path: &PathBuf, content: &str) {
 fn test_scan_returns_warnings_for_bad_files() {
     let root = temp_root();
 
-    // Valid config and monthly files (should not produce warnings)
+    // Valid config file (should not produce warnings)
     write_file(&root.join("dimensions.template.yaml"), CONFIG_YAML);
-    write_file(&root.join("2026/06/_monthly.md"), MONTHLY_MD);
 
     // Invalid filename — not YYYY-MM-DD format
     write_file(&root.join("readme.md"), "---\nnote: ok\n---\n");
@@ -90,7 +79,6 @@ fn test_scan_returns_empty_for_clean_data() {
     let root = temp_root();
 
     write_file(&root.join("dimensions.template.yaml"), CONFIG_YAML);
-    write_file(&root.join("2026/06/_monthly.md"), MONTHLY_MD);
 
     // Valid day file with proper frontmatter and an entry
     write_file(

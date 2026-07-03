@@ -135,7 +135,7 @@ pub fn validate_dimensions(dimensions: &[Dimension]) -> Vec<ConfigErrorDetail> {
 }
 
 /// Validate commitments before saving (no IO).
-pub(crate) fn validate_commitments(commitments: &[Commitment]) -> Result<(), String> {
+pub fn validate_commitments(commitments: &[Commitment]) -> Result<(), String> {
     if commitments.is_empty() {
         return Err("At least one role is required".to_string());
     }

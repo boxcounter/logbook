@@ -30,7 +30,7 @@ describe("useRootFolderPicker", () => {
       data: {
         root_path: "/data/logbook",
         dimensions: [{ name: "Goal", key: "goal", source: "commitments:goals", required: false, deleted: false }],
-        from_template: true,
+        usingDefaultDimensions: true,
         today: { note: null, entries: [] },
         commitments: [],
         scan_warnings: [],
@@ -42,7 +42,7 @@ describe("useRootFolderPicker", () => {
     expect(mockInvoke).toHaveBeenCalledWith("set_root_path", { path: "/data/logbook" });
     expect(store.status).toBe("ready");
     expect(store.rootPath).toBe("/data/logbook");
-    expect(store.fromTemplate).toBe(true);
+    expect(store.usingDefaultDimensions).toBe(true);
   });
 
   it("pick → set_root_path ConfigError(config_missing) routes to error", async () => {

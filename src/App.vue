@@ -79,7 +79,7 @@ onMounted(async () => {
           month,
         }) as MonthDimensions;
         store.dimensions = result.dimensions;
-        store.fromTemplate = result.from_template;
+        store.usingDefaultDimensions = result.usingDefaultDimensions;
       } catch (e) {
         logError("App.dimensionsChanged", e);
       }
@@ -96,7 +96,7 @@ onMounted(async () => {
           rootPath: store.rootPath, year, month,
         }) as MonthDimensions;
         store.dimensions = dimsResult.dimensions;
-        store.fromTemplate = dimsResult.from_template;
+        store.usingDefaultDimensions = dimsResult.usingDefaultDimensions;
         store.commitments = (await invoke("get_commitments", { rootPath: store.rootPath, year, month })) as Commitment[];
         const result = await invoke<CommitmentProgressResult>("get_commitment_progress", { rootPath: store.rootPath, year, month });
         store.commitmentProgress = result.roles;

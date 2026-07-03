@@ -25,7 +25,7 @@ function makeStore() {
     status: "ready",
     rootPath: "/root",
     dimensions: makeDimensions(),
-    fromTemplate: false,
+    usingDefaultDimensions: false,
     configErrors: [],
     commitments: [makeCommitment({ goals: ["Bug fixes"] })],
     commitmentProgress: [],
@@ -100,12 +100,12 @@ describe("MonthView", () => {
     expect(entryList.props("isToday")).toBe(true);
   });
 
-  it("shows the default-template indicator only when fromTemplate is true", () => {
+  it("shows the default-template indicator only when usingDefaultDimensions is true", () => {
     const off = mountView();
     expect(off.text()).not.toContain("Using default template");
 
     const store = makeStore();
-    store.fromTemplate = true;
+    store.usingDefaultDimensions = true;
     const on = mountView(store);
     expect(on.text()).toContain("Using default template");
   });
