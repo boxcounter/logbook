@@ -57,6 +57,9 @@ const triggerSavedToast = inject<(msg: string) => void>("triggerSavedToast", () 
 // ---- Month loading ----
 async function loadMonth(year: number, month: number, defaultDay?: number) {
   store.configErrors = [];
+  store.commitments = [];
+  store.commitmentProgress = [];
+  store.commitmentProgressResult = null;
   const now = new Date();
   const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
   let day: number;
