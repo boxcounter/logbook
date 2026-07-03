@@ -439,7 +439,7 @@ mod tests {
                 Dimension {
                     name: "Goal".into(),
                     key: "goal".into(),
-                    source: "monthly".into(),
+                    source: "commitments:goals".into(),
                     values: None,
                     required: false,
                     deleted: false,
@@ -507,7 +507,7 @@ mod tests {
                 Dimension {
                     name: "G1".into(),
                     key: "g1".into(),
-                    source: "monthly".into(),
+                    source: "commitments:goals".into(),
                     values: None,
                     required: false,
                     deleted: false,
@@ -515,7 +515,7 @@ mod tests {
                 Dimension {
                     name: "G2".into(),
                     key: "g2".into(),
-                    source: "monthly".into(),
+                    source: "commitments:goals".into(),
                     values: None,
                     required: false,
                     deleted: false,
@@ -524,7 +524,7 @@ mod tests {
         };
         let errors = validate_dimensions(&config.dimensions);
         assert_eq!(errors.len(), 1);
-        assert_eq!(errors[0].kind, "MultipleMonthly");
+        assert_eq!(errors[0].kind, "MultipleGoalSource");
     }
 
     #[test]

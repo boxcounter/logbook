@@ -2,7 +2,7 @@
 dimensions:
   - name: Goal
     key: goal
-    source: monthly
+    source: commitments:goals
   - name: Biz
     key: biz
     source: static
