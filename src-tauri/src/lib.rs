@@ -6,12 +6,33 @@ pub mod files;
 pub mod models;
 pub mod operation_log;
 pub mod scan;
+pub mod single_instance;
 mod window_state;
 
 use std::path::PathBuf;
 use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
+
+fn show_already_running_dialog(app_name: &str) {
+    #[cfg(target_os = "macos")]
+    {
+        let _ = std::process::Command::new("osascript")
+            .arg("-e")
+            .arg(format!(
+                r#"display dialog "{} is already running.\n\nOnly one instance of this application can run at a time." buttons {{"OK"}} default button 1 with icon caution with title "{}""#,
+                app_name, app_name
+            ))
+            .output();
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        eprintln!(
+            "{} is already running. Only one instance can run at a time.",
+            app_name
+        );
+    }
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -27,6 +48,23 @@ pub fn run() {
                 .app_local_data_dir()
                 .unwrap_or_else(|_| PathBuf::from("."));
             error_log::init(&app_data_dir);
+
+            match single_instance::InstanceLock::try_acquire(&app_data_dir) {
+                Ok(lock) => {
+                    app.manage(lock);
+                }
+                Err(pid) => {
+                    error_log::log_info(
+                        "single_instance",
+                        &format!(
+                            "Another instance is already running (PID {}). Exiting.",
+                            pid
+                        ),
+                    );
+                    show_already_running_dialog(&app.package_info().name);
+                    std::process::exit(0);
+                }
+            }
 
             let (width, height, x, y) = window_state::default_window_geometry(&app_handle);
             let title = format!("Logbook v{}", app.package_info().version);
