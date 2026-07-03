@@ -624,31 +624,49 @@ pub fn get_month_dimensions(
 /// The dimension key used to tag a commitment goal for this month. Finds the
 /// dimension with source=="commitments:goals".
 fn goal_dim_key(root: &std::path::Path, year: i32, month: u32) -> Result<String, String> {
+    let from_monthly = files::read_dimensions_file(root, year, month)
+        .map(|d| !d.is_empty())
+        .unwrap_or(false);
+    let file = if from_monthly {
+        format!("{}/{}/dimensions.yaml", year, format!("{:02}", month))
+    } else {
+        "dimensions.template.yaml".to_string()
+    };
     files::resolve_month_dimensions(root, year, month)?
         .into_iter()
         .find(|d| d.source == "commitments:goals")
         .map(|d| d.key)
-        .ok_or_else(|| concat!(
-            "dimensions.template.yaml is missing a Goal dimension.\n",
-            "Add this to the `dimensions:` list:\n",
-            "  - name: Goal\n",
-            "    key: goal\n",
-            "    source: commitments:goals",
-        ).to_string())
+        .ok_or_else(|| {
+            let body = concat!(
+                "  - name: Goal\n",
+                "    key: goal\n",
+                "    source: commitments:goals",
+            );
+            format!("{file} is missing a Goal dimension.\nAdd this to the `dimensions:` list:\n{body}")
+        })
 }
 
 fn role_dim_key(root: &std::path::Path, year: i32, month: u32) -> Result<String, String> {
+    let from_monthly = files::read_dimensions_file(root, year, month)
+        .map(|d| !d.is_empty())
+        .unwrap_or(false);
+    let file = if from_monthly {
+        format!("{}/{}/dimensions.yaml", year, format!("{:02}", month))
+    } else {
+        "dimensions.template.yaml".to_string()
+    };
     files::resolve_month_dimensions(root, year, month)?
         .into_iter()
         .find(|d| d.source == "commitments:role")
         .map(|d| d.key)
-        .ok_or_else(|| concat!(
-            "dimensions.template.yaml is missing a Role dimension.\n",
-            "Add this to the `dimensions:` list:\n",
-            "  - name: Role\n",
-            "    key: role\n",
-            "    source: commitments:role",
-        ).to_string())
+        .ok_or_else(|| {
+            let body = concat!(
+                "  - name: Role\n",
+                "    key: role\n",
+                "    source: commitments:role",
+            );
+            format!("{file} is missing a Role dimension.\nAdd this to the `dimensions:` list:\n{body}")
+        })
 }
 
 fn compute_attribution(
