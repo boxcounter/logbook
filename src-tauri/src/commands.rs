@@ -1191,6 +1191,9 @@ fn cleanup_deleted_goals_in_entries(
     }
     let entries = std::fs::read_dir(&month_dir)
         .map_err(|e| format!("Failed to read month dir: {}", e))?;
+
+    // Phase 1: read + transform every affected day file in memory.
+    let mut pending: Vec<(String, crate::models::DayFile)> = Vec::new();
     for entry in entries {
         let entry = match entry {
             Ok(e) => e,
@@ -1216,8 +1219,13 @@ fn cleanup_deleted_goals_in_entries(
             }
         }
         if changed {
-            files::write_day_file(root, date, &day_file)?;
+            pending.push((date.to_string(), day_file));
         }
+    }
+
+    // Phase 2: all reads succeeded — now commit the writes.
+    for (date, day_file) in &pending {
+        files::write_day_file(root, date, day_file)?;
     }
     Ok(())
 }

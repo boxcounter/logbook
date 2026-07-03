@@ -131,6 +131,10 @@ function validateNewDim(): string | null {
     return "Only one commitments:goals source dimension allowed";
   }
 
+  if (newDimSource.value === "commitments:role" && draft.value.some(d => d.source === "commitments:role" && !d.deleted)) {
+    return "Only one commitments:role source dimension allowed";
+  }
+
   return null;
 }
 
