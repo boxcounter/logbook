@@ -292,7 +292,10 @@ fn spawn_watcher(
                 if file_name == "dimensions.template.yaml" {
                     match files::read_dimensions_template(&watch_root) {
                         Ok(config) => {
-                            let errors = validate_dimensions(&config.dimensions);
+                            let mut errors = validate_dimensions(&config.dimensions);
+                            for e in &mut errors {
+                                e.message = format!("dimensions.template.yaml: {}", e.message);
+                            }
                             if let Err(e) = app_handle.emit("dimensions-changed", &errors) {
                                 crate::error_log::log_error(
                                     "file_watcher",
@@ -305,7 +308,7 @@ fn spawn_watcher(
                                 "dimensions-changed",
                                 &vec![ConfigErrorDetail {
                                     kind: "ParseError".to_string(),
-                                    message: e,
+                                    message: format!("dimensions.template.yaml: {}", e),
                                 }],
                             ) {
                                 crate::error_log::log_error(
@@ -331,7 +334,11 @@ fn spawn_watcher(
                     };
                     match files::read_dimensions_file(&watch_root, year, month) {
                         Ok(dims) => {
-                            let errors = validate_dimensions(&dims);
+                            let file_label = format!("{}/{}/dimensions.yaml", year, format!("{:02}", month));
+                            let mut errors = validate_dimensions(&dims);
+                            for e in &mut errors {
+                                e.message = format!("{}: {}", file_label, e.message);
+                            }
                             if let Err(e) = app_handle.emit("dimensions-changed", &errors) {
                                 crate::error_log::log_error(
                                     "file_watcher",
