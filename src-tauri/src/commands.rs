@@ -628,13 +628,13 @@ fn goal_dim_key(root: &std::path::Path, year: i32, month: u32) -> Result<String,
         .into_iter()
         .find(|d| d.source == "commitments:goals")
         .map(|d| d.key)
-        .ok_or_else(|| format!(
-            "dimensions.template.yaml is missing a Goal dimension.\n\
-             Add this to the `dimensions:` list:\n\
-               - name: Goal\n\
-                 key: goal\n\
-                 source: commitments:goals"
-        ))
+        .ok_or_else(|| concat!(
+            "dimensions.template.yaml is missing a Goal dimension.\n",
+            "Add this to the `dimensions:` list:\n",
+            "  - name: Goal\n",
+            "    key: goal\n",
+            "    source: commitments:goals",
+        ).to_string())
 }
 
 fn role_dim_key(root: &std::path::Path, year: i32, month: u32) -> Result<String, String> {
@@ -642,13 +642,13 @@ fn role_dim_key(root: &std::path::Path, year: i32, month: u32) -> Result<String,
         .into_iter()
         .find(|d| d.source == "commitments:role")
         .map(|d| d.key)
-        .ok_or_else(|| format!(
-            "dimensions.template.yaml is missing a Role dimension.\n\
-             Add this to the `dimensions:` list:\n\
-               - name: Role\n\
-                 key: role\n\
-                 source: commitments:role"
-        ))
+        .ok_or_else(|| concat!(
+            "dimensions.template.yaml is missing a Role dimension.\n",
+            "Add this to the `dimensions:` list:\n",
+            "  - name: Role\n",
+            "    key: role\n",
+            "    source: commitments:role",
+        ).to_string())
 }
 
 fn compute_attribution(
