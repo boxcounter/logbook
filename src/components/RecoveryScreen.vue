@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, computed } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { useStore } from "../stores/useStore";
 import { useRootFolderPicker } from "../composables/useRootFolderPicker";
@@ -13,6 +13,14 @@ const { pick } = useRootFolderPicker(store);
 const confirmingFresh = ref(false);
 const recreateError = ref<string | null>(null);
 
+const errorFile = computed(() => {
+  for (const err of store.configErrors) {
+    const m = err.message.match(/^(\S+)/);
+    if (m) return m[1];
+  }
+  return "dimensions.template.yaml";
+});
+
 async function recreate() {
   recreateError.value = null;
   try {
@@ -24,11 +32,11 @@ async function recreate() {
   }
 }
 
-async function revealTemplate() {
+async function revealFile() {
   try {
-    await invoke("reveal_template_file", { rootPath: store.rootPath });
+    await invoke("reveal_file", { rootPath: store.rootPath, relativePath: errorFile.value });
   } catch (e) {
-    logError("RecoveryScreen.revealTemplate", e);
+    logError("RecoveryScreen.revealFile", e);
   }
 }
 </script>
@@ -42,9 +50,9 @@ async function revealTemplate() {
         <button
           data-testid="reveal-config"
           class="mt-lg px-lg py-sm rounded-[var(--radius-form-lg)] bg-[var(--color-brand-solid)] text-white text-secondary whitespace-nowrap cursor-pointer hover:shadow-[var(--shadow-button-hover)] transition-all duration-[var(--motion-base)]"
-          @click="revealTemplate"
+          @click="revealFile"
         >
-          Reveal dimensions.template.yaml in Finder
+          Reveal {{ errorFile }} in Finder
         </button>
       </template>
 

@@ -27,11 +27,11 @@ const referencedFiles = computed(() => {
       </template>.
       Changes are detected automatically.
     </p>
-    <ul class="list-disc list-inside space-y-xs">
-      <li v-for="(err, i) in store.configErrors" :key="i" class="text-[var(--color-danger)] text-secondary">
-        <div class="font-mono text-secondary bg-[var(--color-danger)]/10 px-xs rounded inline-block mb-xs">{{ err.kind }}</div>
-        <div class="whitespace-pre-wrap">{{ err.message }}</div>
-      </li>
-    </ul>
+    <div class="flex flex-col gap-lg">
+      <div v-for="(err, i) in store.configErrors" :key="i">
+        <div class="text-[var(--color-danger)] font-semibold text-secondary mb-xs">{{ err.kind }}</div>
+        <div class="text-[var(--color-danger)] text-secondary whitespace-pre-wrap">{{ err.message }}</div>
+      </div>
+    </div>
   </div>
 </template>
