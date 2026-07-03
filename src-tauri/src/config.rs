@@ -292,12 +292,27 @@ fn spawn_watcher(
                 if file_name == "dimensions.template.yaml" {
                     match files::read_dimensions_template(&watch_root) {
                         Ok(config) => {
-                            let _ = validate_dimensions(&config.dimensions);
-                            // Template changes do not affect the current view — no emit.
-                            // Validation errors are surfaced on the next init/dimensions read.
+                            let errors = validate_dimensions(&config.dimensions);
+                            if let Err(e) = app_handle.emit("dimensions-changed", &errors) {
+                                crate::error_log::log_error(
+                                    "file_watcher",
+                                    &format!("emit dimensions-changed failed: {}", e),
+                                );
+                            }
                         }
-                        Err(_) => {
-                            // Parse error; next read will surface it.
+                        Err(e) => {
+                            if let Err(e2) = app_handle.emit(
+                                "dimensions-changed",
+                                &vec![ConfigErrorDetail {
+                                    kind: "ParseError".to_string(),
+                                    message: e,
+                                }],
+                            ) {
+                                crate::error_log::log_error(
+                                    "file_watcher",
+                                    &format!("emit dimensions-changed failed: {}", e2),
+                                );
+                            }
                         }
                     }
                 } else if file_name == "dimensions.yaml" {
