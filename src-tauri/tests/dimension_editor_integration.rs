@@ -43,7 +43,7 @@ fn test_save_dimensions_writes_and_reads_back() {
     // only the dimensions.yaml matters.
     fs::write(
         root.join("dimensions.template.yaml"),
-        "dimensions:\n  - name: Goal\n    key: goal\n    source: monthly\n",
+        "dimensions:\n  - name: Goal\n    key: goal\n    source: commitments:goals\n",
     )
     .unwrap();
 
@@ -74,7 +74,7 @@ fn test_save_dimensions_creates_month_dir() {
     let root = fresh_root("logbook_sd_create_dir");
     fs::write(
         root.join("dimensions.template.yaml"),
-        "dimensions:\n  - name: Goal\n    key: goal\n    source: monthly\n",
+        "dimensions:\n  - name: Goal\n    key: goal\n    source: commitments:goals\n",
     )
     .unwrap();
 
@@ -119,7 +119,7 @@ fn test_save_dimensions_validates_before_write() {
     let root = fresh_root("logbook_sd_validate");
     fs::write(
         root.join("dimensions.template.yaml"),
-        "dimensions:\n  - name: Goal\n    key: goal\n    source: monthly\n",
+        "dimensions:\n  - name: Goal\n    key: goal\n    source: commitments:goals\n",
     )
     .unwrap();
 
@@ -154,7 +154,7 @@ fn test_save_dimensions_invalid_key_rejected() {
     let root = fresh_root("logbook_sd_bad_key");
     fs::write(
         root.join("dimensions.template.yaml"),
-        "dimensions:\n  - name: Goal\n    key: goal\n    source: monthly\n",
+        "dimensions:\n  - name: Goal\n    key: goal\n    source: commitments:goals\n",
     )
     .unwrap();
 
@@ -186,7 +186,7 @@ fn test_save_dimensions_roundtrip() {
     let root = fresh_root("logbook_sd_roundtrip");
     fs::write(
         root.join("dimensions.template.yaml"),
-        "dimensions:\n  - name: Goal\n    key: goal\n    source: monthly\n",
+        "dimensions:\n  - name: Goal\n    key: goal\n    source: commitments:goals\n",
     )
     .unwrap();
 
@@ -221,7 +221,7 @@ fn test_save_dimensions_overwrites_existing() {
     let root = fresh_root("logbook_sd_overwrite");
     fs::write(
         root.join("dimensions.template.yaml"),
-        "dimensions:\n  - name: Goal\n    key: goal\n    source: monthly\n",
+        "dimensions:\n  - name: Goal\n    key: goal\n    source: commitments:goals\n",
     )
     .unwrap();
 

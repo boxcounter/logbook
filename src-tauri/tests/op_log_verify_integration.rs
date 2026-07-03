@@ -18,7 +18,7 @@ fn test_verify_consistent_after_append() {
     // Write dimensions.template.yaml
     fs::write(
         tmp.join("dimensions.template.yaml"),
-        "dimensions:\n  - name: Goal\n    key: goal\n    source: monthly\n",
+        "dimensions:\n  - name: Goal\n    key: goal\n    source: commitments:goals\n",
     )
     .unwrap();
 
@@ -84,7 +84,7 @@ fn test_verify_detects_missing_operation() {
     // Write dimensions.template.yaml
     fs::write(
         tmp.join("dimensions.template.yaml"),
-        "dimensions:\n  - name: Goal\n    key: goal\n    source: monthly\n",
+        "dimensions:\n  - name: Goal\n    key: goal\n    source: commitments:goals\n",
     )
     .unwrap();
 

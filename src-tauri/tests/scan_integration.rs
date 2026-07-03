@@ -12,7 +12,7 @@ const CONFIG_YAML: &str = "\
 dimensions:
   - name: Goal
     key: goal
-    source: monthly
+    source: commitments:goals
 ";
 
 const MONTHLY_MD: &str = "\

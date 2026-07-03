@@ -21,7 +21,7 @@ fn cli_binary() -> std::path::PathBuf {
 /// Create a minimal fixture with dimensions.template.yaml.
 fn setup_fixture(tmp: &Path) {
     fs::create_dir_all(tmp).unwrap();
-    let config = "dimensions:\n  - name: Goal\n    key: goal\n    source: monthly\n";
+    let config = "dimensions:\n  - name: Goal\n    key: goal\n    source: commitments:goals\n";
     fs::write(tmp.join("dimensions.template.yaml"), config).unwrap();
 }
 
