@@ -1,5 +1,5 @@
 use crate::files;
-use crate::models::{ConfigErrorDetail, Dimension, MonthlyFile};
+use crate::models::{Commitment, ConfigErrorDetail, Dimension};
 use notify::{Config as NotifyConfig, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -40,9 +40,9 @@ fn is_valid_key(key: &str) -> bool {
 /// `{root}/{year}/{month:02}/<filename>`. Returns None if the parent
 /// directories aren't numeric year/month — the watcher must reflect the month
 /// of the file that actually changed, not the current wall-clock month.
-fn month_from_monthly_path(path: &std::path::Path) -> Option<(i32, u32)> {
+fn extract_year_month(path: &std::path::Path) -> Option<(i32, u32)> {
     let mut comps = path.components().rev();
-    comps.next()?; // _monthly.md
+    comps.next()?; // dimensions.yaml or commitments.yaml
     let month: u32 = comps.next()?.as_os_str().to_str()?.parse().ok()?;
     let year: i32 = comps.next()?.as_os_str().to_str()?.parse().ok()?;
     if (1..=12).contains(&month) {
@@ -134,40 +134,40 @@ pub fn validate_dimensions(dimensions: &[Dimension]) -> Vec<ConfigErrorDetail> {
     errors
 }
 
-pub fn validate_monthly(monthly: &MonthlyFile) -> Vec<ConfigErrorDetail> {
-    let mut errors = validate_dimensions(&monthly.dimensions);
-    let mut seen_goals = std::collections::HashSet::new();
-
-    for (i, c) in monthly.commitments.iter().enumerate() {
-        if c.role.is_empty() {
-            errors.push(ConfigErrorDetail {
-                kind: "MissingRole".to_string(),
-                message: format!("Commitment at index {}: role is required", i),
-            });
+/// Validate commitments before saving (no IO).
+pub(crate) fn validate_commitments(commitments: &[Commitment]) -> Result<(), String> {
+    if commitments.is_empty() {
+        return Err("At least one role is required".to_string());
+    }
+    let mut role_set = std::collections::HashSet::new();
+    let mut goal_set = std::collections::HashSet::new();
+    for c in commitments {
+        let role = c.role.trim();
+        if role.is_empty() {
+            return Err("Role name cannot be empty".to_string());
+        }
+        if !role_set.insert(role.to_string()) {
+            return Err(format!("Role '{}' already exists", role));
         }
         if c.allocation == 0 {
-            errors.push(ConfigErrorDetail {
-                kind: "ZeroAllocation".to_string(),
-                message: format!(
-                    "Commitment '{}': allocation is 0 (should be hours per month)",
-                    c.role
-                ),
-            });
+            return Err(format!(
+                "Allocation for '{}' must be greater than 0",
+                role
+            ));
         }
-        for goal in &c.goals {
-            if !seen_goals.insert(goal.clone()) {
-                errors.push(ConfigErrorDetail {
-                    kind: "DuplicateGoal".to_string(),
-                    message: format!(
-                        "Goal '{}' appears in multiple commitments (each goal must be unique)",
-                        goal
-                    ),
-                });
+        for g in &c.goals {
+            let goal = g.trim();
+            if goal.is_empty() {
+                return Err("Goal name cannot be empty".to_string());
+            }
+            if !goal_set.insert(goal.to_string()) {
+                return Err(format!("Goal '{}' already exists", goal));
             }
         }
     }
-    errors
+    Ok(())
 }
+
 
 /// Managed state holding the live file watcher. Dropping the inner watcher stops
 /// its event stream (the receiver thread exits when the channel closes).
@@ -304,7 +304,7 @@ fn spawn_watcher(
                     // Reflect the month of the file that actually changed, not the
                     // current wall-clock month — editing a past month's dimensions
                     // must not broadcast the current month's data.
-                    let (year, month) = match month_from_monthly_path(path) {
+                    let (year, month) = match extract_year_month(path) {
                         Some(ym) => ym,
                         None => {
                             crate::error_log::log_error(
@@ -343,7 +343,7 @@ fn spawn_watcher(
                     // Reflect the month of the file that actually changed, not the
                     // current wall-clock month — editing a past month's commitments
                     // must not broadcast the current month's data.
-                    let (year, month) = match month_from_monthly_path(path) {
+                    let (year, month) = match extract_year_month(path) {
                         Some(ym) => ym,
                         None => {
                             crate::error_log::log_error(
@@ -358,8 +358,13 @@ fn spawn_watcher(
                             // Validate alongside any existing dimensions
                             let dims = files::read_dimensions_file(&watch_root, year, month)
                                 .unwrap_or_default();
-                            let monthly = MonthlyFile { dimensions: dims, commitments };
-                            let errors = validate_monthly(&monthly);
+                            let mut errors = validate_dimensions(&dims);
+                            if let Err(e) = validate_commitments(&commitments) {
+                                errors.push(ConfigErrorDetail {
+                                    kind: "CommitmentValidation".to_string(),
+                                    message: e,
+                                });
+                            }
                             if let Err(e) = app_handle.emit("commitments-changed", &errors) {
                                 crate::error_log::log_error(
                                     "file_watcher",
@@ -394,7 +399,7 @@ fn spawn_watcher(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::{Commitment, Dimension, MonthlyFile, Template};
+    use crate::models::{Dimension, Template};
 
     #[test]
     fn needs_restart_logic() {
@@ -545,88 +550,23 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_monthly_valid() {
-        let monthly = MonthlyFile {
-            dimensions: vec![],
-            commitments: vec![Commitment {
-                role: "Dev".into(),
-                allocation: 40,
-                goals: vec!["Ship X".into()],
-            }],
-        };
-        assert!(validate_monthly(&monthly).is_empty());
-    }
-
-    #[test]
-    fn test_validate_monthly_empty_role() {
-        let monthly = MonthlyFile {
-            dimensions: vec![],
-            commitments: vec![Commitment {
-                role: "".into(),
-                allocation: 10,
-                goals: vec![],
-            }],
-        };
-        let errors = validate_monthly(&monthly);
-        assert_eq!(errors.len(), 1);
-        assert_eq!(errors[0].kind, "MissingRole");
-    }
-
-    #[test]
-    fn test_validate_monthly_zero_allocation() {
-        let monthly = MonthlyFile {
-            dimensions: vec![],
-            commitments: vec![Commitment {
-                role: "Dev".into(),
-                allocation: 0,
-                goals: vec![],
-            }],
-        };
-        let errors = validate_monthly(&monthly);
-        assert_eq!(errors.len(), 1);
-        assert_eq!(errors[0].kind, "ZeroAllocation");
-    }
-
-    #[test]
-    fn test_validate_monthly_duplicate_goal() {
-        let monthly = MonthlyFile {
-            dimensions: vec![],
-            commitments: vec![
-                Commitment {
-                    role: "Dev".into(),
-                    allocation: 20,
-                    goals: vec!["Shared".into()],
-                },
-                Commitment {
-                    role: "PM".into(),
-                    allocation: 10,
-                    goals: vec!["Shared".into()],
-                },
-            ],
-        };
-        let errors = validate_monthly(&monthly);
-        assert_eq!(errors.len(), 1);
-        assert_eq!(errors[0].kind, "DuplicateGoal");
-    }
-
-    #[test]
-    fn test_month_from_monthly_path_extracts_changed_month() {
+    fn test_extract_year_month_extracts_changed_month() {
         let p = std::path::Path::new("/data/2026/05/dimensions.yaml");
-        assert_eq!(month_from_monthly_path(p), Some((2026, 5)));
+        assert_eq!(extract_year_month(p), Some((2026, 5)));
     }
 
     #[test]
-    fn test_month_from_monthly_path_rejects_non_numeric_and_bad_month() {
+    fn test_extract_year_month_rejects_non_numeric_and_bad_month() {
         assert_eq!(
-            month_from_monthly_path(std::path::Path::new("/data/abc/05/dimensions.yaml")),
+            extract_year_month(std::path::Path::new("/data/abc/05/dimensions.yaml")),
             None
         );
         assert_eq!(
-            month_from_monthly_path(std::path::Path::new("/data/2026/13/commitments.yaml")),
+            extract_year_month(std::path::Path::new("/data/2026/13/commitments.yaml")),
             None
         );
         assert_eq!(
-            month_from_monthly_path(std::path::Path::new("/dimensions.yaml")),
+            extract_year_month(std::path::Path::new("/dimensions.yaml")),
             None
         );
     }

@@ -1,4 +1,4 @@
-use crate::models::{Commitment, DayFile, Dimension, Entry, MonthlyFile, Template};
+use crate::models::{Commitment, DayFile, Dimension, Entry, Template};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -35,13 +35,6 @@ pub fn day_path(root: &Path, date: &str) -> Result<PathBuf, String> {
         .join(format!("{:04}", d.year()))
         .join(format!("{:02}", d.month()))
         .join(format!("{:04}-{:02}-{:02}.md", d.year(), d.month(), d.day())))
-}
-
-/// Monthly file path: {root}/{year}/{month:02}/_monthly.md
-pub fn monthly_path(root: &Path, year: i32, month: u32) -> PathBuf {
-    root.join(year.to_string())
-        .join(format!("{:02}", month))
-        .join("_monthly.md")
 }
 
 /// Template path: {root}/template.yaml
@@ -196,41 +189,6 @@ pub fn set_day_note_in_file(root: &Path, date: &str, note: &str) -> Result<DayFi
     })
 }
 
-/// Read monthly file. Returns empty MonthlyFile if not found.
-pub fn read_monthly_file(root: &Path, year: i32, month: u32) -> Result<MonthlyFile, String> {
-    let path = monthly_path(root, year, month);
-    if !path.exists() {
-        return Ok(MonthlyFile {
-            dimensions: vec![],
-            commitments: vec![],
-        });
-    }
-    let content = fs::read_to_string(&path)
-        .map_err(|e| format!("Failed to read {}: {}", path.display(), e))?;
-    parse_frontmatter::<MonthlyFile>(&content)
-        .map_err(|e| format!("Failed to parse {}: {}", path.display(), e))
-}
-
-/// Write a full monthly file (atomic: temp then rename).
-pub fn write_monthly_file(
-    root: &Path,
-    year: i32,
-    month: u32,
-    monthly: &MonthlyFile,
-) -> Result<(), String> {
-    let path = monthly_path(root, year, month);
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {}", e))?;
-    }
-    let yaml_body =
-        yaml_serde::to_string(monthly).map_err(|e| format!("Failed to serialize: {}", e))?;
-    let content = format!("---\n{}---\n", yaml_body);
-    let tmp_path = path.with_extension("tmp");
-    fs::write(&tmp_path, &content).map_err(|e| format!("Failed to write temp file: {}", e))?;
-    fs::rename(&tmp_path, &path).map_err(|e| format!("Failed to rename temp file: {}", e))?;
-    Ok(())
-}
-
 /// Read a month's dimensions.yaml. Returns empty Vec if file doesn't exist.
 pub fn read_dimensions_file(root: &Path, year: i32, month: u32) -> Result<Vec<Dimension>, String> {
     let path = dimensions_path(root, year, month);
@@ -375,28 +333,6 @@ pub fn create_dimensions_if_missing(
         return Ok(());
     }
     write_dimensions_file(root, year, month, &template_dims)
-}
-
-/// Snapshot the template into a month's `_monthly.md` if it has no dimensions
-/// block yet. Preserves any existing commitments (merge, not overwrite).
-/// No-op if already instantiated or the template has no dimensions.
-#[allow(dead_code)]
-pub fn ensure_month_instantiated(root: &Path, year: i32, month: u32) -> Result<(), String> {
-    let mut monthly = read_monthly_file(root, year, month)?;
-    if !monthly.dimensions.is_empty() {
-        return Ok(());
-    }
-    // Tolerate a missing template (nothing to snapshot yet), but surface a
-    // parse error instead of silently snapshotting empty dims.
-    if !dimensions_template_path(root).exists() {
-        return Ok(());
-    }
-    let template_dims = read_dimensions_template(root)?.dimensions;
-    if template_dims.is_empty() {
-        return Ok(());
-    }
-    monthly.dimensions = template_dims;
-    write_monthly_file(root, year, month, &monthly)
 }
 
 /// Remove orphaned .tmp files from the data tree (crashed mid-write).
@@ -576,13 +512,6 @@ mod tests {
     #[test]
     fn test_day_path_invalid() {
         assert!(day_path(Path::new("/data"), "bad-date").is_err());
-    }
-
-    #[test]
-    fn test_monthly_path() {
-        let root = Path::new("/data");
-        let p = monthly_path(root, 2026, 6);
-        assert_eq!(p, PathBuf::from("/data/2026/06/_monthly.md"));
     }
 
     #[test]

@@ -1,4 +1,4 @@
-use crate::config::{validate_dimensions, validate_monthly};
+use crate::config::validate_dimensions;
 use crate::error_log;
 use crate::operation_log;
 use crate::files::{self, read_root_path, save_root_path};
@@ -35,31 +35,6 @@ fn read_day_file_safe(root: &std::path::Path, date: &str) -> Result<DayFile, Str
     }
 }
 
-/// Read a monthly file, distinguishing "file not found" from "file found but corrupt".
-fn read_monthly_file_safe(
-    root: &std::path::Path,
-    year: i32,
-    month: u32,
-) -> Result<MonthlyFile, String> {
-    let path = files::monthly_path(root, year, month);
-    match files::read_monthly_file(root, year, month) {
-        Ok(mf) => Ok(mf),
-        Err(e) => {
-            if path.exists() {
-                Err(format!(
-                    "Monthly file exists but cannot be parsed: {}. File: {}. Manual recovery needed.",
-                    e,
-                    path.display()
-                ))
-            } else {
-                Ok(MonthlyFile {
-                    dimensions: vec![],
-                    commitments: vec![],
-                })
-            }
-        }
-    }
-}
 
 /// Parse a duration string to minutes.
 /// Handles: "90", "1.5h", "30m", "1h 30m", "准备会议（15m），面聊（45m）"
@@ -205,23 +180,11 @@ pub fn load_root_state(root: &std::path::Path) -> InitResult {
 
     let now = chrono::Local::now();
 
-    let monthly = match read_monthly_file_safe(root, now.year(), now.month()) {
-        Ok(mf) => mf,
-        Err(e) => {
-            all_errors.push(ConfigErrorDetail {
-                kind: "MonthlyFileCorrupt".to_string(),
-                message: e,
-            });
-            MonthlyFile { dimensions: vec![], commitments: vec![] }
-        }
-    };
-    all_errors.extend(validate_monthly(&monthly));
-
-    // Read commitments from commitments.yaml (separate from _monthly.md)
+    // Read commitments from commitments.yaml
     let commitments = match files::read_commitments_file(root, now.year(), now.month()) {
         Ok(c) => {
             if !c.is_empty() {
-                if let Err(e) = validate_commitments(&c) {
+                if let Err(e) = crate::config::validate_commitments(&c) {
                     all_errors.push(ConfigErrorDetail {
                         kind: "CommitmentValidation".to_string(),
                         message: e,
@@ -260,12 +223,8 @@ pub fn load_root_state(root: &std::path::Path) -> InitResult {
         };
     }
 
-    let from_template = monthly.dimensions.is_empty();
-    let dimensions = if from_template {
-        template.dimensions
-    } else {
-        monthly.dimensions.clone()
-    };
+    let using_default_dimensions = files::read_dimensions_file(root, now.year(), now.month()).unwrap_or_default().is_empty();
+    let dimensions = files::resolve_month_dimensions(root, now.year(), now.month()).unwrap_or_default();
 
     // Inject attribution into today's entries
     {
@@ -280,14 +239,24 @@ pub fn load_root_state(root: &std::path::Path) -> InitResult {
                 "goal".to_string()
             }
         };
+        let role_key = match role_dim_key(root, now.year(), now.month()) {
+            Ok(k) => k,
+            Err(e) => {
+                all_errors.push(ConfigErrorDetail {
+                    kind: "RoleKeyMissing".to_string(),
+                    message: e,
+                });
+                "role".to_string()
+            }
+        };
         let (goal_to_role, role_to_goals) = build_commitment_maps(&commitments);
-        annotate_day_file(&mut today, &goal_key, &goal_to_role, &role_to_goals);
+        annotate_day_file(&mut today, &role_key, &goal_key, &goal_to_role, &role_to_goals);
     }
 
     InitResult::Ready {
         root_path: root.to_string_lossy().into_owned(),
         dimensions,
-        from_template,
+        usingDefaultDimensions: using_default_dimensions,
         today,
         commitments,
         scan_warnings,
@@ -403,8 +372,9 @@ pub fn get_entries(root_path: String, date: String) -> Result<DayFile, String> {
             let month = d.format("%m").to_string().parse::<u32>().unwrap_or(0);
             let commitments = crate::files::read_commitments_file(root, year, month).unwrap_or_default();
             let goal_key = goal_dim_key(root, year, month)?;
+            let role_key = role_dim_key(root, year, month)?;
             let (goal_to_role, role_to_goals) = build_commitment_maps(&commitments);
-            annotate_day_file(day_file, &goal_key, &goal_to_role, &role_to_goals);
+            annotate_day_file(day_file, &role_key, &goal_key, &goal_to_role, &role_to_goals);
         }
     }
 
@@ -457,8 +427,9 @@ pub fn append_entry(root_path: String, date: String, entry: CreateEntryInput) ->
     {
         let commitments = crate::files::read_commitments_file(root, year, month).unwrap_or_default();
         let goal_key = goal_dim_key(root, year, month)?;
+        let role_key = role_dim_key(root, year, month)?;
         let (goal_to_role, role_to_goals) = build_commitment_maps(&commitments);
-        entry.attribution = compute_attribution(&entry.dimensions, &goal_key, &goal_to_role, &role_to_goals);
+        entry.attribution = compute_attribution(&entry.dimensions, &role_key, &goal_key, &goal_to_role, &role_to_goals);
     }
 
     let result = files::append_to_day_file(root, &date, &entry);
@@ -518,8 +489,9 @@ pub fn update_entry(
     if let Ok(ref mut day_file) = result {
         let commitments = crate::files::read_commitments_file(root, year, month).unwrap_or_default();
         let goal_key = goal_dim_key(root, year, month)?;
+        let role_key = role_dim_key(root, year, month)?;
         let (goal_to_role, role_to_goals) = build_commitment_maps(&commitments);
-        annotate_day_file(day_file, &goal_key, &goal_to_role, &role_to_goals);
+        annotate_day_file(day_file, &role_key, &goal_key, &goal_to_role, &role_to_goals);
     }
 
     let ok = result.is_ok();
@@ -568,8 +540,9 @@ pub fn delete_entry(root_path: String, date: String, entry_id: String) -> Result
     if let Ok(ref mut day_file) = result {
         let commitments = crate::files::read_commitments_file(root, year, month).unwrap_or_default();
         let goal_key = goal_dim_key(root, year, month)?;
+        let role_key = role_dim_key(root, year, month)?;
         let (goal_to_role, role_to_goals) = build_commitment_maps(&commitments);
-        annotate_day_file(day_file, &goal_key, &goal_to_role, &role_to_goals);
+        annotate_day_file(day_file, &role_key, &goal_key, &goal_to_role, &role_to_goals);
     }
 
     let ok = result.is_ok();
@@ -628,13 +601,13 @@ pub fn get_month_dimensions(
 ) -> Result<MonthDimensions, String> {
     error_log::log_command_enter("get_month_dimensions", &format!("{}-{:02}", year, month));
     let root = std::path::Path::new(&root_path);
-    // A month is "instantiated" iff its _monthly.md has a non-empty dimensions block.
-    let from_template = match files::read_monthly_file(root, year, month) {
-        Ok(m) => m.dimensions.is_empty(),
+    // A month uses default dimensions iff its dimensions.yaml is absent or empty.
+    let using_default_dimensions = match files::read_dimensions_file(root, year, month) {
+        Ok(d) => d.is_empty(),
         Err(e) => {
             error_log::log_error(
                 "get_month_dimensions",
-                &format!("Failed to read _monthly.md for {}-{:02}: {:?}", year, month, e),
+                &format!("Failed to read dimensions for {}-{:02}: {:?}", year, month, e),
             );
             true
         }
@@ -643,9 +616,9 @@ pub fn get_month_dimensions(
     error_log::log_command_exit(
         "get_month_dimensions",
         true,
-        &format!("{} dims, from_template={}", dimensions.len(), from_template),
+        &format!("{} dims, usingDefaultDimensions={}", dimensions.len(), using_default_dimensions),
     );
-    Ok(MonthDimensions { dimensions, from_template })
+    Ok(MonthDimensions { dimensions, usingDefaultDimensions: using_default_dimensions })
 }
 
 /// The dimension key used to tag a commitment goal for this month. Finds the
@@ -668,12 +641,13 @@ fn role_dim_key(root: &std::path::Path, year: i32, month: u32) -> Result<String,
 
 fn compute_attribution(
     dimensions: &BTreeMap<String, String>,
+    role_key: &str,
     goal_key: &str,
     goal_to_role: &std::collections::HashMap<String, String>,
     role_to_goals: &std::collections::HashMap<String, Vec<String>>,
 ) -> crate::models::Attribution {
     use crate::models::Attribution;
-    let role = dimensions.get("role");
+    let role = dimensions.get(role_key);
     let goal = dimensions.get(goal_key);
 
     match (role, goal) {
@@ -722,12 +696,13 @@ fn build_commitment_maps(
 /// 为 DayFile 中所有 entry 计算 attribution
 fn annotate_day_file(
     day_file: &mut crate::models::DayFile,
+    role_key: &str,
     goal_key: &str,
     goal_to_role: &std::collections::HashMap<String, String>,
     role_to_goals: &std::collections::HashMap<String, Vec<String>>,
 ) {
     for entry in &mut day_file.entries {
-        entry.attribution = compute_attribution(&entry.dimensions, goal_key, goal_to_role, role_to_goals);
+        entry.attribution = compute_attribution(&entry.dimensions, role_key, goal_key, goal_to_role, role_to_goals);
     }
 }
 
@@ -772,6 +747,7 @@ pub fn get_commitment_progress(
 
     // 4. Scan day files
     let goal_key = goal_dim_key(root, year, month)?;
+    let role_key = role_dim_key(root, year, month)?;
     let month_dir = root.join(year.to_string()).join(format!("{:02}", month));
 
     if month_dir.exists() {
@@ -786,18 +762,18 @@ pub fn get_commitment_progress(
                 };
                 let path = entry.path();
                 let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-                if file_name == "_monthly.md" || !file_name.ends_with(".md") {
+                if !file_name.ends_with(".md") {
                     continue;
                 }
                 match crate::files::read_day_file(root, file_name.trim_end_matches(".md")) {
                     Ok(day_file) => {
                         for e in &day_file.entries {
-                            let attr = compute_attribution(&e.dimensions, &goal_key, &goal_to_role, &role_to_goals);
+                            let attr = compute_attribution(&e.dimensions, &role_key, &goal_key, &goal_to_role, &role_to_goals);
 
                             match attr {
                                 crate::models::Attribution::Ok => {
                                     // Determine which role and whether it's goal or general
-                                    if let Some(role) = e.dimensions.get("role") {
+                                    if let Some(role) = e.dimensions.get(&role_key) {
                                         if let Some(goal_val) = e.dimensions.get(&goal_key) {
                                             if let Some(goals) = role_to_goals.get(role) {
                                                 if goals.contains(goal_val) {
@@ -830,7 +806,7 @@ pub fn get_commitment_progress(
                                 crate::models::Attribution::Mismatch => {
                                     mismatch_count += 1;
                                     // Still count toward the role's general segment
-                                    if let Some(role) = e.dimensions.get("role") {
+                                    if let Some(role) = e.dimensions.get(&role_key) {
                                         *role_general_spent.entry(role.clone()).or_insert(0) += e.duration;
                                     }
                                 }
@@ -885,9 +861,10 @@ pub fn set_commitments(
         &format!("{}-{:02} {} roles", year, month, commitments.len()),
     );
     let root = std::path::Path::new(&root_path);
+    let role_key = role_dim_key(root, year, month)?;
 
     // 1. Validate
-    validate_commitments(&commitments)?;
+    crate::config::validate_commitments(&commitments)?;
 
     // 2. Snapshot template dims if this month is fresh (preserves any dims block)
     files::create_dimensions_if_missing(root, year, month)?;
@@ -943,14 +920,14 @@ pub fn set_commitments(
                 };
                 let path = entry.path();
                 let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-                if file_name == "_monthly.md" || !file_name.ends_with(".md") {
+                if !file_name.ends_with(".md") {
                     continue;
                 }
                 if let Ok(mut day_file) = crate::files::read_day_file(root, file_name.trim_end_matches(".md")) {
                     let mut changed = false;
                     for e in &mut day_file.entries {
-                        if e.dimensions.get("role").map(|r| r == old_name).unwrap_or(false) {
-                            e.dimensions.insert("role".to_string(), new_name.to_string());
+                        if e.dimensions.get(&role_key).map(|r| r == old_name).unwrap_or(false) {
+                            e.dimensions.insert(role_key.clone(), new_name.to_string());
                             changed = true;
                         }
                     }
@@ -978,14 +955,14 @@ pub fn set_commitments(
                 };
                 let path = entry.path();
                 let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-                if file_name == "_monthly.md" || !file_name.ends_with(".md") {
+                if !file_name.ends_with(".md") {
                     continue;
                 }
                 if let Ok(mut day_file) = crate::files::read_day_file(root, file_name.trim_end_matches(".md")) {
                     let mut changed = false;
                     for e in &mut day_file.entries {
-                        if e.dimensions.get("role").map(|r| r == *role_name).unwrap_or(false) {
-                            e.dimensions.remove("role");
+                        if e.dimensions.get(&role_key).map(|r| r == *role_name).unwrap_or(false) {
+                            e.dimensions.remove(&role_key);
                             changed = true;
                         }
                     }
@@ -1187,40 +1164,6 @@ pub fn validate_date_format(date: &str) -> Result<chrono::NaiveDate, String> {
         .map_err(|e| format!("Invalid date '{}': {}. Expected YYYY-MM-DD", date, e))
 }
 
-/// Validate commitments before saving (no IO).
-fn validate_commitments(commitments: &[Commitment]) -> Result<(), String> {
-    if commitments.is_empty() {
-        return Err("At least one role is required".to_string());
-    }
-    let mut role_set = std::collections::HashSet::new();
-    let mut goal_set = std::collections::HashSet::new();
-    for c in commitments {
-        let role = c.role.trim();
-        if role.is_empty() {
-            return Err("Role name cannot be empty".to_string());
-        }
-        if !role_set.insert(role.to_string()) {
-            return Err(format!("Role '{}' already exists", role));
-        }
-        if c.allocation == 0 {
-            return Err(format!(
-                "Allocation for '{}' must be greater than 0",
-                role
-            ));
-        }
-        for g in &c.goals {
-            let goal = g.trim();
-            if goal.is_empty() {
-                return Err("Goal name cannot be empty".to_string());
-            }
-            if !goal_set.insert(goal.to_string()) {
-                return Err(format!("Goal '{}' already exists", goal));
-            }
-        }
-    }
-    Ok(())
-}
-
 /// Detects goal renames and deletions between old and new commitments.
 ///
 /// A rename is detected when a role has the same number of goals and exactly
@@ -1400,7 +1343,6 @@ pub fn get_available_months(root_path: String) -> Result<Vec<AvailableMonth>, St
             };
 
             // Check if this month directory contains at least one .md file
-            // (skip _monthly.md — it is metadata, not day-entry data)
             let has_md = match std::fs::read_dir(month_entry.path()) {
                 Ok(entries) => {
                     let mut found = false;
@@ -1408,7 +1350,7 @@ pub fn get_available_months(root_path: String) -> Result<Vec<AvailableMonth>, St
                         match e {
                             Ok(entry) => {
                                 let name_str = entry.file_name().to_string_lossy().into_owned();
-                                if name_str.ends_with(".md") && name_str != "_monthly.md" {
+                                if name_str.ends_with(".md") {
                                     found = true;
                                     break;
                                 }
@@ -1704,20 +1646,6 @@ mod tests {
         let _ = fs::remove_dir_all(&tmp);
     }
 
-    #[test]
-    fn test_read_monthly_file_safe_corrupt() {
-        use std::fs;
-        let tmp = std::env::temp_dir().join("logbook_test_corrupt_monthly");
-        let _ = fs::remove_dir_all(&tmp);
-        let path = files::monthly_path(&tmp, 2026, 6);
-        fs::create_dir_all(path.parent().unwrap()).unwrap();
-        fs::write(&path, "---\ncommitments: [\n---\n").unwrap(); // broken YAML
-        let result = read_monthly_file_safe(&tmp, 2026, 6);
-        assert!(result.is_err());
-        assert!(result.unwrap_err().contains("Manual recovery"));
-        let _ = fs::remove_dir_all(&tmp);
-    }
-
     // --- validate_required_dimensions tests ---
 
     use crate::models::{Dimension, Template};
@@ -1802,6 +1730,11 @@ mod tests {
         let monthly_dir = tmp.join("2026").join("06");
         fs::create_dir_all(&monthly_dir).unwrap();
         fs::write(
+            tmp.join("dimensions.template.yaml"),
+            "dimensions:\n  - name: Goal\n    key: goal\n    source: commitments:goals\n  - name: Role\n    key: role\n    source: commitments:role\n",
+        )
+        .unwrap();
+        fs::write(
             monthly_dir.join("commitments.yaml"),
             "- role: Dev\n  allocation: 40\n  goals:\n    - Ship it\n",
         )
@@ -1829,6 +1762,11 @@ mod tests {
         // Create commitments.yaml
         let monthly_dir = tmp.join("2026").join("06");
         fs::create_dir_all(&monthly_dir).unwrap();
+        fs::write(
+            tmp.join("dimensions.template.yaml"),
+            "dimensions:\n  - name: Goal\n    key: goal\n    source: commitments:goals\n  - name: Role\n    key: role\n    source: commitments:role\n",
+        )
+        .unwrap();
         fs::write(
             monthly_dir.join("commitments.yaml"),
             "- role: Dev\n  allocation: 40\n  goals:\n    - Ship it\n    - Review\n- role: PM\n  allocation: 10\n  goals:\n    - Planning\n",
@@ -1880,6 +1818,11 @@ mod tests {
         let monthly_dir = tmp.join("2026").join("06");
         fs::create_dir_all(&monthly_dir).unwrap();
         fs::write(
+            tmp.join("dimensions.template.yaml"),
+            "dimensions:\n  - name: Goal\n    key: goal\n    source: commitments:goals\n  - name: Role\n    key: role\n    source: commitments:role\n",
+        )
+        .unwrap();
+        fs::write(
             monthly_dir.join("commitments.yaml"),
             "- role: Dev\n  allocation: 40\n  goals:\n    - Ship it\n",
         )
@@ -1904,6 +1847,12 @@ mod tests {
     fn test_get_commitment_progress_no_monthly_file() {
         let tmp = std::env::temp_dir().join("logbook_test_cp_nofile");
         let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(&tmp).unwrap();
+        std::fs::write(
+            tmp.join("dimensions.template.yaml"),
+            "dimensions:\n  - name: Goal\n    key: goal\n    source: commitments:goals\n  - name: Role\n    key: role\n    source: commitments:role\n",
+        )
+        .unwrap();
 
         let result = get_commitment_progress(tmp.to_string_lossy().into_owned(), 2026, 6).unwrap();
 
@@ -1922,7 +1871,10 @@ mod tests {
         let template = r#"dimensions:
   - name: Goal
     key: goal
-    source: monthly
+    source: commitments:goals
+  - name: Role
+    key: role
+    source: commitments:role
 "#;
         std::fs::write(tmp.join("dimensions.template.yaml"), template).unwrap();
 
@@ -1939,7 +1891,7 @@ mod tests {
         let month_dir = tmp.join("2026").join("07");
         std::fs::create_dir_all(&month_dir).unwrap();
         std::fs::write(month_dir.join("commitments.yaml"), commitments_yaml).unwrap();
-        std::fs::write(month_dir.join("dimensions.yaml"), "dimensions: []\n").unwrap();
+        std::fs::write(month_dir.join("dimensions.yaml"), "[]\n").unwrap();
 
         // Day 1: entry with role=Dev, goal=Ship X -> Ok, goal segment
         let day1 = r#"---
@@ -2025,7 +1977,7 @@ entries:
 
     #[test]
     fn test_validate_commitments_empty_list() {
-        let result = validate_commitments(&[]);
+        let result = crate::config::validate_commitments(&[]);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("At least one role"));
     }
@@ -2033,7 +1985,7 @@ entries:
     #[test]
     fn test_validate_commitments_empty_role() {
         let c = make_commitments(vec![("", 40, vec!["Goal A"])]);
-        let result = validate_commitments(&c);
+        let result = crate::config::validate_commitments(&c);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("Role name cannot be empty"));
     }
@@ -2041,7 +1993,7 @@ entries:
     #[test]
     fn test_validate_commitments_whitespace_role() {
         let c = make_commitments(vec![("   ", 40, vec!["Goal A"])]);
-        let result = validate_commitments(&c);
+        let result = crate::config::validate_commitments(&c);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("Role name cannot be empty"));
     }
@@ -2049,7 +2001,7 @@ entries:
     #[test]
     fn test_validate_commitments_zero_allocation() {
         let c = make_commitments(vec![("Dev", 0, vec!["Goal A"])]);
-        let result = validate_commitments(&c);
+        let result = crate::config::validate_commitments(&c);
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(err.contains("Allocation for 'Dev'"));
@@ -2059,7 +2011,7 @@ entries:
     #[test]
     fn test_validate_commitments_empty_goal() {
         let c = make_commitments(vec![("Dev", 40, vec![""])]);
-        let result = validate_commitments(&c);
+        let result = crate::config::validate_commitments(&c);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("Goal name cannot be empty"));
     }
@@ -2067,7 +2019,7 @@ entries:
     #[test]
     fn test_validate_commitments_duplicate_goal_same_role() {
         let c = make_commitments(vec![("Dev", 40, vec!["Ship it", "Ship it"])]);
-        let result = validate_commitments(&c);
+        let result = crate::config::validate_commitments(&c);
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(err.contains("already exists"));
@@ -2080,7 +2032,7 @@ entries:
             ("Dev", 40, vec!["Shared goal"]),
             ("TL", 20, vec!["Shared goal"]),
         ]);
-        let result = validate_commitments(&c);
+        let result = crate::config::validate_commitments(&c);
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(err.contains("already exists"));
@@ -2093,7 +2045,7 @@ entries:
             ("Dev", 40, vec!["A"]),
             ("Dev", 20, vec!["B"]),
         ]);
-        let result = validate_commitments(&c);
+        let result = crate::config::validate_commitments(&c);
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(err.contains("Role"));
@@ -2104,7 +2056,7 @@ entries:
     #[test]
     fn test_validate_commitments_duplicate_goal_ignores_whitespace() {
         let c = make_commitments(vec![("Dev", 40, vec!["Ship it", " Ship it "])]);
-        let result = validate_commitments(&c);
+        let result = crate::config::validate_commitments(&c);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("already exists"));
     }
@@ -2115,7 +2067,7 @@ entries:
             ("Dev", 40, vec!["A"]),
             (" Dev ", 20, vec!["B"]),
         ]);
-        let result = validate_commitments(&c);
+        let result = crate::config::validate_commitments(&c);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("already exists"));
     }
@@ -2137,7 +2089,7 @@ entries:
             ("Dev", 80, vec!["Ship it", "Review"]),
             ("TL", 40, vec!["1:1", "Architecture"]),
         ]);
-        assert!(validate_commitments(&c).is_ok());
+        assert!(crate::config::validate_commitments(&c).is_ok());
     }
 
     // --- detect_goal_changes tests ---
@@ -2280,7 +2232,7 @@ entries:
         let dims = BTreeMap::new();
         let goal_to_role: HashMap<String, String> = HashMap::new();
         let role_to_goals: HashMap<String, Vec<String>> = HashMap::new();
-        let result = compute_attribution(&dims, "goal", &goal_to_role, &role_to_goals);
+        let result = compute_attribution(&dims, "role", "goal", &goal_to_role, &role_to_goals);
         assert_eq!(result, Attribution::Unattributed);
     }
 
@@ -2292,7 +2244,7 @@ entries:
         let mut goal_to_role: HashMap<String, String> = HashMap::new();
         goal_to_role.insert("Ship X".to_string(), "Dev".to_string());
         let role_to_goals: HashMap<String, Vec<String>> = HashMap::new();
-        let result = compute_attribution(&dims, "goal", &goal_to_role, &role_to_goals);
+        let result = compute_attribution(&dims, "role", "goal", &goal_to_role, &role_to_goals);
         assert_eq!(result, Attribution::Ok);
     }
 
@@ -2303,7 +2255,7 @@ entries:
         dims.insert("goal".to_string(), "Unknown".to_string());
         let goal_to_role: HashMap<String, String> = HashMap::new();
         let role_to_goals: HashMap<String, Vec<String>> = HashMap::new();
-        let result = compute_attribution(&dims, "goal", &goal_to_role, &role_to_goals);
+        let result = compute_attribution(&dims, "role", "goal", &goal_to_role, &role_to_goals);
         assert_eq!(result, Attribution::Unattributed);
     }
 
@@ -2315,7 +2267,7 @@ entries:
         let goal_to_role: HashMap<String, String> = HashMap::new();
         let mut role_to_goals: HashMap<String, Vec<String>> = HashMap::new();
         role_to_goals.insert("Dev".to_string(), vec!["Ship X".to_string()]);
-        let result = compute_attribution(&dims, "goal", &goal_to_role, &role_to_goals);
+        let result = compute_attribution(&dims, "role", "goal", &goal_to_role, &role_to_goals);
         assert_eq!(result, Attribution::Ok);
     }
 
@@ -2328,7 +2280,7 @@ entries:
         let goal_to_role: HashMap<String, String> = HashMap::new();
         let mut role_to_goals: HashMap<String, Vec<String>> = HashMap::new();
         role_to_goals.insert("Dev".to_string(), vec!["Ship X".to_string()]);
-        let result = compute_attribution(&dims, "goal", &goal_to_role, &role_to_goals);
+        let result = compute_attribution(&dims, "role", "goal", &goal_to_role, &role_to_goals);
         assert_eq!(result, Attribution::Ok);
     }
 
@@ -2341,7 +2293,7 @@ entries:
         let goal_to_role: HashMap<String, String> = HashMap::new();
         let mut role_to_goals: HashMap<String, Vec<String>> = HashMap::new();
         role_to_goals.insert("Dev".to_string(), vec!["Ship X".to_string()]);
-        let result = compute_attribution(&dims, "goal", &goal_to_role, &role_to_goals);
+        let result = compute_attribution(&dims, "role", "goal", &goal_to_role, &role_to_goals);
         assert_eq!(result, Attribution::Mismatch);
     }
 
@@ -2353,7 +2305,7 @@ entries:
         dims.insert("goal".to_string(), "Ship X".to_string());
         let goal_to_role: HashMap<String, String> = HashMap::new();
         let role_to_goals: HashMap<String, Vec<String>> = HashMap::new();
-        let result = compute_attribution(&dims, "goal", &goal_to_role, &role_to_goals);
+        let result = compute_attribution(&dims, "role", "goal", &goal_to_role, &role_to_goals);
         assert_eq!(result, Attribution::Unattributed);
     }
 
@@ -2365,7 +2317,7 @@ entries:
         let mut goal_to_role: HashMap<String, String> = HashMap::new();
         goal_to_role.insert("Launch".to_string(), "PM".to_string());
         let role_to_goals: HashMap<String, Vec<String>> = HashMap::new();
-        let result = compute_attribution(&dims, "objective", &goal_to_role, &role_to_goals);
+        let result = compute_attribution(&dims, "role", "objective", &goal_to_role, &role_to_goals);
         assert_eq!(result, Attribution::Ok);
     }
 
