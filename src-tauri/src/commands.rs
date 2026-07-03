@@ -270,7 +270,7 @@ pub fn load_root_state(root: &std::path::Path) -> InitResult {
     // Inject attribution into today's entries
     {
         let commitments = crate::files::read_commitments_file(root, now.year(), now.month()).unwrap_or_default();
-        let goal_key = monthly_dim_key(root, now.year(), now.month());
+        let goal_key = goal_dim_key(root, now.year(), now.month());
         let (goal_to_role, role_to_goals) = build_commitment_maps(&commitments);
         annotate_day_file(&mut today, &goal_key, &goal_to_role, &role_to_goals);
     }
@@ -393,7 +393,7 @@ pub fn get_entries(root_path: String, date: String) -> Result<DayFile, String> {
             let year = d.format("%Y").to_string().parse::<i32>().unwrap_or(0);
             let month = d.format("%m").to_string().parse::<u32>().unwrap_or(0);
             let commitments = crate::files::read_commitments_file(root, year, month).unwrap_or_default();
-            let goal_key = monthly_dim_key(root, year, month);
+            let goal_key = goal_dim_key(root, year, month);
             let (goal_to_role, role_to_goals) = build_commitment_maps(&commitments);
             annotate_day_file(day_file, &goal_key, &goal_to_role, &role_to_goals);
         }
@@ -447,7 +447,7 @@ pub fn append_entry(root_path: String, date: String, entry: CreateEntryInput) ->
     // Inject attribution for the new entry
     {
         let commitments = crate::files::read_commitments_file(root, year, month).unwrap_or_default();
-        let goal_key = monthly_dim_key(root, year, month);
+        let goal_key = goal_dim_key(root, year, month);
         let (goal_to_role, role_to_goals) = build_commitment_maps(&commitments);
         entry.attribution = compute_attribution(&entry.dimensions, &goal_key, &goal_to_role, &role_to_goals);
     }
@@ -508,7 +508,7 @@ pub fn update_entry(
     // Inject attribution
     if let Ok(ref mut day_file) = result {
         let commitments = crate::files::read_commitments_file(root, year, month).unwrap_or_default();
-        let goal_key = monthly_dim_key(root, year, month);
+        let goal_key = goal_dim_key(root, year, month);
         let (goal_to_role, role_to_goals) = build_commitment_maps(&commitments);
         annotate_day_file(day_file, &goal_key, &goal_to_role, &role_to_goals);
     }
@@ -558,7 +558,7 @@ pub fn delete_entry(root_path: String, date: String, entry_id: String) -> Result
     // Inject attribution
     if let Ok(ref mut day_file) = result {
         let commitments = crate::files::read_commitments_file(root, year, month).unwrap_or_default();
-        let goal_key = monthly_dim_key(root, year, month);
+        let goal_key = goal_dim_key(root, year, month);
         let (goal_to_role, role_to_goals) = build_commitment_maps(&commitments);
         annotate_day_file(day_file, &goal_key, &goal_to_role, &role_to_goals);
     }
@@ -639,14 +639,20 @@ pub fn get_month_dimensions(
     Ok(MonthDimensions { dimensions, from_template })
 }
 
-/// The dimension key used to tag a commitment goal for this month. Conventionally
-/// "goal", but validate_dimensions only requires source=="monthly" (the key is
-/// free), so resolve it dynamically and fall back to "goal" when none/unreadable.
-fn monthly_dim_key(root: &std::path::Path, year: i32, month: u32) -> String {
+/// The dimension key used to tag a commitment goal for this month. Finds the
+/// dimension with source=="commitments:goals", falling back to "goal" when none found.
+fn goal_dim_key(root: &std::path::Path, year: i32, month: u32) -> String {
     files::resolve_month_dimensions(root, year, month)
         .ok()
-        .and_then(|dims| dims.into_iter().find(|d| d.source == "monthly").map(|d| d.key))
+        .and_then(|dims| dims.into_iter().find(|d| d.source == "commitments:goals").map(|d| d.key))
         .unwrap_or_else(|| "goal".to_string())
+}
+
+fn role_dim_key(root: &std::path::Path, year: i32, month: u32) -> String {
+    files::resolve_month_dimensions(root, year, month)
+        .ok()
+        .and_then(|dims| dims.into_iter().find(|d| d.source == "commitments:role").map(|d| d.key))
+        .unwrap_or_else(|| "role".to_string())
 }
 
 fn compute_attribution(
@@ -754,7 +760,7 @@ pub fn get_commitment_progress(
     }
 
     // 4. Scan day files
-    let goal_key = monthly_dim_key(root, year, month);
+    let goal_key = goal_dim_key(root, year, month);
     let month_dir = root.join(year.to_string()).join(format!("{:02}", month));
 
     if month_dir.exists() {
@@ -1017,7 +1023,7 @@ fn batch_count_entries_for_goals(
     if !month_dir.exists() {
         return Ok(counts);
     }
-    let goal_key = monthly_dim_key(root, year, month);
+    let goal_key = goal_dim_key(root, year, month);
     let entries = std::fs::read_dir(&month_dir)
         .map_err(|e| format!("Failed to read month dir: {}", e))?;
 
@@ -1071,7 +1077,7 @@ fn batch_rename_goals_in_entries(
     }
     let entries = std::fs::read_dir(&month_dir)
         .map_err(|e| format!("Failed to read month dir: {}", e))?;
-    let goal_key = monthly_dim_key(root, year, month);
+    let goal_key = goal_dim_key(root, year, month);
 
     // Phase 1: read + transform every affected day file in memory.
     let mut pending: Vec<(String, crate::models::DayFile)> = Vec::new();
@@ -1125,7 +1131,7 @@ fn cleanup_deleted_goals_in_entries(
     if deleted_goals.is_empty() {
         return Ok(());
     }
-    let goal_key = monthly_dim_key(root, year, month);
+    let goal_key = goal_dim_key(root, year, month);
     let month_dir = root
         .join(year.to_string())
         .join(format!("{:02}", month));
