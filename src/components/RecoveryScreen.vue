@@ -15,7 +15,7 @@ const recreateError = ref<string | null>(null);
 
 const errorFile = computed(() => {
   for (const err of store.configErrors) {
-    const m = err.message.match(/^(\S+)/);
+    const m = err.message.match(/^([\w/.-]+\.yaml)/);
     if (m) return m[1];
   }
   return "dimensions.template.yaml";
