@@ -25,9 +25,7 @@ const DURATION_RE = /(\d+(?:\.\d+)?)\s*(h|m)/gi;
 export function parseDurationFromText(text: string): number | null {
   let total = 0;
   let matched = false;
-  const re = new RegExp(DURATION_RE.source, "gi");
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(text)) !== null) {
+  for (const m of text.matchAll(DURATION_RE)) {
     const value = parseFloat(m[1]);
     const unit = (m[2] || "m").toLowerCase();
     total += unit === "h" ? value * 60 : value;

@@ -1329,9 +1329,11 @@ fn detect_role_changes(old: &[crate::models::Commitment], new: &[crate::models::
 
 #[tauri::command]
 pub fn get_available_months(root_path: String) -> Result<Vec<AvailableMonth>, String> {
+    error_log::log_command_enter("get_available_months", &root_path);
     use crate::models::AvailableMonth;
     let root = std::path::Path::new(&root_path);
     if !root.exists() {
+        error_log::log_command_exit("get_available_months", true, "root not found, returning empty");
         return Ok(vec![]);
     }
 
@@ -1454,6 +1456,7 @@ pub fn get_available_months(root_path: String) -> Result<Vec<AvailableMonth>, St
     // Sort descending (newest first)
     months.sort_by(|a, b| b.year.cmp(&a.year).then(b.month.cmp(&a.month)));
 
+    error_log::log_command_exit("get_available_months", true, &format!("{} months", months.len()));
     Ok(months)
 }
 
@@ -1543,6 +1546,14 @@ pub fn reveal_file(app: AppHandle, root_path: String, relative_path: String) -> 
     error_log::log_command_enter("reveal_file", &format!("root={} rel={}", root_path, relative_path));
     let root = std::path::Path::new(&root_path);
     let target = root.join(&relative_path);
+    // Prevent path traversal: ensure the resolved path stays within root.
+    let target = target.canonicalize().unwrap_or(target);
+    if !target.starts_with(&root.canonicalize().unwrap_or(root.to_path_buf())) {
+        let err = format!("Path traversal attempt: {}", relative_path);
+        error_log::log_error("reveal_file", &err);
+        error_log::log_command_exit("reveal_file", false, "path traversal");
+        return Err(err);
+    }
     let (target, select) = if target.exists() {
         (target, true)
     } else {
@@ -1661,8 +1672,11 @@ pub fn log_info(message: String) {
 
 #[tauri::command]
 pub fn check_watcher_health(app: tauri::AppHandle) -> Result<bool, String> {
+    error_log::log_command_enter("check_watcher_health", "");
     let state = app.state::<crate::config::WatcherState>();
-    Ok(state.is_watcher_alive())
+    let alive = state.is_watcher_alive();
+    error_log::log_command_exit("check_watcher_health", true, &format!("alive={}", alive));
+    Ok(alive)
 }
 
 #[cfg(test)]
