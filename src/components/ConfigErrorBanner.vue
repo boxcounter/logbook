@@ -6,7 +6,7 @@ const store = useStore();
 const referencedFiles = computed(() => {
   const files = new Set<string>();
   for (const err of store.configErrors) {
-    const m = err.message.match(/^(\S+)\s/);
+    const m = err.message.match(/^([\w/.-]+\.yaml):/);
     if (m) files.add(m[1]);
   }
   return [...files];

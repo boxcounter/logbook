@@ -176,7 +176,13 @@ pub fn load_root_state(root: &std::path::Path) -> InitResult {
         }
     };
 
-    let mut all_errors = validate_dimensions(&template.dimensions);
+    let mut all_errors: Vec<ConfigErrorDetail> = validate_dimensions(&template.dimensions)
+        .into_iter()
+        .map(|e| ConfigErrorDetail {
+            kind: e.kind,
+            message: format!("dimensions.template.yaml: {}", e.message),
+        })
+        .collect();
 
     let now = chrono::Local::now();
 
