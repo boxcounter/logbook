@@ -67,6 +67,11 @@ fn scan_dir(root: &Path, dir: &Path, warnings: &mut Vec<ScanWarning>) {
             continue;
         }
 
+        // _monthly.md is an internal metadata file, not a day file.
+        if file_name == "_monthly.md" {
+            continue;
+        }
+
         let stem = &file_name[..file_name.len() - 3]; // strip ".md"
 
         // Validate date stem (YYYY-MM-DD)

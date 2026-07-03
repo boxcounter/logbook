@@ -56,6 +56,7 @@ pub fn validate_dimensions(dimensions: &[Dimension]) -> Vec<ConfigErrorDetail> {
     let mut errors = Vec::new();
     let mut goal_source_count = 0;
     let mut role_source_count = 0;
+    let mut key_set = std::collections::HashSet::new();
 
     for (i, dim) in dimensions.iter().enumerate() {
         if dim.name.is_empty() {
@@ -74,6 +75,15 @@ pub fn validate_dimensions(dimensions: &[Dimension]) -> Vec<ConfigErrorDetail> {
                 kind: "KeyInvalidChars".to_string(),
                 message: format!(
                     "Dimension '{}': key '{}' contains invalid characters (use a-z, 0-9, -, _)",
+                    dim.name, dim.key
+                ),
+            });
+        }
+        if !dim.key.is_empty() && !key_set.insert(dim.key.clone()) {
+            errors.push(ConfigErrorDetail {
+                kind: "DuplicateKey".to_string(),
+                message: format!(
+                    "Dimension '{}': key '{}' is already used by another dimension",
                     dim.name, dim.key
                 ),
             });
@@ -569,6 +579,33 @@ mod tests {
         let errors = validate_dimensions(&config.dimensions);
         assert_eq!(errors.len(), 1);
         assert_eq!(errors[0].kind, "InvalidSource");
+    }
+
+    #[test]
+    fn test_validate_dimensions_duplicate_key() {
+        let config = Template {
+            dimensions: vec![
+                Dimension {
+                    name: "Goal".into(),
+                    key: "goal".into(),
+                    source: "commitments:goals".into(),
+                    values: None,
+                    required: true,
+                    deleted: false,
+                },
+                Dimension {
+                    name: "Other Goal".into(),
+                    key: "goal".into(),
+                    source: "static".into(),
+                    values: Some(vec!["a".into()]),
+                    required: false,
+                    deleted: false,
+                },
+            ],
+        };
+        let errors = validate_dimensions(&config.dimensions);
+        assert_eq!(errors.len(), 1);
+        assert_eq!(errors[0].kind, "DuplicateKey");
     }
 
     #[test]
