@@ -63,13 +63,18 @@ let unlistenFocus: (() => void) | null = null;
 onMounted(async () => {
   try {
     unlistenDimensions = await listen<ConfigErrorDetail[]>("dimensions-changed", async (event) => {
-      if (store.status !== "ready") return;
       if (event.payload.length > 0) {
         store.configErrors = event.payload;
         store.configCategory = "in_place";
         store.status = "error";
         return;
       }
+      // No errors — if previously in error state, re-init; otherwise reload dims.
+      if (store.status === "error") {
+        await initApp();
+        return;
+      }
+      if (store.status !== "ready") return;
       // Reload dimensions for the currently viewed month only — not initApp()
       const { year, month } = yearMonthFromDate(store.currentDate);
       try {
