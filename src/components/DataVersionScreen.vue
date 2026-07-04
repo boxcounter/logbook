@@ -9,7 +9,7 @@ defineProps<{
   <div class="flex flex-col items-center justify-center min-h-screen gap-lg p-lg">
     <div class="max-w-[28rem] text-center text-secondary">
       <p class="mb-md">{{ message }}</p>
-      <p class="text-micro text-gray">
+      <p class="text-micro text-[var(--color-text-muted)]">
         数据目录: {{ rootPath }}
       </p>
     </div>
