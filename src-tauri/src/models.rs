@@ -50,32 +50,6 @@ pub struct GoalProgress {
     pub spent_minutes: u32,
 }
 
-/// Entry 归属状态，后端读 entry 时判定。
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "snake_case")]
-pub enum Attribution {
-    /// 正常归属（有 role 维度，或通过 goal → role 映射）
-    Ok,
-    /// 无 role 且无 goal（或 goal 未声明）
-    Unattributed,
-    /// 有 role 有 goal，但 goal 不在该 role 下声明
-    Mismatch,
-}
-
-impl Default for Attribution {
-    fn default() -> Self {
-        Attribution::Ok
-    }
-}
-
-/// get_commitment_progress 返回值
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CommitmentProgressResult {
-    pub roles: Vec<CommitmentProgress>,
-    pub unattributed_count: u32,
-    pub unattributed_total_minutes: u32,
-    pub mismatch_count: u32,
-}
 
 // --- Entries ---
 
@@ -94,8 +68,6 @@ pub struct Entry {
     pub duration: u32, // minutes
     #[serde(default)]
     pub dimensions: BTreeMap<String, String>,
-    #[serde(default)]
-    pub attribution: Attribution,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
