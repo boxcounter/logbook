@@ -190,3 +190,55 @@ fn test_progress_with_non_goal_monthly_key() {
 
     let _ = fs::remove_dir_all(&root);
 }
+
+#[test]
+fn test_progress_role_only_no_goal_counts_as_general_spent() {
+    let root = setup("role_only");
+
+    // Entry has role but no goal → general spent bucket
+    let mut dims = BTreeMap::new();
+    dims.insert("role".to_string(), "Developer".to_string());
+    tauri_app_lib::files::append_new_entry(
+        &root,
+        "2026-06-01",
+        &CreateEntryInput { item: "general work".into(), duration: "60m".into(), dimensions: dims },
+    )
+    .unwrap();
+
+    let progress = tauri_app_lib::commands::get_commitment_progress(
+        root.to_string_lossy().into_owned(), 2026, 6,
+    )
+    .unwrap();
+
+    let dev = progress.roles.iter().find(|c| c.role == "Developer").unwrap();
+    assert_eq!(dev.general_spent_minutes, 60, "role-only entry should count as general spent");
+    assert_eq!(dev.goal_spent_minutes, 0);
+
+    teardown(&root);
+}
+
+#[test]
+fn test_progress_goal_fallback_to_role_via_goal_to_role_map() {
+    let root = setup("goal_fallback");
+
+    // Entry has goal but no role → fallback to goal's role via goal_to_role map
+    let mut dims = BTreeMap::new();
+    dims.insert("goal".to_string(), "Strategy".to_string()); // Strategy belongs to VP
+    tauri_app_lib::files::append_new_entry(
+        &root,
+        "2026-06-01",
+        &CreateEntryInput { item: "strategy work".into(), duration: "45m".into(), dimensions: dims },
+    )
+    .unwrap();
+
+    let progress = tauri_app_lib::commands::get_commitment_progress(
+        root.to_string_lossy().into_owned(), 2026, 6,
+    )
+    .unwrap();
+
+    let vp = progress.roles.iter().find(|c| c.role == "VP").unwrap();
+    assert_eq!(vp.goal_spent_minutes, 45, "goal-only entry should fallback to goal's role");
+    assert_eq!(vp.general_spent_minutes, 0);
+
+    teardown(&root);
+}

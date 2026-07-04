@@ -88,6 +88,11 @@ pub fn validate_dimensions(dimensions: &[Dimension]) -> Vec<ConfigErrorDetail> {
                 ),
             });
         }
+        // Deleted dimensions retain their name/key for data integrity but skip
+        // source-specific validation (values, uniqueness) since they are retired.
+        if dim.deleted {
+            continue;
+        }
         match dim.source.as_str() {
             "static" => match &dim.values {
                 None => errors.push(ConfigErrorDetail {
@@ -579,6 +584,22 @@ mod tests {
         let errors = validate_dimensions(&config.dimensions);
         assert_eq!(errors.len(), 1);
         assert_eq!(errors[0].kind, "InvalidSource");
+    }
+
+    #[test]
+    fn test_validate_dimensions_deleted_skips_source_checks() {
+        let config = Template {
+            dimensions: vec![Dimension {
+                name: "Deleted static".into(),
+                key: "deleted".into(),
+                source: "static".into(),
+                values: None, // would be an error if not deleted
+                required: false,
+                deleted: true,
+            }],
+        };
+        let errors = validate_dimensions(&config.dimensions);
+        assert!(errors.is_empty(), "deleted dimensions should skip source-specific validation");
     }
 
     #[test]

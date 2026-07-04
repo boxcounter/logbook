@@ -662,4 +662,50 @@ mod tests {
 
         let _ = fs::remove_dir_all(&tmp);
     }
+
+    #[test]
+    fn test_cleanup_tmp_files_removes_orphaned_tmp() {
+        let tmp = std::env::temp_dir().join("logbook_test_cleanup_tmp");
+        let _ = fs::remove_dir_all(&tmp);
+        fs::create_dir_all(&tmp).unwrap();
+
+        // Create an orphaned .tmp file (simulating crash during atomic write)
+        let day_dir = tmp.join("2026/07");
+        fs::create_dir_all(&day_dir).unwrap();
+        fs::write(day_dir.join("2026-07-04.md.tmp"), "data").unwrap();
+        // Also create a valid .md file that should survive
+        fs::write(day_dir.join("2026-07-04.md"), "---\nentries: []\n---\n").unwrap();
+
+        cleanup_tmp_files(&tmp);
+
+        assert!(!day_dir.join("2026-07-04.md.tmp").exists(), "orphaned .tmp should be removed");
+        assert!(day_dir.join("2026-07-04.md").exists(), "valid .md should survive");
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_save_root_path_atomic_and_read_roundtrip() {
+        let tmp = std::env::temp_dir().join("logbook_test_root_path");
+        let _ = fs::remove_dir_all(&tmp);
+        fs::create_dir_all(&tmp).unwrap();
+
+        let data_root = tmp.join("my-data");
+        save_root_path(&tmp, &data_root).unwrap();
+        let read = read_root_path(&tmp).unwrap();
+        assert_eq!(read, data_root);
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_read_root_path_nonexistent_returns_none() {
+        let tmp = std::env::temp_dir().join("logbook_test_root_path_nonexist");
+        let _ = fs::remove_dir_all(&tmp);
+        fs::create_dir_all(&tmp).unwrap();
+
+        assert_eq!(read_root_path(&tmp), None);
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
 }

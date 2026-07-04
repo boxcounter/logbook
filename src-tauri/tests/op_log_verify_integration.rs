@@ -109,3 +109,32 @@ fn test_verify_detects_missing_operation() {
 
     let _ = fs::remove_dir_all(&tmp);
 }
+
+/// Verify that verify_op_log gracefully handles replay when dimensions.template.yaml
+/// is missing. It should return mismatches (not panic) since replay can't validate
+/// dimension keys without a template.
+#[test]
+fn test_verify_op_log_no_template_returns_mismatches_not_panic() {
+    let tmp = test_root("no_template");
+    let _ = fs::remove_dir_all(&tmp);
+    fs::create_dir_all(&tmp).unwrap();
+
+    let op_log_row = serde_json::json!({
+        "op": "append",
+        "date": "2026-06-15",
+        "entry_id": "test-id",
+        "params": {
+            "item": "test",
+            "duration": "30m",
+            "dimensions": {}
+        }
+    });
+    let log_dir = tmp.join(".logbook").join("operations");
+    fs::create_dir_all(&log_dir).unwrap();
+    fs::write(log_dir.join("2026-06-01.jsonl"), format!("{}\n", op_log_row)).unwrap();
+
+    let result = operation_log::verify_op_log(&tmp.to_string_lossy().to_string());
+    assert!(result.is_err(), "should return mismatches when no template exists");
+
+    let _ = fs::remove_dir_all(&tmp);
+}
