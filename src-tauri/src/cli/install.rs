@@ -46,8 +46,8 @@ pub fn install_cli(resource_dir: Option<PathBuf>) -> Result<String, String> {
         .map_err(|e| format!("Cannot set executable permission: {}", e))?;
 
     Ok(format!(
-        "Installed {dest_name} → {dest}.\n\n\
-         Run: {dest_name} entries --date YYYY-MM-DD\n\
+        "Installed {dest_name} → {dest}\n\n\
+         Run: {dest_name} --help\n\
          Make sure {dir} is in your PATH. If not:\n  export PATH=\"$HOME/.local/bin:$PATH\"",
         dest_name = dest_name,
         dest = dest.display(),
