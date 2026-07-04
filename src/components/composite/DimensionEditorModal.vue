@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { VueDraggable } from "vue-draggable-plus";
 import type { Dimension } from "../../types";
 import { dimensionHues, dimBar } from "../../utils/dimensionColor";
+import { logError } from "../../utils/errorLog";
 
 const props = defineProps<{
   open: boolean;
@@ -22,6 +23,8 @@ const selectedIndex = ref(0);
 const newValue = ref("");
 const error = ref("");
 const saving = ref(false);
+const savingTemplate = ref(false);
+const templateSaved = ref(false);
 
 // Add dimension form
 const showAddForm = ref(false);
@@ -181,14 +184,22 @@ async function save() {
 }
 
 async function saveAsTemplate() {
+  savingTemplate.value = true;
   error.value = "";
+  templateSaved.value = false;
   try {
     await invoke("save_dimensions_template", {
       rootPath: props.rootPath,
       dimensions: draft.value,
     });
+    templateSaved.value = true;
+    setTimeout(() => { templateSaved.value = false; }, 2000);
   } catch (e: unknown) {
-    error.value = typeof e === "string" ? e : (e as Error).message ?? "Save template failed";
+    const msg = typeof e === "string" ? e : (e as Error).message ?? "Save template failed";
+    error.value = msg;
+    logError("DimensionEditorModal.saveAsTemplate", msg);
+  } finally {
+    savingTemplate.value = false;
   }
 }
 
@@ -221,9 +232,10 @@ const monthLabel = new Date(props.year, props.month - 1, 1)
               <span class="text-[var(--color-text-disabled)]">|</span>
               <button
                 data-test="save-as-template"
-                class="text-secondary font-semibold text-[var(--color-brand-link)] cursor-pointer"
+                class="text-secondary font-semibold text-[var(--color-brand-link)] cursor-pointer disabled:opacity-50 disabled:cursor-default"
+                :disabled="savingTemplate"
                 @click="saveAsTemplate"
-              >Save as template</button>
+              >{{ savingTemplate ? 'Saving...' : templateSaved ? 'Saved!' : 'Save as template' }}</button>
             </div>
           </div>
 
