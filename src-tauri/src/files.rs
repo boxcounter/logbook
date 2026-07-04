@@ -51,6 +51,50 @@ pub fn dimensions_template_path(root: &Path) -> PathBuf {
     root.join("dimensions.template.yaml")
 }
 
+/// Data version file: {root}/version.txt
+pub fn version_path(root: &Path) -> PathBuf {
+    root.join("version.txt")
+}
+
+/// Write version.txt (atomic: tmp then rename).
+pub fn write_version_file(root: &Path, version: u32) -> Result<(), String> {
+    let path = version_path(root);
+    let tmp = path.with_extension("tmp");
+    let content = version.to_string();
+    fs::write(&tmp, &content)
+        .map_err(|e| format!("Failed to write version file: {}", e))?;
+    fs::rename(&tmp, &path)
+        .map_err(|e| format!("Failed to rename version file: {}", e))
+}
+
+/// Read version.txt. Returns Ok(None) if file doesn't exist.
+/// Returns Err if file exists but content is not a valid unsigned integer.
+pub fn read_version_file(root: &Path) -> Result<Option<u32>, String> {
+    let path = version_path(root);
+    if !path.exists() {
+        return Ok(None);
+    }
+    let content = fs::read_to_string(&path)
+        .map_err(|e| format!("Failed to read {}: {}", path.display(), e))?;
+    let trimmed = content.trim();
+    if trimmed.is_empty() {
+        return Err(format!(
+            "version.txt is empty in {}",
+            path.display()
+        ));
+    }
+    trimmed
+        .parse::<u32>()
+        .map(Some)
+        .map_err(|_| {
+            format!(
+                "version.txt contains invalid version '{}' in {}",
+                trimmed,
+                path.display()
+            )
+        })
+}
+
 /// Monthly dimensions: {root}/{year}/{month:02}/dimensions.yaml
 pub fn dimensions_path(root: &Path, year: i32, month: u32) -> PathBuf {
     root.join(year.to_string())
@@ -540,6 +584,59 @@ mod tests {
             commitments_path(root, 2026, 6),
             PathBuf::from("/data/2026/06/commitments.yaml")
         );
+    }
+
+    #[test]
+    fn test_version_path() {
+        let root = Path::new("/data");
+        let p = version_path(root);
+        assert_eq!(p, PathBuf::from("/data/version.txt"));
+    }
+
+    #[test]
+    fn test_write_and_read_version_roundtrip() {
+        let tmp = std::env::temp_dir().join("logbook_test_version_rt");
+        let _ = fs::remove_dir_all(&tmp);
+        fs::create_dir_all(&tmp).unwrap();
+
+        write_version_file(&tmp, 1).unwrap();
+        let v = read_version_file(&tmp);
+        assert_eq!(v, Ok(Some(1)));
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_read_version_file_not_found() {
+        let tmp = std::env::temp_dir().join("logbook_test_version_nf");
+        let _ = fs::remove_dir_all(&tmp);
+        fs::create_dir_all(&tmp).unwrap();
+
+        let v = read_version_file(&tmp);
+        assert_eq!(v, Ok(None));
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_read_version_file_invalid_content() {
+        let tmp = std::env::temp_dir().join("logbook_test_version_invalid");
+        let _ = fs::remove_dir_all(&tmp);
+        fs::create_dir_all(&tmp).unwrap();
+
+        // Empty file
+        fs::write(tmp.join("version.txt"), "").unwrap();
+        assert!(read_version_file(&tmp).is_err());
+
+        // Non-integer content
+        fs::write(tmp.join("version.txt"), "abc").unwrap();
+        assert!(read_version_file(&tmp).is_err());
+
+        // Whitespace-only
+        fs::write(tmp.join("version.txt"), "  \n  ").unwrap();
+        assert!(read_version_file(&tmp).is_err());
+
+        let _ = fs::remove_dir_all(&tmp);
     }
 
     #[test]
