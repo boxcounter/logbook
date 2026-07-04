@@ -51,12 +51,12 @@ const goalOptions = computed(() => {
 
 const goalKey = computed(() => {
   const monthly = props.dimensions.find(d => d.source === "commitments:goals");
-  return monthly?.key ?? "goal";
+  return monthly?.key ?? null;
 });
 
 const roleKey = computed(() => {
   const r = props.dimensions.find(d => d.source === "commitments:role");
-  return r?.key ?? "role";
+  return r?.key ?? null;
 });
 
 const hasRoleDimension = computed(() =>
@@ -67,10 +67,10 @@ const activeValues = computed(() => {
   if (stage.value !== "val") return [];
 
   // Role dimension: values from commitments
-  if (selectedDimKey.value === roleKey.value) {
+  if (selectedDimKey.value === roleKey.value || (selectedDimKey.value === "role" && !hasRoleDimension.value)) {
     let roles = props.commitments.map(c => c.role);
     // Cross-filter: if goal is already selected, only show roles containing that goal
-    const existingGoal = props.dimValues[goalKey.value];
+    const existingGoal = goalKey.value ? props.dimValues[goalKey.value] : undefined;
     if (existingGoal) {
       roles = roles.filter(r =>
         props.commitments.find(c => c.role === r)?.goals.includes(existingGoal)
@@ -83,7 +83,7 @@ const activeValues = computed(() => {
   if (selectedDimKey.value === goalKey.value) {
     let goals = goalOptions.value;
     // Cross-filter: if role is already selected, only show goals under that role
-    const existingRole = props.dimValues[roleKey.value];
+    const existingRole = props.dimValues[roleKey.value ?? "role"];
     if (existingRole) {
       const roleCommitment = props.commitments.find(c => c.role === existingRole);
       if (roleCommitment) goals = roleCommitment.goals;
@@ -100,7 +100,7 @@ const activeValues = computed(() => {
 
 const valHeaderName = computed(() => {
   if (stage.value !== "val") return "";
-  if (selectedDimKey.value === roleKey.value) {
+  if (selectedDimKey.value === roleKey.value || (selectedDimKey.value === "role" && !hasRoleDimension.value)) {
     const d = visibleDims.value.find(d => d.key === roleKey.value);
     return d?.name ?? "Role";
   }
@@ -173,7 +173,7 @@ function onWindowKeydown(e: KeyboardEvent) {
         const d = visibleDims.value[highlightedIndex.value];
         if (d) selectDim(d.key);
       } else if (!hasRoleDimension.value && props.commitments.length > 0) {
-        selectDim(roleKey.value);
+        selectDim("role");
       }
     } else {
       const v = activeValues.value[highlightedIndex.value];
@@ -249,20 +249,20 @@ onUnmounted(() => window.removeEventListener("keydown", onWindowKeydown, true));
         :class="
           visibleDims.length === highlightedIndex
             ? 'bg-[var(--color-brand-solid)] text-white'
-            : (dimValues[roleKey]
+            : (dimValues['role']
                 ? 'text-[var(--color-brand-solid)] font-semibold'
                 : 'text-[var(--color-text-primary)]')
         "
         @mouseenter="highlightedIndex = visibleDims.length"
-        @click="selectDim(roleKey)"
+        @click="selectDim('role')"
       >
-        <span class="w-[3px] h-[18px] rounded-[var(--radius-sm)] flex-shrink-0" :style="{ background: barColor(roleKey) }"></span>
+        <span class="w-[3px] h-[18px] rounded-[var(--radius-sm)] flex-shrink-0" :style="{ background: barColor('role') }"></span>
         Role
         <span
-          v-if="dimValues[roleKey]"
+          v-if="dimValues['role']"
           class="ml-auto flex items-center gap-xs text-micro max-w-[110px]"
         >
-          <span class="truncate">{{ dimValues[roleKey] }}</span>
+          <span class="truncate">{{ dimValues['role'] }}</span>
           <span class="flex-shrink-0">✓</span>
         </span>
         <span

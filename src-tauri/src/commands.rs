@@ -100,8 +100,8 @@ pub fn check_data_version(
                 root_path: root.to_string_lossy().into_owned(),
             });
         }
-        Err(_e) => {
-            // Invalid content → treat as version not found
+        Err(e) => {
+            error_log::log_error("check_data_version", &format!("read_version_file failed: {}", e));
             return Err(InitResult::DataVersionNotFound {
                 root_path: root.to_string_lossy().into_owned(),
             });
@@ -1075,12 +1075,21 @@ pub fn set_commitments(
         }
     }
 
-    // 7d. Repair sweep: clear role dimension values that don't match any
-    //     current commitments role. This handles crash recovery (where
+    // 7d. Repair sweep: clear role and goal dimension values that don't match
+    //     any current commitments role/goal. This handles crash recovery (where
     //     commitments.yaml was updated but day files still have old names)
     //     and defence against manual file edits.
     {
         let valid_roles: std::collections::BTreeSet<&String> = commitments.iter().map(|c| &c.role).collect();
+        let valid_goals: std::collections::BTreeSet<&str> = commitments
+            .iter()
+            .flat_map(|c| c.goals.iter().map(|g| g.as_str()))
+            .collect();
+        let goal_key = goal_dim_key(root, year, month).unwrap_or_else(|e| {
+            error_log::log_error("set_commitments:repair_sweep",
+                &format!("goal_dim_key failed, skipping goal repair: {}", e));
+            String::new()
+        });
         if let Ok(entries) = std::fs::read_dir(&month_dir) {
             for entry in entries {
                 let entry = match entry {
@@ -1105,10 +1114,18 @@ pub fn set_commitments(
                                 cleaned += 1;
                             }
                         }
+                        if !goal_key.is_empty() {
+                            if let Some(goal_val) = e.dimensions.get(&goal_key) {
+                                if !valid_goals.contains(goal_val.as_str()) {
+                                    e.dimensions.remove(&goal_key);
+                                    cleaned += 1;
+                                }
+                            }
+                        }
                     }
                     if cleaned > 0 {
                         error_log::log_info("set_commitments:repair_sweep",
-                            &format!("cleared {} unknown role value(s) in {}", cleaned, file_name));
+                            &format!("cleared {} unknown value(s) in {}", cleaned, file_name));
                         if let Err(e) = crate::files::write_day_file(root, file_name.trim_end_matches(".md"), &day_file) {
                             write_errors.push(format!("repair sweep {}: {}", file_name, e));
                         }
@@ -1217,7 +1234,11 @@ fn batch_rename_goals_in_entries(
     for entry in entries {
         let entry = match entry {
             Ok(e) => e,
-            Err(_) => continue,
+            Err(e) => {
+                error_log::log_error("batch_rename_goals",
+                    &format!("read_dir entry error in {}: {}", month_dir.display(), e));
+                continue;
+            },
         };
         let path = entry.path();
         let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
@@ -1279,7 +1300,11 @@ fn cleanup_deleted_goals_in_entries(
     for entry in entries {
         let entry = match entry {
             Ok(e) => e,
-            Err(_) => continue,
+            Err(e) => {
+                error_log::log_error("cleanup_deleted_goals",
+                    &format!("read_dir entry error in {}: {}", month_dir.display(), e));
+                continue;
+            },
         };
         let path = entry.path();
         let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
@@ -1656,22 +1681,28 @@ pub fn reveal_file(app: AppHandle, root_path: String, relative_path: String) -> 
 
 #[tauri::command]
 pub fn create_starter_files(path: String) -> Result<(), String> {
+    error_log::log_command_enter("create_starter_files", &path);
     let root = std::path::Path::new(&path);
     if !root.exists() {
         std::fs::create_dir_all(root).map_err(|e| format!("Failed to create directory: {}", e))?;
     }
     let template_path = root.join("dimensions.template.yaml");
     if !template_path.exists() {
-        std::fs::write(
+        if let Err(e) = std::fs::write(
             &template_path,
             concat!(
                 "dimensions:\n",
                 "  - name: Goal\n    key: goal\n    source: commitments:goals\n",
                 "  - name: Role\n    key: role\n    source: commitments:role\n",
             ),
-        )
-        .map_err(|e| format!("Failed to write dimensions.template.yaml: {}", e))?;
+        ) {
+            let msg = format!("Failed to write dimensions.template.yaml: {}", e);
+            error_log::log_error("create_starter_files", &msg);
+            error_log::log_command_exit("create_starter_files", false, &msg);
+            return Err(msg);
+        }
     }
+    error_log::log_command_exit("create_starter_files", true, "");
     Ok(())
 }
 

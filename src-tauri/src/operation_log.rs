@@ -144,6 +144,59 @@ pub struct OpLogMismatch {
     pub description: String,
 }
 
+fn copy_month_config(root: &Path, replay_root: &Path) -> Result<(), Vec<OpLogMismatch>> {
+    let year_dirs = match std::fs::read_dir(root) {
+        Ok(entries) => entries,
+        Err(_) => return Ok(()),
+    };
+    for year_entry in year_dirs {
+        let year_entry = match year_entry {
+            Ok(e) => e,
+            Err(_) => continue,
+        };
+        if !year_entry.path().is_dir() {
+            continue;
+        }
+        let year_name = year_entry.file_name().to_string_lossy().to_string();
+        if year_name.parse::<u32>().is_err() {
+            continue;
+        }
+        let month_dirs = match std::fs::read_dir(year_entry.path()) {
+            Ok(entries) => entries,
+            Err(_) => continue,
+        };
+        for month_entry in month_dirs {
+            let month_entry = match month_entry {
+                Ok(e) => e,
+                Err(_) => continue,
+            };
+            if !month_entry.path().is_dir() {
+                continue;
+            }
+            let month_conf = month_entry.path().join("commitments.yaml");
+            if month_conf.exists() {
+                let dest_dir = replay_root
+                    .join(&year_name)
+                    .join(month_entry.file_name());
+                std::fs::create_dir_all(&dest_dir).map_err(|e| {
+                    vec![OpLogMismatch {
+                        date: "".to_string(),
+                        description: format!("create replay dir {}: {}", dest_dir.display(), e),
+                    }]
+                })?;
+                std::fs::copy(&month_conf, dest_dir.join("commitments.yaml"))
+                    .map_err(|e| {
+                        vec![OpLogMismatch {
+                            date: "".to_string(),
+                            description: format!("copy commitments: {}", e),
+                        }]
+                    })?;
+            }
+        }
+    }
+    Ok(())
+}
+
 /// Verify that replaying the operation log produces the same data as currently on disk.
 /// Returns Ok(()) if consistent, or Err(Vec<OpLogMismatch>) describing each difference.
 pub fn verify_op_log(root_path: &str) -> Result<(), Vec<OpLogMismatch>> {
@@ -172,7 +225,7 @@ pub fn verify_op_log(root_path: &str) -> Result<(), Vec<OpLogMismatch>> {
     let replay_root = std::env::temp_dir()
         .join(format!("logbook_oplog_replay_{}", uuid::Uuid::new_v4()));
 
-    // Copy template to replay dir so dimension validation can read it
+    // Copy template and commitments to replay dir so validation can read them
     let template_src = root.join("dimensions.template.yaml");
     if template_src.exists() {
         fs::create_dir_all(&replay_root).map_err(|e| {
@@ -189,6 +242,8 @@ pub fn verify_op_log(root_path: &str) -> Result<(), Vec<OpLogMismatch>> {
                 }]
             })?;
     }
+    // Copy month-level commitments.yaml files so dimension validation works.
+    copy_month_config(root, &replay_root)?;
 
     for (_idx, (_ts, log_line)) in log_entries.iter().enumerate() {
         let op = log_line["op"].as_str().unwrap_or("");

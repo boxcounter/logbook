@@ -3,15 +3,10 @@
 import { ref, computed } from "vue";
 import type { Entry } from "../types";
 import type { AvailableMonth } from "../stores/useStore";
-import { datesInMonth, parseDate, formatDate } from "../utils/dates";
+import { datesInMonth, parseDate, formatDate, MONTH_NAMES } from "../utils/dates";
 import { heatLevel } from "../utils/heatmap";
 import { useClickOutside } from "../composables/useClickOutside";
 import QuickJumpPopover from "./QuickJumpPopover.vue";
-
-const MONTH_NAMES = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-];
 
 const props = defineProps<{
   year: number;

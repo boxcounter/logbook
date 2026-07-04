@@ -384,7 +384,15 @@ pub fn create_dimensions_if_missing(
 
 /// Remove orphaned .tmp files from the data tree (crashed mid-write).
 pub fn cleanup_tmp_files(root: &Path) {
-    fn recurse(dir: &Path) {
+    const MAX_DEPTH: u32 = 5;
+    fn recurse(dir: &Path, depth: u32) {
+        if depth > MAX_DEPTH {
+            crate::error_log::log_error(
+                "cleanup_tmp_files",
+                &format!("Max depth {} exceeded at {}", MAX_DEPTH, dir.display()),
+            );
+            return;
+        }
         let entries = match std::fs::read_dir(dir) {
             Ok(e) => e,
             Err(e) => {
@@ -408,7 +416,7 @@ pub fn cleanup_tmp_files(root: &Path) {
             };
             let path = entry.path();
             if path.is_dir() {
-                recurse(&path);
+                recurse(&path, depth + 1);
             } else if path.extension().map_or(false, |ext| ext == "tmp") {
                 if let Err(e) = std::fs::remove_file(&path) {
                     crate::error_log::log_error(
@@ -419,7 +427,7 @@ pub fn cleanup_tmp_files(root: &Path) {
             }
         }
     }
-    recurse(root);
+    recurse(root, 0);
 }
 
 /// Root path persistence (atomic write)

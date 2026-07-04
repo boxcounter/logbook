@@ -28,7 +28,11 @@ impl InstanceLock {
             }
         }
 
-        fs::write(&lock_path, format!("{}\n", std::process::id())).map_err(|_| 0u32)?;
+        fs::write(&lock_path, format!("{}\n", std::process::id())).map_err(|e| {
+            crate::error_log::log_error("instance_lock",
+                &format!("Failed to write lock file {}: {}", lock_path.display(), e));
+            0u32
+        })?;
 
         Ok(InstanceLock { path: lock_path })
     }

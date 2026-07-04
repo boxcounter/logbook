@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { AppStore } from "../stores/useStore";
+import type { AppStore, AvailableMonth } from "../stores/useStore";
 import type { Entry, DayFile, Commitment, CommitmentProgress, MonthDimensions } from "../types";
 import { logError } from "../utils/errorLog";
 import { yearMonthFromDate } from "../utils/dates";
@@ -35,7 +35,7 @@ export function useMonthData(store: AppStore, guardUnsaved: () => boolean) {
     await loadCommitments(year, month);
     await loadMonthDimensions(year, month);
     store.today = { note: null, entries: store.monthEntries[store.currentDate] ?? [] };
-    loadDayNote(store.currentDate);
+    await loadDayNote(store.currentDate);
   }
 
   async function loadCommitmentProgress(year: number, month: number) {
@@ -105,7 +105,7 @@ export function useMonthData(store: AppStore, guardUnsaved: () => boolean) {
   async function handleRequestMonths() {
     if (store.availableMonths !== null) return;
     try {
-      store.availableMonths = (await invoke("get_available_months", { rootPath: store.rootPath })) as { year: number; month: number }[];
+      store.availableMonths = await invoke<AvailableMonth[]>("get_available_months", { rootPath: store.rootPath });
     } catch (e) { logError("useMonthData.handleRequestMonths", e); store.availableMonths = []; }
   }
 

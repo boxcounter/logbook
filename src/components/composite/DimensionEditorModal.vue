@@ -204,8 +204,10 @@ async function saveAsTemplate() {
   }
 }
 
-const monthLabel = new Date(props.year, props.month - 1, 1)
-  .toLocaleDateString("en-US", { month: "long", year: "numeric" });
+const monthLabel = computed(() =>
+  new Date(props.year, props.month - 1, 1)
+    .toLocaleDateString("en-US", { month: "long", year: "numeric" })
+);
 </script>
 
 <template>

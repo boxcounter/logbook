@@ -65,6 +65,11 @@ onMounted(async () => {
       if (event.payload.length > 0) {
         store.configErrors = event.payload;
         store.configCategory = "in_place";
+        // Keep status 'ready' so MonthView stays alive with ConfigErrorBanner.
+        // Only root_missing or ConfigError from init should trigger RecoveryScreen.
+        if (store.status === "ready") return;
+        // If we were still loading or setting up, show the error in RecoveryScreen
+        // so the user isn't stuck on a blank/loading screen.
         store.status = "error";
         return;
       }
@@ -138,7 +143,7 @@ onMounted(async () => {
           triggerSavedToast("File watcher stopped — restart the app to resume live updates");
         }
         watcherWasAlive = alive;
-      } catch { /* silently skip — the command itself failing is not actionable */ }
+      } catch (e) { logError("App.healthCheck", e); }
     }, 60000);
   }
 

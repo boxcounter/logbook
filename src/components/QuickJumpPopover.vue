@@ -2,11 +2,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from "vue";
 import type { AvailableMonth } from "../stores/useStore";
-
-const MONTH_NAMES = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-];
+import { MONTH_NAMES } from "../utils/dates";
 
 const props = defineProps<{
   year: number;

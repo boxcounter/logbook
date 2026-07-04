@@ -5,6 +5,7 @@ import type { Entry, Dimension, Commitment } from "../../types";
 import { resolveDelta } from "../../utils/format";
 import DimensionPopover from "../DimensionPopover.vue";
 import { dimensionHues, dimTokenChipStyle } from "../../utils/dimensionColor";
+import { useClickOutside } from "../../composables/useClickOutside";
 
 const props = defineProps<{
   entry: Entry;
@@ -60,9 +61,13 @@ function dismissFromOutside() {
   if (confirming.value || !isDirty.value) { emit("cancel"); return; }
   confirming.value = true;
 }
-function onDocMousedown(e: MouseEvent) {
-  if (rootEl.value && !rootEl.value.contains(e.target as Node)) dismissFromOutside();
-}
+
+useClickOutside(rootEl, ref(true), {
+  beforeClose: () => {
+    dismissFromOutside();
+    return false;
+  },
+});
 function onDocFocusin(e: FocusEvent) {
   if (rootEl.value && !rootEl.value.contains(e.target as Node)) dismissFromOutside();
 }
@@ -76,7 +81,6 @@ function onDocKeydown(e: KeyboardEvent) {
   dismissFromOutside();
 }
 onMounted(async () => {
-  document.addEventListener("mousedown", onDocMousedown, true);
   document.addEventListener("focusin", onDocFocusin, true);
   document.addEventListener("keydown", onDocKeydown);
 
@@ -88,7 +92,6 @@ onMounted(async () => {
   }
 });
 onUnmounted(() => {
-  document.removeEventListener("mousedown", onDocMousedown, true);
   document.removeEventListener("focusin", onDocFocusin, true);
   document.removeEventListener("keydown", onDocKeydown);
 });

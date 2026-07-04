@@ -29,6 +29,7 @@ const store = useStore();
 // chips from the previous day don't misleadingly appear in the composer.
 watch(() => store.currentDate, () => {
   dimValues.value = {};
+  text.value = "";
 });
 // Set true after a submit blocked by missing required dimensions, to emphasize
 // the missing chips (frontend hard-block; the backend also rejects them).

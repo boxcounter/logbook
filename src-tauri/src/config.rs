@@ -394,7 +394,13 @@ fn spawn_watcher(
                         Ok(commitments) => {
                             // Validate alongside any existing dimensions
                             let dims = files::read_dimensions_file(&watch_root, year, month)
-                                .unwrap_or_default();
+                                .unwrap_or_else(|e| {
+                                    crate::error_log::log_error(
+                                        "commitments_watcher",
+                                        &format!("read_dimensions_file failed: {}", e),
+                                    );
+                                    vec![]
+                                });
                             let mut errors = validate_dimensions(&dims);
                             if let Err(e) = validate_commitments(&commitments) {
                                 errors.push(ConfigErrorDetail {

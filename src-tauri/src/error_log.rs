@@ -32,8 +32,13 @@ fn append_log(level: &str, context: &str, message: &str) -> Result<(), String> {
     const MAX_LOG_BYTES: u64 = 10 * 1024 * 1024;
     if let Ok(meta) = std::fs::metadata(path) {
         if meta.len() > MAX_LOG_BYTES {
-            let old_path = path.with_extension("log.old");
-            let _ = std::fs::rename(path, &old_path);
+            let old1 = path.with_extension("log.1");
+            let old2 = path.with_extension("log.2");
+            let _ = std::fs::remove_file(&old2);
+            let _ = std::fs::rename(&old1, &old2);
+            if let Err(e) = std::fs::rename(path, &old1) {
+                eprintln!("[logbook] log rotation rename failed: {e}");
+            }
         }
     }
     let mut file = OpenOptions::new()

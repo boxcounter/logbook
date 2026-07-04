@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { createStore } from "../stores/useStore";
+import { formatDate } from "../utils/dates";
 
 describe("createStore", () => {
   it("defaults", () => {
@@ -22,8 +23,7 @@ describe("createStore", () => {
 
   it("currentDate is today", () => {
     const store = createStore();
-    const now = new Date();
-    const expected = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const expected = formatDate(new Date());
     expect(store.currentDate).toBe(expected);
   });
 });

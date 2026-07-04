@@ -17,13 +17,16 @@ use tauri_plugin_dialog::DialogExt;
 fn show_already_running_dialog(app_name: &str) {
     #[cfg(target_os = "macos")]
     {
-        let _ = std::process::Command::new("osascript")
+        let result = std::process::Command::new("osascript")
             .arg("-e")
             .arg(format!(
                 r#"display dialog "{} is already running.\n\nOnly one instance of this application can run at a time." buttons {{"OK"}} default button 1 with icon caution with title "{}""#,
                 app_name, app_name
             ))
             .output();
+        if let Err(e) = result {
+            eprintln!("[logbook] osascript failed: {e}");
+        }
     }
     #[cfg(not(target_os = "macos"))]
     {
@@ -134,9 +137,11 @@ pub fn run() {
 
             app.on_menu_event(|app_handle, event| {
                 if event.id().0 == "install-cli" {
+                    crate::error_log::log_command_enter("install_cli", "menu");
                     let resource_dir = app_handle.path().resource_dir().ok();
                     match crate::cli::install::install_cli(resource_dir) {
                         Ok(msg) => {
+                            crate::error_log::log_command_exit("install_cli", true, "");
                             let _ = app_handle
                                 .dialog()
                                 .message(msg)
@@ -145,6 +150,8 @@ pub fn run() {
                                 .show(|_| {});
                         }
                         Err(e) => {
+                            crate::error_log::log_error("install_cli", &e);
+                            crate::error_log::log_command_exit("install_cli", false, &e);
                             let _ = app_handle
                                 .dialog()
                                 .message(e)
@@ -160,7 +167,9 @@ pub fn run() {
             // Final safeguard: productName from tauri.conf can override
             // the title during initialization. Set it one last time.
             if let Some(w) = app.get_webview_window("main") {
-                w.set_title(&title).ok();
+                if let Err(e) = w.set_title(&title) {
+                    crate::error_log::log_error("setup", &format!("set_title failed: {}", e));
+                }
             }
 
             Ok(())

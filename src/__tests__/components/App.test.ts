@@ -249,7 +249,7 @@ describe("App", () => {
     expect(store.usingDefaultDimensions).toBe(true);
   });
 
-  it("dimensions-changed event with errors shows error screen", async () => {
+  it("dimensions-changed event with errors shows errors via ConfigErrorBanner (status stays ready)", async () => {
     mockInvoke.mockResolvedValue({
       status: "Ready",
       data: { root_path: "/test", dimensions: makeDimensions(), usingDefaultDimensions: false, today: makeDayFile(), commitments: [], scan_warnings: [] },
@@ -263,7 +263,8 @@ describe("App", () => {
       dimensionsChangedCallback({ payload: errors });
     }
 
-    expect(store.status).toBe("error");
+    // Status stays 'ready' so MonthView renders with ConfigErrorBanner.
+    expect(store.status).toBe("ready");
     expect(store.configCategory).toBe("in_place");
     expect(store.configErrors).toEqual([{ kind: "MissingName", message: "Bad config" }]);
   });

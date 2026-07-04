@@ -95,6 +95,7 @@ export function useEntryActions(store: AppStore, inputRef: Ref<ComposerRef | nul
       triggerSavedToast("Saved");
     } catch (e) {
       logError("useEntryActions.handleUpdateEntry", e);
+      triggerSavedToast("Failed to save entry");
     }
   }
 
@@ -126,20 +127,29 @@ export function useEntryActions(store: AppStore, inputRef: Ref<ComposerRef | nul
     pendingDeleteTimer = setTimeout(async () => {
       if (cancelled) return;
       try {
-        await invoke("delete_entry", { rootPath: store.rootPath, date, entryId });
-        store.monthEntries[date] = [...entries];
+        const df = await invoke<DayFile>("delete_entry", {
+          rootPath: store.rootPath,
+          date,
+          entryId,
+        });
+        store.today = df;
+        store.monthEntries[date] = df.entries;
         await refreshProgress(date);
       } catch (e) {
         logError("useEntryActions.handleDeleteEntry", e);
-        if (entries.findIndex((e) => e.id === entryId) === -1) entries.splice(idx, 0, removed);
+        const curEntries = store.today?.entries;
+        if (curEntries && curEntries.findIndex((e) => e.id === entryId) === -1) {
+          curEntries.splice(idx, 0, removed);
+        }
       }
     }, UNDO_DELETE_DELAY);
     triggerUndoToast(() => {
       cancelled = true;
       if (pendingDeleteTimer) clearTimeout(pendingDeleteTimer);
-      if (entries.findIndex((e) => e.id === entryId) === -1) {
-        entries.splice(idx, 0, removed);
-        store.monthEntries[date] = [...entries];
+      const curEntries = store.today?.entries;
+      if (curEntries && curEntries.findIndex((e) => e.id === entryId) === -1) {
+        curEntries.splice(idx, 0, removed);
+        store.monthEntries[date] = [...curEntries];
       }
     });
   }
