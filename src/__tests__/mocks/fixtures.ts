@@ -30,7 +30,6 @@ export function makeEntry(overrides?: Partial<Entry>): Entry {
     item: "Test entry",
     duration: 30,
     dimensions: {},
-    attribution: "ok",
     ...overrides,
   };
 }
