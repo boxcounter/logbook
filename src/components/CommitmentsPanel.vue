@@ -1,7 +1,7 @@
 <!-- src/components/CommitmentsPanel.vue -->
 <script setup lang="ts">
 import { ref, computed } from "vue";
-import type { Commitment, CommitmentProgress, CommitmentProgressResult } from "../types";
+import type { Commitment, CommitmentProgress } from "../types";
 import { formatDurationCompact } from "../utils/format";
 import CommitmentsModal from "./composite/CommitmentsModal.vue";
 
@@ -11,21 +11,7 @@ const props = defineProps<{
   rootPath?: string;
   selectedYear: number;
   selectedMonth: number;
-  progressResult?: CommitmentProgressResult | null;
 }>();
-
-const warningVisible = computed(() => {
-  if (!props.progressResult) return false;
-  return props.progressResult.unattributed_count > 0 || props.progressResult.mismatch_count > 0;
-});
-
-const warningUnattributedMinutes = computed(() =>
-  props.progressResult?.unattributed_total_minutes ?? 0
-);
-
-const warningMismatchCount = computed(() =>
-  props.progressResult?.mismatch_count ?? 0
-);
 
 const emit = defineEmits<{ saved: [Commitment[]] }>();
 
@@ -116,20 +102,6 @@ function onSaved(c: Commitment[]) { modalOpen.value = false; emit("saved", c); }
         <span class="w-[10px] h-[10px] rounded-[2px] flex-shrink-0" style="background: linear-gradient(90deg, var(--color-progress-general-from), var(--color-progress-general-to))"></span>
         General
       </span>
-    </div>
-
-    <div
-      v-if="warningVisible"
-      data-test="warning-bar"
-      class="mt-md p-sm rounded-[var(--radius-form)] bg-[var(--color-problem-entry-bg)] border border-[var(--color-problem-entry-border)] text-secondary flex items-center justify-between text-[var(--color-warning-bar-text)]"
-    >
-      <span>
-        ⚠ 未归属耗时：<strong>{{ formatDurationCompact(warningUnattributedMinutes) }}</strong>
-        <template v-if="warningMismatchCount > 0">
-          / role/goal 不匹配：{{ warningMismatchCount }} 条
-        </template>
-      </span>
-      <span class="text-micro" style="color: var(--color-warning-bar-hint)">entry 缺少 role 或 goal 维度</span>
     </div>
 
     <button
