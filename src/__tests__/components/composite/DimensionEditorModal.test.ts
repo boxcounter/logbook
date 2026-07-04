@@ -2,10 +2,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { mount } from "@vue/test-utils";
 import { nextTick } from "vue";
 import { invoke } from "@tauri-apps/api/core";
+import { logError } from "../../../utils/errorLog";
 import DimensionEditorModal from "../../../components/composite/DimensionEditorModal.vue";
 import type { Dimension } from "../../../types";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
+
+vi.mock("../../../utils/errorLog", () => ({ logError: vi.fn() }));
 
 const MOCK_DIMENSIONS: Dimension[] = [
   { name: "Goal", key: "goal", source: "commitments:goals", values: undefined, required: false, deleted: false },
@@ -251,10 +254,22 @@ describe("DimensionEditorModal", () => {
     const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
     await wrapper.find('[data-test="save-as-template"]').trigger("click");
     await nextTick();
+    await nextTick();
     expect(invoke).toHaveBeenCalledWith("save_dimensions_template", expect.objectContaining({
       rootPath: "/test",
       dimensions: MOCK_DIMENSIONS,
     }));
+  });
+
+  it("shows error and logs when save-as-template fails", async () => {
+    (invoke as any).mockRejectedValue(new Error("Disk full"));
+    const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
+    await wrapper.find('[data-test="save-as-template"]').trigger("click");
+    await nextTick();
+    await nextTick();
+    expect(wrapper.find('[data-test="save-error"]').exists()).toBe(true);
+    expect(wrapper.text()).toContain("Disk full");
+    expect(logError).toHaveBeenCalledWith("DimensionEditorModal.saveAsTemplate", "Disk full");
   });
 
   it("shows error when save fails", async () => {
