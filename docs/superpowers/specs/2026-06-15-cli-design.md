@@ -63,6 +63,10 @@ logbook-cli commitments progress --year 2026 --month 6
 logbook-cli commitments set      --year 2026 --month 7    # 从 stdin 读 YAML/JSON
 
 logbook-cli entries list         --date 2026-06-15
+logbook-cli entries add          --date 2026-06-15    # 从 stdin 读 JSON
+
+logbook-cli dimensions list      --year 2026 --month 6
+logbook-cli dimensions set       --year 2026 --month 7    # 从 stdin 读 YAML/JSON
 ```
 
 ### commitments list
@@ -113,6 +117,17 @@ $ logbook-cli --json entries list --date 2026-06-15
 {"note":null,"entries":[{"id":"...","item":"Code","duration":60,"dimensions":{"goal":"Ship it"}}]}
 ```
 
+### entries add
+
+从 stdin 读 `CreateEntryInput` JSON，复用 `append_entry` 创建条目。
+
+```
+$ echo '{"item":"Code review","duration":"30m","dimensions":{"role":"Dev"}}' | logbook-cli entries add --date 2026-06-15
+Added: "Code review" | 30m | role=Dev
+```
+
+`duration` 支持 `parse_duration` 的所有格式（`30m`、`1h30m`、`120` 等）。dimensions 可选，省略时为 `{}`。
+
 ---
 
 **注意**：`commitments set` 需要在 `files.rs` 新增 `write_monthly_file()`——和现有 `write_day_file()` 同样模式：YAML 序列化 → 包 frontmatter `---` → 写 `.tmp` → rename 原子写入，~10 行。这是本次变更中唯一新增的 Rust 业务代码。
@@ -142,6 +157,7 @@ root_path 找不到时，错误消息提示 `--root-path` 用法。
 ## 不在 scope
 
 - GUI 功能不做改动
-- 不支持 entry CRUD（append/update/delete）——按需后续加
+- `entries add` 已实现（2026-07-04）
+- 不支持 entry update/delete——按需后续加
 - 不发布到 crates.io / Homebrew——`cargo install --path src-tauri` 安装
 - 不修改 `_monthly.md` 的文件监听逻辑——CLI 写入后 GUI 通过 `notify` watcher 自动检测
