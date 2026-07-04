@@ -306,10 +306,11 @@ fn test_set_commitments_creates_new_commitments_file() {
 }
 
 /// Simulate a crash after commitments.yaml is written but before day file
-/// role renames complete.  Re-running set_commitments with the same input
-/// does NOT repair the stale role names — the diff sees no changes.
+/// role renames complete.  The repair sweep (step 7d) clears stale role
+/// values that don't match any current commitments role, so re-running
+/// set_commitments with the same input repairs the inconsistency.
 #[test]
-fn test_set_commitments_crash_after_commitments_write_leaves_stale_roles() {
+fn test_set_commitments_crash_after_commitments_write_repairs_stale_roles() {
     let root = setup("crash_role");
 
     let mut dims = BTreeMap::new();
@@ -343,11 +344,13 @@ fn test_set_commitments_crash_after_commitments_write_leaves_stale_roles() {
     assert_eq!(result[1].role, "VP_New");
 
     let day_after = tauri_app_lib::files::read_day_file(&root, "2026-06-01").unwrap();
-    assert_eq!(
-        day_after.entries[0].dimensions.get("role").unwrap(),
-        "VP",
-        "KNOWN LIMITATION: re-running does not repair stale role names"
+    // "VP" is not in the current commitments ({Developer, VP_New}), so the
+    // repair sweep cleared it. The goal "Strategy" is still present.
+    assert!(
+        day_after.entries[0].dimensions.get("role").is_none(),
+        "stale role VP should have been cleared by repair sweep"
     );
+    assert_eq!(day_after.entries[0].dimensions.get("goal").unwrap(), "Strategy");
 
     teardown(&root);
 }

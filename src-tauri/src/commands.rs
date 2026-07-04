@@ -1014,9 +1014,9 @@ pub fn set_commitments(
     cleanup_deleted_goals_in_entries(root, year, month, &changes.deleted)?;
 
     // 6. Write commitments.yaml FIRST — before mutating day files.
-    //    If a crash occurs after this point, the commitments reflect the new
-    //    state and day files still have old names (consistent & recoverable).
-    //    If a crash occurs before this point, nothing changed at all.
+    //    If a crash occurs during steps 7-7d, step 7d (repair sweep) will fix
+    //    stale role values on the next run — it scans for any role not in the
+    //    current commitments set and clears it.
     files::write_commitments_file(root, year, month, &commitments)?;
 
     // 7. Apply goal renames to day files (single scan for all renames).
@@ -1101,6 +1101,52 @@ pub fn set_commitments(
             }
         } else {
             error_log::log_error("set_commitments:role_cleanup",
+                &format!("failed to read month directory: {}", month_dir.display()));
+        }
+    }
+
+    // 7d. Repair sweep: clear role dimension values that don't match any
+    //     current commitments role. This handles crash recovery (where
+    //     commitments.yaml was updated but day files still have old names)
+    //     and defence against manual file edits.
+    {
+        let valid_roles: std::collections::BTreeSet<&String> = commitments.iter().map(|c| &c.role).collect();
+        if let Ok(entries) = std::fs::read_dir(&month_dir) {
+            for entry in entries {
+                let entry = match entry {
+                    Ok(e) => e,
+                    Err(e) => {
+                        error_log::log_error("set_commitments:repair_sweep",
+                            &format!("read_dir entry error in {}: {}", month_dir.display(), e));
+                        continue;
+                    },
+                };
+                let path = entry.path();
+                let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                if file_name == "_monthly.md" || !file_name.ends_with(".md") {
+                    continue;
+                }
+                if let Ok(mut day_file) = crate::files::read_day_file(root, file_name.trim_end_matches(".md")) {
+                    let mut cleaned = 0u32;
+                    for e in &mut day_file.entries {
+                        if let Some(role_val) = e.dimensions.get(&role_key) {
+                            if !valid_roles.contains(role_val) {
+                                e.dimensions.remove(&role_key);
+                                cleaned += 1;
+                            }
+                        }
+                    }
+                    if cleaned > 0 {
+                        error_log::log_info("set_commitments:repair_sweep",
+                            &format!("cleared {} unknown role value(s) in {}", cleaned, file_name));
+                        if let Err(e) = crate::files::write_day_file(root, file_name.trim_end_matches(".md"), &day_file) {
+                            write_errors.push(format!("repair sweep {}: {}", file_name, e));
+                        }
+                    }
+                }
+            }
+        } else {
+            error_log::log_error("set_commitments:repair_sweep",
                 &format!("failed to read month directory: {}", month_dir.display()));
         }
     }
