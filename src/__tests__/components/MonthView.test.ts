@@ -101,7 +101,7 @@ describe("MonthView", () => {
     expect(entryList.props("isToday")).toBe(true);
   });
 
-  it("shows the default-template indicator only when usingDefaultDimensions is true", () => {
+  it("shows the default-template indicator only when usingDefaultDimensions is true and month is not in the future", () => {
     const off = mountView();
     expect(off.text()).not.toContain("Using default template");
 
@@ -109,6 +109,14 @@ describe("MonthView", () => {
     store.usingDefaultDimensions = true;
     const on = mountView(store);
     expect(on.text()).toContain("Using default template");
+
+    // Future month: should NOT show even when usingDefaultDimensions is true
+    const futureStore = makeStore();
+    futureStore.usingDefaultDimensions = true;
+    // Set to next year, January — definitely future
+    futureStore.currentDate = `${new Date().getFullYear() + 1}-01-01`;
+    const future = mountView(futureStore);
+    expect(future.text()).not.toContain("Using default template");
   });
 
   it("renders the day note above the entry list", () => {

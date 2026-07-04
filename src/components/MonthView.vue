@@ -38,6 +38,14 @@ const selectedMonth = computed(() => yearMonthFromDate(store.currentDate).month)
 
 const isSelectedToday = computed(() => store.currentDate === formatDate(new Date()));
 
+const isFutureMonth = computed(() => {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
+  return selectedYear.value > currentYear ||
+    (selectedYear.value === currentYear && selectedMonth.value > currentMonth);
+});
+
 const dayEntries = computed(() => store.today?.entries || []);
 const dayTotalMinutes = computed(() => dayEntries.value.reduce((s, e) => s + e.duration, 0));
 
@@ -183,7 +191,7 @@ logInfo("MonthView", "mounted");
         ></div>
       </div>
 
-      <p v-if="store.usingDefaultDimensions" class="mb-sm text-micro text-[var(--color-text-disabled)]">
+      <p v-if="store.usingDefaultDimensions && !isFutureMonth" class="mb-sm text-micro text-[var(--color-text-disabled)]">
         Using default template (no custom dimensions this month)
       </p>
 
