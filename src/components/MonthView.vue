@@ -1,24 +1,22 @@
 <!-- src/components/MonthView.vue -->
 <script setup lang="ts">
-import { inject, computed, ref, onMounted, onUnmounted, nextTick } from "vue";
-import { invoke } from "@tauri-apps/api/core";
+import { computed, ref, onMounted, onUnmounted, nextTick } from "vue";
 import { getVersion } from "@tauri-apps/api/app";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useStore } from "../stores/useStore";
 import { useDayNote } from "../composables/useDayNote";
 import { useFileActions } from "../composables/useFileActions";
 import { useMonthData } from "../composables/useMonthData";
+import { useEntryActions } from "../composables/useEntryActions";
 import HeatmapCalendar from "./HeatmapCalendar.vue";
 import CommitmentsPanel from "./CommitmentsPanel.vue";
 import DayHeader from "./DayHeader.vue";
 import EntryList from "./EntryList.vue";
 import EntryComposer from "./EntryComposer.vue";
 import DimensionEditorModal from "./composite/DimensionEditorModal.vue";
-import type { DayFile, Entry, Dimension } from "../types";
-import { UNDO_TOAST_KEY, SAVED_TOAST_KEY } from "../types";
+import type { Dimension } from "../types";
 import { logError, logInfo } from "../utils/errorLog";
 import { yearMonthFromDate, parseDate, addDays, formatDate } from "../utils/dates";
-import { HIGHLIGHT_DURATION, UNDO_DELETE_DELAY } from "../utils/constants";
 import ConfigErrorBanner from "./ConfigErrorBanner.vue";
 
 const store = useStore();
@@ -35,10 +33,6 @@ function onDimensionsSaved(dims: Dimension[]) {
   showDimEditor.value = false;
 }
 
-// Newly-added entry highlight (spec §5.2 step 7): mark the id, clear after 1.5s.
-const justAddedId = ref<string | null>(null);
-let highlightTimer: ReturnType<typeof setTimeout> | null = null;
-
 const selectedYear = computed(() => yearMonthFromDate(store.currentDate).year);
 const selectedMonth = computed(() => yearMonthFromDate(store.currentDate).month);
 
@@ -52,113 +46,16 @@ const dayTitle = computed(() => {
   return d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 });
 
-const triggerUndoToast = inject(UNDO_TOAST_KEY, () => {});
-const triggerSavedToast = inject(SAVED_TOAST_KEY, () => {});
 const { noteRef, saveNote, onNotePaste, onNoteInput, onNoteFocus, onNoteEsc, onNoteEnter } = useDayNote(store);
 const { dayFilePath, displayPath, revealDayFile, copyFilePath, copiedFeedback } = useFileActions(store);
 const {
   loadMonth,
-  loadCommitmentProgress,
   onCommitmentsSaved,
   handleSelectDay,
   handleNavigate,
   handleRequestMonths,
 } = useMonthData(store, guardUnsaved);
-
-// ---- Append (absorbed from the deleted QuickEntry) ----
-function sanitizeValues(vals: Record<string, string>): Record<string, string> {
-  const validKeys = new Set(store.dimensions.map(d => d.key));
-  const cleaned: Record<string, string> = {};
-  for (const [k, v] of Object.entries(vals)) if (validKeys.has(k) && v) cleaned[k] = v;
-  return cleaned;
-}
-
-async function handleSubmit(item: string, durationMinutes: number, dimensions: Record<string, string>) {
-  const finalDimensions = sanitizeValues(dimensions);
-  const newEntry = { item, duration: String(durationMinutes) + 'm', dimensions: finalDimensions };
-  try {
-    const result = await invoke("append_entry", { rootPath: store.rootPath, date: store.currentDate, entry: newEntry });
-    const added = result as Entry;
-    if (store.today) {
-      const entries = [...store.today.entries, added];
-      store.today = { ...store.today, entries };
-      store.monthEntries[store.currentDate] = entries;
-    }
-    justAddedId.value = added.id;
-    if (highlightTimer) clearTimeout(highlightTimer);
-    highlightTimer = setTimeout(() => { justAddedId.value = null; }, HIGHLIGHT_DURATION);
-    await loadCommitmentProgress(selectedYear.value, selectedMonth.value);
-    // Only clear on success so the user's input survives a failed save.
-    inputRef.value?.clearInput();
-  } catch (e) {
-    logError("MonthView.handleSubmit", e);
-    triggerSavedToast("Failed to save entry");
-  }
-}
-
-// ---- Entry mutations ----
-async function handleUpdateEntry(entryId: string, item: string, durationMinutes: number) {
-  const entries = store.today?.entries;
-  if (!entries) return;
-  const entry = entries.find(e => e.id === entryId);
-  if (!entry) return;
-  const update: Record<string, unknown> = {};
-  if (item !== entry.item) update.item = item;
-  if (durationMinutes !== entry.duration) update.duration = String(durationMinutes) + 'm';
-  if (Object.keys(update).length === 0) return;
-  try {
-    const df = await invoke<DayFile>("update_entry", { rootPath: store.rootPath, date: store.currentDate, entryId, update });
-    store.today = df;
-    store.monthEntries[store.currentDate] = df.entries;
-    await loadCommitmentProgress(selectedYear.value, selectedMonth.value);
-    triggerSavedToast("Saved");
-  } catch (e) { logError("MonthView.handleUpdateEntry", e); }
-}
-
-async function handleUpdateDimensions(entryId: string, dimensions: Record<string, string>) {
-  try {
-    const df = await invoke<DayFile>("update_entry", { rootPath: store.rootPath, date: store.currentDate, entryId, update: { dimensions } });
-    store.today = df;
-    store.monthEntries[store.currentDate] = df.entries;
-    await loadCommitmentProgress(selectedYear.value, selectedMonth.value);
-    triggerSavedToast("Saved");
-  } catch (e) { logError("MonthView.handleUpdateDimensions", e); }
-}
-
-let pendingDeleteTimer: ReturnType<typeof setTimeout> | null = null;
-async function handleDeleteEntry(entryId: string) {
-  const entries = store.today?.entries;
-  if (!entries) return;
-  const idx = entries.findIndex(e => e.id === entryId);
-  if (idx === -1) return;
-  // Snapshot the date NOW: the timer fires in 5s, by which point the user may
-  // have navigated to another day, so reading store.currentDate at fire time
-  // would delete from the wrong day (F5).
-  const date = store.currentDate;
-  const { year, month } = yearMonthFromDate(date);
-  const [removed] = entries.splice(idx, 1);
-  let cancelled = false;
-  pendingDeleteTimer = setTimeout(async () => {
-    if (cancelled) return;
-    try {
-      await invoke("delete_entry", { rootPath: store.rootPath, date, entryId });
-      store.monthEntries[date] = [...entries];
-      await loadCommitmentProgress(year, month);
-    } catch (e) {
-      logError("MonthView.handleDeleteEntry", e);
-      if (entries.findIndex(e => e.id === entryId) === -1) entries.splice(idx, 0, removed);
-    }
-  }, UNDO_DELETE_DELAY);
-  triggerUndoToast(() => {
-    cancelled = true;
-    if (pendingDeleteTimer) clearTimeout(pendingDeleteTimer);
-    if (entries.findIndex(e => e.id === entryId) === -1) {
-      entries.splice(idx, 0, removed);
-      // Keep the month cache in sync with the restored entry.
-      store.monthEntries[date] = [...entries];
-    }
-  });
-}
+const { handleSubmit, handleUpdateEntry, handleUpdateDimensions, handleDeleteEntry, justAddedId } = useEntryActions(store, inputRef);
 
 function guardUnsaved(): boolean {
   if (inputRef.value?.hasUnsavedContent?.()) {
@@ -213,15 +110,8 @@ function onGlobalKeydown(e: KeyboardEvent) {
   }
 }
 
-function onBeforeUnload(e: BeforeUnloadEvent) {
-  if (pendingDeleteTimer) {
-    e.preventDefault();
-  }
-}
-
 onMounted(async () => {
   window.addEventListener("keydown", onGlobalKeydown);
-  window.addEventListener("beforeunload", onBeforeUnload);
   getVersion()
     .then(v => { getCurrentWindow().setTitle("Logbook v" + v); })
     .catch((e: unknown) => { logError("MonthView.setTitle", e); });
@@ -232,9 +122,6 @@ onMounted(async () => {
 });
 onUnmounted(() => {
   window.removeEventListener("keydown", onGlobalKeydown);
-  window.removeEventListener("beforeunload", onBeforeUnload);
-  if (pendingDeleteTimer) clearTimeout(pendingDeleteTimer);
-  if (highlightTimer) clearTimeout(highlightTimer);
 });
 
 logInfo("MonthView", "mounted");
