@@ -452,6 +452,7 @@ const monthLabel = new Date(props.year, props.month - 1, 1)
                         @click="addValue"
                       >+</button>
                     </div>
+                    <p v-if="newValue.trim()" class="text-micro text-[var(--color-text-muted)] mt-xs">Press Enter or click + to add</p>
                   </template>
                 </template>
 

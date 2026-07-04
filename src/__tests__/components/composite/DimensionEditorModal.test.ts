@@ -152,6 +152,24 @@ describe("DimensionEditorModal", () => {
     expect((after.element as HTMLInputElement).value).toBe("");
   });
 
+  it("shows hint when new value input has text", async () => {
+    const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
+    // Select Biz (index 1) — static with values
+    const bizRow = wrapper.findAll('[data-test="dim-row"]')[1];
+    await bizRow.trigger("click");
+    const newValInput = wrapper.find('input[placeholder="New value"]');
+    // No hint initially
+    expect(wrapper.text()).not.toContain("Press Enter or click + to add");
+    // Type something
+    await newValInput.setValue("Design");
+    // Hint should appear
+    expect(wrapper.text()).toContain("Press Enter or click + to add");
+    // Commit the value
+    await wrapper.find('[data-test="add-value"]').trigger("click");
+    // Hint should disappear (newValue cleared by addValue)
+    expect(wrapper.text()).not.toContain("Press Enter or click + to add");
+  });
+
   it("toggles delete dimension", async () => {
     const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
     let btn = wrapper.find('[data-test="delete-dim"]');
