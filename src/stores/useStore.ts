@@ -1,5 +1,5 @@
 import { reactive, inject, type InjectionKey } from "vue";
-import type { Dimension, DayFile, Commitment, CommitmentProgress, CommitmentProgressResult, ConfigErrorDetail, AppStatus, Entry, RecoveryCategory } from "../types";
+import type { Dimension, DayFile, Commitment, CommitmentProgress, ConfigErrorDetail, AppStatus, Entry, RecoveryCategory } from "../types";
 
 // 单个有记录的月份；数组见 AppStore.availableMonths。命名审查 2026-06-21 确认无需改名。
 export interface AvailableMonth {
@@ -18,7 +18,6 @@ export interface AppStore {
   today: DayFile | null;
   commitments: Commitment[];
   commitmentProgress: CommitmentProgress[];
-  commitmentProgressResult: CommitmentProgressResult | null;
   currentDate: string;
   monthEntries: Record<string, Entry[]>;
   availableMonths: AvailableMonth[] | null; // null = not yet loaded
@@ -41,7 +40,6 @@ export function createStore(): AppStore {
     today: null,
     commitments: [],
     commitmentProgress: [],
-    commitmentProgressResult: null,
     currentDate: dateStr,
     monthEntries: {},
     availableMonths: null,

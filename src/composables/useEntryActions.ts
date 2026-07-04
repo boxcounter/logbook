@@ -1,7 +1,7 @@
 import { ref, onMounted, onUnmounted, inject, type Ref } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import type { AppStore } from "../stores/useStore";
-import type { Entry, DayFile, CommitmentProgressResult } from "../types";
+import type { Entry, DayFile, CommitmentProgress } from "../types";
 import { UNDO_TOAST_KEY, SAVED_TOAST_KEY } from "../types";
 import { logError } from "../utils/errorLog";
 import { yearMonthFromDate } from "../utils/dates";
@@ -29,17 +29,14 @@ export function useEntryActions(store: AppStore, inputRef: Ref<ComposerRef | nul
   async function refreshProgress(date?: string) {
     const ym = yearMonthFromDate(date ?? store.currentDate);
     try {
-      const result = await invoke<CommitmentProgressResult>("get_commitment_progress", {
+      store.commitmentProgress = await invoke<CommitmentProgress[]>("get_commitment_progress", {
         rootPath: store.rootPath,
         year: ym.year,
         month: ym.month,
       });
-      store.commitmentProgress = result.roles;
-      store.commitmentProgressResult = result;
     } catch (e) {
       logError("useEntryActions.refreshProgress", e);
       store.commitmentProgress = [];
-      store.commitmentProgressResult = null;
       const msg = String(e);
       if (msg.includes("dimensions")) {
         store.configErrors = [{ kind: "ConfigError", message: msg }];

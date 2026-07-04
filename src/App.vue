@@ -11,7 +11,7 @@ import RecoveryScreen from "./components/RecoveryScreen.vue";
 import DataVersionScreen from "./components/DataVersionScreen.vue";
 import MonthView from "./components/MonthView.vue";
 import Toast from "./components/base/Toast.vue";
-import type { InitResult, ConfigErrorDetail, ScanWarning, Commitment, CommitmentProgressResult, MonthDimensions } from "./types";
+import type { InitResult, ConfigErrorDetail, ScanWarning, Commitment, CommitmentProgress, MonthDimensions } from "./types";
 import { UNDO_TOAST_KEY, SAVED_TOAST_KEY, FOCUS_REQUEST_KEY } from "./types";
 import { logError, logInfo } from "./utils/errorLog";
 import { applyInitResult } from "./utils/applyInitResult";
@@ -101,15 +101,13 @@ onMounted(async () => {
           rootPath: store.rootPath, year, month,
         }) as MonthDimensions;
         const commitments = await invoke("get_commitments", { rootPath: store.rootPath, year, month }) as Commitment[];
-        const result = await invoke<CommitmentProgressResult>("get_commitment_progress", { rootPath: store.rootPath, year, month });
+        store.commitmentProgress = await invoke<CommitmentProgress[]>("get_commitment_progress", { rootPath: store.rootPath, year, month });
         // Guard against stale writes: if the user navigated away while loading, discard.
         const cur = yearMonthFromDate(store.currentDate);
         if (cur.year !== year || cur.month !== month) return;
         store.dimensions = dimsResult.dimensions;
         store.usingDefaultDimensions = dimsResult.usingDefaultDimensions;
         store.commitments = commitments;
-        store.commitmentProgress = result.roles;
-        store.commitmentProgressResult = result;
       } catch (e) {
         logError("App.commitmentsChanged", e);
       }

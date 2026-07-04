@@ -152,7 +152,6 @@ logInfo("MonthView", "mounted");
       <div class="border-t border-[var(--color-divider)] my-xl"></div>
       <CommitmentsPanel
         :progress="store.commitmentProgress"
-        :progress-result="store.commitmentProgressResult"
         :commitments="store.commitments"
         :root-path="store.rootPath"
         :selected-year="selectedYear"

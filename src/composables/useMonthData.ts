@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { AppStore } from "../stores/useStore";
-import type { Entry, DayFile, Commitment, CommitmentProgressResult, MonthDimensions } from "../types";
+import type { Entry, DayFile, Commitment, CommitmentProgress, MonthDimensions } from "../types";
 import { logError } from "../utils/errorLog";
 import { yearMonthFromDate } from "../utils/dates";
 
@@ -9,7 +9,6 @@ export function useMonthData(store: AppStore, guardUnsaved: () => boolean) {
     store.configErrors = [];
     store.commitments = [];
     store.commitmentProgress = [];
-    store.commitmentProgressResult = null;
     const now = new Date();
     const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
     let day: number;
@@ -41,13 +40,10 @@ export function useMonthData(store: AppStore, guardUnsaved: () => boolean) {
 
   async function loadCommitmentProgress(year: number, month: number) {
     try {
-      const result = await invoke<CommitmentProgressResult>("get_commitment_progress", { rootPath: store.rootPath, year, month });
-      store.commitmentProgress = result.roles;
-      store.commitmentProgressResult = result;
+      store.commitmentProgress = await invoke<CommitmentProgress[]>("get_commitment_progress", { rootPath: store.rootPath, year, month });
     } catch (e) {
       logError("useMonthData.loadCommitmentProgress", e);
       store.commitmentProgress = [];
-      store.commitmentProgressResult = null;
       const msg = String(e);
       if (msg.includes("dimensions")) {
         store.configErrors = [{ kind: "ConfigError", message: msg }];
