@@ -1,10 +1,11 @@
 <!-- src/components/MonthView.vue -->
 <script setup lang="ts">
-import { inject, computed, watch, ref, onMounted, onUnmounted, nextTick } from "vue";
+import { inject, computed, ref, onMounted, onUnmounted, nextTick } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { getVersion } from "@tauri-apps/api/app";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useStore } from "../stores/useStore";
+import { useDayNote } from "../composables/useDayNote";
 import HeatmapCalendar from "./HeatmapCalendar.vue";
 import CommitmentsPanel from "./CommitmentsPanel.vue";
 import DayHeader from "./DayHeader.vue";
@@ -51,6 +52,7 @@ const dayTitle = computed(() => {
 
 const triggerUndoToast = inject(UNDO_TOAST_KEY, () => {});
 const triggerSavedToast = inject(SAVED_TOAST_KEY, () => {});
+const { noteRef, saveNote, onNotePaste, onNoteInput, onNoteFocus, onNoteEsc, onNoteEnter } = useDayNote(store);
 
 // ---- Month loading ----
 async function loadMonth(year: number, month: number, defaultDay?: number) {
@@ -262,51 +264,6 @@ async function handleDeleteEntry(entryId: string) {
       store.monthEntries[date] = [...entries];
     }
   });
-}
-
-// ---- Day note (inline) ----
-const noteRef = ref<HTMLDivElement>();
-watch(() => store.today?.note, (n) => {
-  if (noteRef.value && noteRef.value.textContent !== (n || "")) noteRef.value.textContent = n || "";
-}, { immediate: true });
-
-function onNotePaste(e: ClipboardEvent) {
-  e.preventDefault();
-  const text = e.clipboardData?.getData("text/plain") || "";
-  const sel = window.getSelection();
-  if (sel && sel.rangeCount > 0) {
-    const range = sel.getRangeAt(0);
-    range.deleteContents();
-    range.insertNode(document.createTextNode(text));
-    range.collapse(false);
-  }
-}
-
-function onNoteInput() {
-  if (noteRef.value && noteRef.value.innerHTML !== noteRef.value.textContent) {
-    noteRef.value.textContent = noteRef.value.textContent || "";
-  }
-}
-
-async function saveNote() {
-  const text = noteRef.value?.textContent || "";
-  try { await invoke("set_day_note", { rootPath: store.rootPath, date: store.currentDate, note: text }); }
-  catch (e) { logError("MonthView.saveNote", e); }
-}
-
-let noteSnapshot = "";
-function onNoteFocus() {
-  noteSnapshot = noteRef.value?.textContent || "";
-}
-function onNoteEsc(e: KeyboardEvent) {
-  e.preventDefault();
-  if (noteRef.value) noteRef.value.textContent = noteSnapshot;
-  noteRef.value?.blur(); // triggers saveNote with unchanged content (no-op write)
-}
-function onNoteEnter(e: KeyboardEvent) {
-  if (e.isComposing) return; // let an IME Enter confirm its candidate, don't commit the note
-  e.preventDefault(); // the note is single-line; don't insert a newline
-  noteRef.value?.blur(); // commit via the existing blur → saveNote, clearing the caret
 }
 
 // ---- File path ----
