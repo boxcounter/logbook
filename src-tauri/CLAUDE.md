@@ -49,4 +49,5 @@ src/
 - Goal 维度 `source: "monthly"`，值列表来自 `commitments.yaml` 的 commitments goals 并集，不在 template/维度块的 values 里
 - Commitments 经 `set_commitments` 命令写入（校验 + goal/role 改名批量更新 entry + 原子写 `commitments.yaml`）；外部直接编辑 `commitments.yaml` 仍由 `notify` watcher 重新读取
 - `root_path` 由前端持有，每次 command 调用时传入；Rust 端通过 `root_path.txt` 持久化选择
+- **禁止硬编码 fallback**：`goal_dim_key` / `role_dim_key` 等配置解析函数失败时，要么用 `?` 传播错误（拒绝执行），要么跳过该操作并写入 `ConfigErrorDetail` 推送前端。不得 fallback 到 `"goal"`、`"role"` 等字面量——与用户实际配置不一致会导致静默语义错误
 - **Phase checkpoint**：每完成一个独立 phase 停下来确认，不要连续推进多个 phase 不征求同意（规则见根目录 CLAUDE.md）
