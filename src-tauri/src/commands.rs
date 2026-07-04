@@ -229,35 +229,41 @@ pub fn load_root_state(root: &std::path::Path) -> InitResult {
             Default::default()
         });
 
-    // Inject attribution into today's entries
+    // Inject attribution into today's entries.  Don't fall back to hardcoded
+    // keys — if the dimension resolution fails the entries load without
+    // attribution, which is safer than guessing the wrong key name.
     {
         let commitments = crate::files::read_commitments_file(root, now.year(), now.month())
             .unwrap_or_else(|e| {
                 error_log::log_error("load_root_state:commitments", &format!("read failed: {e}"));
                 Default::default()
             });
-        let goal_key = match goal_dim_key(root, now.year(), now.month()) {
-            Ok(k) => k,
+        let mut goal_key: Option<String> = None;
+        let mut role_key: Option<String> = None;
+        match goal_dim_key(root, now.year(), now.month()) {
+            Ok(k) => goal_key = Some(k),
             Err(e) => {
                 all_errors.push(ConfigErrorDetail {
                     kind: "GoalKeyMissing".to_string(),
                     message: e,
                 });
-                "goal".to_string()
+                error_log::log_error("load_root_state", "skipping attribution: goal key missing");
             }
-        };
-        let role_key = match role_dim_key(root, now.year(), now.month()) {
-            Ok(k) => k,
+        }
+        match role_dim_key(root, now.year(), now.month()) {
+            Ok(k) => role_key = Some(k),
             Err(e) => {
                 all_errors.push(ConfigErrorDetail {
                     kind: "RoleKeyMissing".to_string(),
                     message: e,
                 });
-                "role".to_string()
+                error_log::log_error("load_root_state", "skipping attribution: role key missing");
             }
-        };
-        let (goal_to_role, role_to_goals) = build_commitment_maps(&commitments);
-        annotate_day_file(&mut today, &role_key, &goal_key, &goal_to_role, &role_to_goals);
+        }
+        if let (Some(ref gk), Some(ref rk)) = (&goal_key, &role_key) {
+            let (goal_to_role, role_to_goals) = build_commitment_maps(&commitments);
+            annotate_day_file(&mut today, rk, gk, &goal_to_role, &role_to_goals);
+        }
     }
 
     if !all_errors.is_empty() {
