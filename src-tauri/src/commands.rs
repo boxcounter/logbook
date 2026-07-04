@@ -405,6 +405,8 @@ pub fn set_root_path(app: AppHandle, path: String) -> Result<InitResult, String>
 
     save_root_path(&app_data_dir, root_path)?;
 
+    files::write_version_file(root_path, CURRENT_DATA_VERSION)?;
+
     let result = load_root_state(root_path);
     crate::config::ensure_watcher(&app, root_path.to_path_buf());
     match &result {
@@ -431,19 +433,8 @@ pub fn set_root_path(app: AppHandle, path: String) -> Result<InitResult, String>
         InitResult::NeedsSetup => {
             error_log::log_command_exit("set_root_path", true, "NeedsSetup");
         }
-        InitResult::DataVersionNotFound { root_path } => {
-            error_log::log_error("set_root_path", &format!("version.txt not found at {}", root_path));
-            error_log::log_command_exit("set_root_path", false, "DataVersionNotFound");
-        }
-        InitResult::DataVersionMismatch { root_path, expected, found } => {
-            error_log::log_error(
-                "set_root_path",
-                &format!(
-                    "data version mismatch at {}: expected {}, found {}",
-                    root_path, expected, found
-                ),
-            );
-            error_log::log_command_exit("set_root_path", false, "DataVersionMismatch");
+        InitResult::DataVersionNotFound { .. } | InitResult::DataVersionMismatch { .. } => {
+            unreachable!("version just written should be current")
         }
     }
     Ok(result)
