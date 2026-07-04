@@ -35,10 +35,8 @@ export function useMonthData(store: AppStore, guardUnsaved: () => boolean) {
     await loadCommitmentProgress(year, month);
     await loadCommitments(year, month);
     await loadMonthDimensions(year, month);
-    if (store.currentDate in store.monthEntries) {
-      store.today = { note: null, entries: store.monthEntries[store.currentDate] };
-      loadDayNote(store.currentDate);
-    }
+    store.today = { note: null, entries: store.monthEntries[store.currentDate] ?? [] };
+    loadDayNote(store.currentDate);
   }
 
   async function loadCommitmentProgress(year: number, month: number) {
@@ -99,10 +97,8 @@ export function useMonthData(store: AppStore, guardUnsaved: () => boolean) {
   async function handleSelectDay(dateStr: string) {
     if (!guardUnsaved()) return;
     store.currentDate = dateStr;
-    if (dateStr in store.monthEntries) {
-      store.today = { note: null, entries: store.monthEntries[dateStr] };
-      await loadDayNote(dateStr);
-    }
+    store.today = { note: null, entries: store.monthEntries[dateStr] ?? [] };
+    await loadDayNote(dateStr);
   }
 
   async function handleNavigate({ year, month }: { year: number; month: number }) {

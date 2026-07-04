@@ -202,6 +202,38 @@ describe("MonthView", () => {
     expect(store.currentDate).toBe(todayDateStr());
   });
 
+  it("⌘T clears entry list when today has no entries (regression: stale data after navigation)", async () => {
+    const store = makeStore();
+    const today = todayDateStr();
+
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === "get_month_entries") {
+        return { "2026-06-15": [makeEntry({ item: "Old task", duration: 30 })] };
+      }
+      if (cmd === "get_commitment_progress") return [];
+      if (cmd === "get_commitments") return [];
+      if (cmd === "get_month_dimensions") return { dimensions: [], usingDefaultDimensions: true };
+      if (cmd === "get_entries") return { note: null, entries: [] };
+      return {};
+    });
+
+    mountView(store);
+    await flushPromises();
+
+    // Navigate to a past date that has entries in monthEntries
+    store.currentDate = "2026-06-15";
+    store.today = { note: null, entries: [makeEntry({ item: "Old task", duration: 30 })] };
+    expect(store.today!.entries).toHaveLength(1);
+
+    // ⌘T → goToToday() → today not in monthEntries → loadMonth → today.entries should be []
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "t", metaKey: true }));
+    await flushPromises();
+    await flushPromises();
+
+    expect(store.currentDate).toBe(today);
+    expect(store.today!.entries).toHaveLength(0);
+  });
+
   it("commitments follow the selected month when navigating to a prior month", async () => {
     const store = makeStore(); // currentDate === today, commitments = [一个 commitment]
     const curYM = todayDateStr().slice(0, 7); // 当前 YYYY-MM
