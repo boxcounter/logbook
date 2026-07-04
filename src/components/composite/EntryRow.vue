@@ -32,10 +32,6 @@ function onEditTrigger() {
 
 const filledDimEntries = computed(() => Object.entries(props.entry.dimensions));
 
-const isProblemEntry = computed(() =>
-  props.entry.attribution === "unattributed" || props.entry.attribution === "mismatch"
-);
-
 const chipHues = computed(() => dimensionHues(store.dimensions));
 function chipStyle(key: string) {
   return dimChipStyle(chipHues.value.get(key) ?? null);
@@ -68,20 +64,11 @@ function onSave(item: string, durationMinutes: number, dims: Record<string, stri
     class="group flex justify-between items-start gap-sm px-md py-sm transition-colors"
     :class="[
       { 'just-added': justAdded },
-      isProblemEntry
-        ? 'bg-[var(--color-problem-entry-bg)] hover:bg-[var(--color-problem-entry-hover-bg)]'
-        : 'hover:bg-[var(--color-surface-muted)]',
+      'hover:bg-[var(--color-surface-muted)]',
       index > 0 ? 'border-t border-[var(--color-divider)]' : '',
-      isProblemEntry && index > 0 ? '!border-[var(--color-problem-entry-border)]' : '',
     ]"
     @dblclick="onDblClick"
   >
-    <span
-      v-if="isProblemEntry"
-      class="flex-shrink-0 text-[var(--color-problem-entry-text)]"
-      style="font-size: 14px; width: 16px; text-align: center;"
-      title="未归属任何 role 或 role/goal 不匹配"
-    >●</span>
     <div class="flex-1 min-w-0" data-edit-target="item">
       <div
         data-test="item-display"
@@ -100,8 +87,7 @@ function onSave(item: string, durationMinutes: number, dims: Record<string, stri
     <span
       data-test="duration-display"
       data-edit-target="duration"
-      class="mono text-secondary flex-shrink-0 ml-lg pt-2xs"
-      :class="isProblemEntry ? '!text-[var(--color-problem-entry-text)] font-medium' : 'text-[var(--color-text-primary)]'"
+      class="mono text-secondary flex-shrink-0 ml-lg pt-2xs text-[var(--color-text-primary)]"
     >
       {{ entry.duration > 0 ? formatDuration(entry.duration) : "—" }}
     </span>
