@@ -42,13 +42,13 @@ fn test_progress_on_empty_month() {
     )
     .unwrap();
 
-    assert_eq!(progress.roles.len(), 2);
-    assert_eq!(progress.roles[0].role, "Developer");
-    assert_eq!(progress.roles[0].allocation_minutes, 1800); // 30 * 60
-    assert_eq!(progress.roles[0].goal_spent_minutes, 0);
-    assert_eq!(progress.roles[1].role, "VP");
-    assert_eq!(progress.roles[1].allocation_minutes, 900); // 15 * 60
-    assert_eq!(progress.roles[1].goal_spent_minutes, 0);
+    assert_eq!(progress.len(), 2);
+    assert_eq!(progress[0].role, "Developer");
+    assert_eq!(progress[0].allocation_minutes, 1800); // 30 * 60
+    assert_eq!(progress[0].goal_spent_minutes, 0);
+    assert_eq!(progress[1].role, "VP");
+    assert_eq!(progress[1].allocation_minutes, 900); // 15 * 60
+    assert_eq!(progress[1].goal_spent_minutes, 0);
 
     teardown(&root);
 }
@@ -107,7 +107,7 @@ fn test_progress_aggregates_across_multiple_days() {
     )
     .unwrap();
 
-    let dev = progress.roles.iter().find(|c| c.role == "Developer").unwrap();
+    let dev = progress.iter().find(|c| c.role == "Developer").unwrap();
     // Feature A: 60, Bug fixes: 45 = 105 total
     assert_eq!(dev.goal_spent_minutes, 105);
     let fa = dev.goals.iter().find(|g| g.name == "Feature A").unwrap();
@@ -115,7 +115,7 @@ fn test_progress_aggregates_across_multiple_days() {
     let bf = dev.goals.iter().find(|g| g.name == "Bug fixes").unwrap();
     assert_eq!(bf.spent_minutes, 45);
 
-    let vp = progress.roles.iter().find(|c| c.role == "VP").unwrap();
+    let vp = progress.iter().find(|c| c.role == "VP").unwrap();
     assert_eq!(vp.goal_spent_minutes, 30);
 
     teardown(&root);
@@ -139,7 +139,7 @@ fn test_progress_no_monthly_file_returns_empty() {
     )
     .unwrap();
 
-    assert!(progress.roles.is_empty());
+    assert!(progress.is_empty());
 
     teardown(&tmp);
 }
@@ -185,8 +185,8 @@ fn test_progress_with_non_goal_monthly_key() {
     .unwrap();
 
     // Must aggregate the 90 minutes, not silently report zero.
-    assert_eq!(progress.roles[0].role, "Developer");
-    assert_eq!(progress.roles[0].goal_spent_minutes, 90, "non-'goal' monthly key was not aggregated");
+    assert_eq!(progress[0].role, "Developer");
+    assert_eq!(progress[0].goal_spent_minutes, 90, "non-'goal' monthly key was not aggregated");
 
     let _ = fs::remove_dir_all(&root);
 }
@@ -210,7 +210,7 @@ fn test_progress_role_only_no_goal_counts_as_general_spent() {
     )
     .unwrap();
 
-    let dev = progress.roles.iter().find(|c| c.role == "Developer").unwrap();
+    let dev = progress.iter().find(|c| c.role == "Developer").unwrap();
     assert_eq!(dev.general_spent_minutes, 60, "role-only entry should count as general spent");
     assert_eq!(dev.goal_spent_minutes, 0);
 
@@ -236,7 +236,7 @@ fn test_progress_goal_fallback_to_role_via_goal_to_role_map() {
     )
     .unwrap();
 
-    let vp = progress.roles.iter().find(|c| c.role == "VP").unwrap();
+    let vp = progress.iter().find(|c| c.role == "VP").unwrap();
     assert_eq!(vp.goal_spent_minutes, 45, "goal-only entry should fallback to goal's role");
     assert_eq!(vp.general_spent_minutes, 0);
 

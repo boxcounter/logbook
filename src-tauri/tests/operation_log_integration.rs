@@ -31,7 +31,6 @@ fn sample_entry(id: &str, item: &str, duration: u32) -> Entry {
         item: item.to_string(),
         duration,
         dimensions: BTreeMap::new(),
-        attribution: tauri_app_lib::models::Attribution::default(),
     }
 }
 

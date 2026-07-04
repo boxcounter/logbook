@@ -167,7 +167,6 @@ pub fn append_new_entry(
         item: new_entry.item.clone(),
         duration,
         dimensions: new_entry.dimensions.clone(),
-        attribution: crate::models::Attribution::default(),
     };
     append_to_day_file(root, date, &entry)
 }
@@ -508,8 +507,7 @@ mod tests {
                 item: "i".into(),
                 duration: 30,
                 dimensions: d,
-                attribution: crate::models::Attribution::default(),
-            })
+                    })
             .unwrap()
         };
         // Same keys inserted in different orders must serialize identically.
@@ -668,8 +666,7 @@ mod tests {
             item: "Test".to_string(),
             duration: 30,
             dimensions: BTreeMap::new(),
-            attribution: crate::models::Attribution::default(),
-        };
+            };
         append_to_day_file(&tmp, "2026-06-12", &entry).unwrap();
 
         let df = read_day_file(&tmp, "2026-06-12").unwrap();
@@ -689,15 +686,13 @@ mod tests {
             item: "A".into(),
             duration: 10,
             dimensions: BTreeMap::new(),
-            attribution: crate::models::Attribution::default(),
-        };
+            };
         let e2 = Entry {
             id: "id-b".into(),
             item: "B".into(),
             duration: 20,
             dimensions: BTreeMap::new(),
-            attribution: crate::models::Attribution::default(),
-        };
+            };
         append_to_day_file(&tmp, "2026-06-12", &e1).unwrap();
         append_to_day_file(&tmp, "2026-06-12", &e2).unwrap();
 
@@ -723,15 +718,13 @@ mod tests {
             item: "A".into(),
             duration: 10,
             dimensions: BTreeMap::new(),
-            attribution: crate::models::Attribution::default(),
-        };
+            };
         let e2 = Entry {
             id: "id-b".into(),
             item: "B".into(),
             duration: 20,
             dimensions: BTreeMap::new(),
-            attribution: crate::models::Attribution::default(),
-        };
+            };
         append_to_day_file(&tmp, "2026-06-12", &e1).unwrap();
         append_to_day_file(&tmp, "2026-06-12", &e2).unwrap();
 

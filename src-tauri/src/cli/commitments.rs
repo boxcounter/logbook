@@ -1,6 +1,6 @@
 use crate::cli::output;
 use crate::files;
-use crate::models::{Commitment, CommitmentProgressResult};
+use crate::models::{Commitment, CommitmentProgress};
 use std::io::Read;
 use std::path::Path;
 
@@ -94,12 +94,12 @@ fn format_commitments_human(commitments: &[Commitment]) -> String {
     out.trim_end().to_string()
 }
 
-fn format_progress_human(progress: &CommitmentProgressResult) -> String {
-    if progress.roles.is_empty() {
+fn format_progress_human(progress: &[CommitmentProgress]) -> String {
+    if progress.is_empty() {
         return "(no commitments)".to_string();
     }
     let mut out = String::new();
-    for c in &progress.roles {
+    for c in progress {
         let total_spent = c.goal_spent_minutes + c.general_spent_minutes;
         let pct = if c.allocation_minutes > 0 {
             (total_spent as f64 / c.allocation_minutes as f64) * 100.0
