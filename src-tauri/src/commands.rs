@@ -333,6 +333,26 @@ pub fn init(app: AppHandle) -> InitResult {
         }
     };
 
+    match check_data_version(&root_path, CURRENT_DATA_VERSION) {
+        Err(e) => {
+            match &e {
+                InitResult::DataVersionNotFound { .. } => {
+                    error_log::log_command_exit("init", true, "DataVersionNotFound");
+                }
+                InitResult::DataVersionMismatch { expected, found, .. } => {
+                    error_log::log_command_exit(
+                        "init",
+                        false,
+                        &format!("DataVersionMismatch: expected {}, found {}", expected, found),
+                    );
+                }
+                _ => unreachable!(),
+            }
+            return e;
+        }
+        Ok(()) => {}
+    }
+
     let result = load_root_state(&root_path);
     if root_path.exists() {
         crate::config::ensure_watcher(&app, root_path.clone());
@@ -361,19 +381,8 @@ pub fn init(app: AppHandle) -> InitResult {
         InitResult::NeedsSetup => {
             error_log::log_command_exit("init", true, "NeedsSetup");
         }
-        InitResult::DataVersionNotFound { root_path } => {
-            error_log::log_error("init", &format!("version.txt not found at {}", root_path));
-            error_log::log_command_exit("init", false, "DataVersionNotFound");
-        }
-        InitResult::DataVersionMismatch { root_path, expected, found } => {
-            error_log::log_error(
-                "init",
-                &format!(
-                    "data version mismatch at {}: expected {}, found {}",
-                    root_path, expected, found
-                ),
-            );
-            error_log::log_command_exit("init", false, "DataVersionMismatch");
+        InitResult::DataVersionNotFound { .. } | InitResult::DataVersionMismatch { .. } => {
+            unreachable!("version check should have returned early")
         }
     }
     result
