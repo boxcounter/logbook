@@ -188,9 +188,10 @@ async function saveAsTemplate() {
   error.value = "";
   templateSaved.value = false;
   try {
+    const active = draft.value.filter(d => !d.deleted);
     await invoke("save_dimensions_template", {
       rootPath: props.rootPath,
-      dimensions: draft.value,
+      dimensions: active,
     });
     templateSaved.value = true;
     setTimeout(() => { templateSaved.value = false; }, 2000);

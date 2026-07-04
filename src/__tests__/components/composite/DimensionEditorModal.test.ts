@@ -261,6 +261,25 @@ describe("DimensionEditorModal", () => {
     }));
   });
 
+  it("saveAsTemplate filters out deleted dimensions", async () => {
+    const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
+    // Goal (index 0) is selected by default. Mark it as deleted.
+    const deleteBtn = wrapper.find('[data-test="delete-dim"]');
+    await deleteBtn.trigger("click");
+    await nextTick();
+
+    // Save as template
+    await wrapper.find('[data-test="save-as-template"]').trigger("click");
+    await nextTick();
+    await nextTick();
+
+    // Only the 2 non-deleted dimensions should be passed
+    const callArgs = (invoke as any).mock.calls.find((c: any[]) => c[0] === "save_dimensions_template")[1];
+    const passedDims: { key: string; deleted?: boolean }[] = callArgs.dimensions;
+    expect(passedDims).toHaveLength(2);
+    expect(passedDims.map((d: any) => d.key)).toEqual(["biz", "importance-urgency"]);
+  });
+
   it("shows error and logs when save-as-template fails", async () => {
     (invoke as any).mockRejectedValue(new Error("Disk full"));
     const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
