@@ -19,11 +19,13 @@ cases:
               item: build feature
               duration: 120
               dimensions:
+                role: Dev
                 goal: Ship it
             - id: e2
               item: bug fix
               duration: 60
               dimensions:
+                role: Dev
                 goal: Ship it
           ---
     input:
@@ -32,13 +34,10 @@ cases:
       month: 6
     expect:
       ok:
-        roles.len: 1
-        "roles.0.role": Dev
-        "roles.0.allocation_minutes": 2400
-        "roles.0.goal_spent_minutes": 180
-        unattributed_count: 0
-        unattributed_total_minutes: 0
-        mismatch_count: 0
+        len: 1
+        "0.role": Dev
+        "0.allocation_minutes": 2400
+        "0.goal_spent_minutes": 180
 
   - name: empty month returns zero progress
     before:
@@ -51,7 +50,4 @@ cases:
       month: 6
     expect:
       ok:
-        roles.len: 0
-        unattributed_count: 0
-        unattributed_total_minutes: 0
-        mismatch_count: 0
+        len: 0

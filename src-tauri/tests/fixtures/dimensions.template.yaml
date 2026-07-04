@@ -5,6 +5,7 @@ dimensions:
   - name: Role
     key: role
     source: commitments:role
+    required: true
   - name: Biz
     key: biz
     source: static

@@ -12,6 +12,7 @@ cases:
               item: existing entry
               duration: 30
               dimensions:
+                role: Dev
                 goal: Ship it
           ---
     input:
@@ -21,6 +22,7 @@ cases:
         item: new task
         duration: "45m"
         dimensions:
+          role: Dev
           goal: Ship it
     expect:
       ok:
@@ -36,6 +38,7 @@ cases:
         item: first entry of the day
         duration: "1.5h"
         dimensions:
+          role: Dev
           goal: Ship it
     expect:
       ok:
