@@ -458,3 +458,124 @@ fn test_root_path_flag_priority() {
 
     let _ = fs::remove_dir_all(&tmp);
 }
+
+#[test]
+fn test_entries_add_valid_with_dimensions() {
+    let tmp = std::env::temp_dir().join("logbook_cli_test_entries_add");
+    let _ = fs::remove_dir_all(&tmp);
+    setup_fixture(&tmp);
+
+    let input = r#"{"item":"Code review","duration":"30m","dimensions":{"role":"Dev","goal":"Review"}}"#;
+
+    let output = run_with_stdin(&[
+        "--root-path", tmp.to_str().unwrap(),
+        "entries", "add", "--date", "2026-06-15",
+    ], input);
+    assert!(output.status.success(), "stderr: {}", String::from_utf8_lossy(&output.stderr));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Code review"), "stdout: {}", stdout);
+    assert!(stdout.contains("30m"), "stdout: {}", stdout);
+
+    // Verify day file was written
+    let day_path = tmp.join("2026").join("06").join("2026-06-15.md");
+    assert!(day_path.exists(), "day file not created");
+    let content = fs::read_to_string(&day_path).unwrap();
+    assert!(content.contains("Code review"));
+
+    let _ = fs::remove_dir_all(&tmp);
+}
+
+#[test]
+fn test_entries_add_minimal() {
+    let tmp = std::env::temp_dir().join("logbook_cli_test_entries_add_min");
+    let _ = fs::remove_dir_all(&tmp);
+    setup_fixture(&tmp);
+
+    let input = r#"{"item":"Coffee break","duration":"15m"}"#;
+
+    let output = run_with_stdin(&[
+        "--root-path", tmp.to_str().unwrap(),
+        "entries", "add", "--date", "2026-06-15",
+    ], input);
+    assert!(output.status.success(), "stderr: {}", String::from_utf8_lossy(&output.stderr));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Coffee break"), "stdout: {}", stdout);
+    assert!(stdout.contains("15m"), "stdout: {}", stdout);
+
+    let _ = fs::remove_dir_all(&tmp);
+}
+
+#[test]
+fn test_entries_add_bad_json() {
+    let tmp = std::env::temp_dir().join("logbook_cli_test_entries_add_bad_json");
+    let _ = fs::remove_dir_all(&tmp);
+    setup_fixture(&tmp);
+
+    let output = run_with_stdin(&[
+        "--root-path", tmp.to_str().unwrap(),
+        "entries", "add", "--date", "2026-06-15",
+    ], "not json");
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("Failed to parse"), "stderr: {}", stderr);
+
+    let _ = fs::remove_dir_all(&tmp);
+}
+
+#[test]
+fn test_entries_add_bad_date() {
+    let tmp = std::env::temp_dir().join("logbook_cli_test_entries_add_bad_date");
+    let _ = fs::remove_dir_all(&tmp);
+    setup_fixture(&tmp);
+
+    let input = r#"{"item":"x","duration":"10m"}"#;
+
+    let output = run_with_stdin(&[
+        "--root-path", tmp.to_str().unwrap(),
+        "entries", "add", "--date", "not-a-date",
+    ], input);
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("Invalid date format") || stderr.contains("Error"), "stderr: {}", stderr);
+
+    let _ = fs::remove_dir_all(&tmp);
+}
+
+#[test]
+fn test_entries_add_empty_stdin() {
+    let tmp = std::env::temp_dir().join("logbook_cli_test_entries_add_empty");
+    let _ = fs::remove_dir_all(&tmp);
+    setup_fixture(&tmp);
+
+    let output = run_with_stdin(&[
+        "--root-path", tmp.to_str().unwrap(),
+        "entries", "add", "--date", "2026-06-15",
+    ], "");
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("Failed to parse"), "stderr: {}", stderr);
+
+    let _ = fs::remove_dir_all(&tmp);
+}
+
+#[test]
+fn test_entries_add_json_output() {
+    let tmp = std::env::temp_dir().join("logbook_cli_test_entries_add_json");
+    let _ = fs::remove_dir_all(&tmp);
+    setup_fixture(&tmp);
+
+    let input = r#"{"item":"Write docs","duration":"60m","dimensions":{"role":"Dev"}}"#;
+
+    let output = run_with_stdin(&[
+        "--root-path", tmp.to_str().unwrap(),
+        "--json",
+        "entries", "add", "--date", "2026-06-15",
+    ], input);
+    assert!(output.status.success(), "stderr: {}", String::from_utf8_lossy(&output.stderr));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("\"id\""), "stdout: {}", stdout);
+    assert!(stdout.contains("\"Write docs\""), "stdout: {}", stdout);
+    assert!(stdout.contains("\"duration\""), "stdout: {}", stdout);
+
+    let _ = fs::remove_dir_all(&tmp);
+}
