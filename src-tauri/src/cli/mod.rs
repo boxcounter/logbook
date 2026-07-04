@@ -42,13 +42,12 @@ pub enum Commands {
         #[command(subcommand)]
         action: CommitmentAction,
     },
-    /// List entries for a date
+    /// List or add entries
     Entries {
-        /// Date in YYYY-MM-DD format
-        #[arg(long)]
-        date: String,
+        #[command(subcommand)]
+        action: EntryAction,
     },
-    /// Get or set dimensions for a month or the template
+    /// List or set dimensions for a month or the template
     #[command(subcommand)]
     Dimensions(DimensionsCommands),
 }
@@ -75,6 +74,22 @@ pub enum CommitmentAction {
         year: i32,
         #[arg(long)]
         month: u32,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum EntryAction {
+    /// List entries for a date
+    List {
+        /// Date in YYYY-MM-DD format
+        #[arg(long)]
+        date: String,
+    },
+    /// Add an entry (read JSON from stdin)
+    Add {
+        /// Date in YYYY-MM-DD format
+        #[arg(long)]
+        date: String,
     },
 }
 
@@ -133,9 +148,14 @@ pub fn run() {
                 commitments::set(&root, year, month, cli.json);
             }
         },
-        Commands::Entries { date } => {
-            entries::list(&root, &date, cli.json);
-        }
+        Commands::Entries { action } => match action {
+            EntryAction::List { date } => {
+                entries::list(&root, &date, cli.json);
+            }
+            EntryAction::Add { date } => {
+                entries::add(&root, &date, cli.json);
+            }
+        },
         Commands::Dimensions(cmd) => {
             if let Err(e) = handle_dimensions(cmd, &root) {
                 output::print_error(&e);

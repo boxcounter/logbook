@@ -19,6 +19,58 @@ pub fn list(root: &Path, date: &str, json: bool) {
     );
 }
 
+pub fn add(root: &Path, date: &str, json: bool) {
+    use std::io::Read;
+
+    let mut input = String::new();
+    std::io::stdin()
+        .read_to_string(&mut input)
+        .unwrap_or_else(|e| {
+            output::print_error(&format!("Failed to read stdin: {}", e));
+            std::process::exit(1);
+        });
+
+    let entry_input: crate::models::CreateEntryInput =
+        serde_json::from_str(&input).unwrap_or_else(|e| {
+            output::print_error(&format!(
+                "Failed to parse input as CreateEntryInput JSON.\n\
+                 Expected: {{\"item\":\"...\",\"duration\":\"...\",\"dimensions\":{{...}}}}\n\
+                 Error: {}",
+                e
+            ));
+            std::process::exit(1);
+        });
+
+    let entry = crate::commands::append_entry(
+        root.to_string_lossy().into_owned(),
+        date.to_string(),
+        entry_input,
+    )
+    .unwrap_or_else(|e| {
+        output::print_error(&e);
+        std::process::exit(1);
+    });
+
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&entry).expect("Failed to serialize entry")
+        );
+    } else {
+        let dims: Vec<String> = entry
+            .dimensions
+            .iter()
+            .map(|(k, v)| format!("{}={}", k, v))
+            .collect();
+        println!(
+            "Added: \"{}\" | {}m | {}",
+            entry.item,
+            entry.duration,
+            dims.join(", ")
+        );
+    }
+}
+
 fn format_entries_human(day_file: &crate::models::DayFile, date: &str) -> String {
     if day_file.entries.is_empty() && day_file.note.is_none() {
         return format!("{}: (no entries)", date);

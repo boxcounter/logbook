@@ -386,7 +386,7 @@ fn test_entries_list() {
     let output = run(&[
         "--root-path", tmp.to_str().unwrap(),
         "--json",
-        "entries", "--date", "2026-06-15",
+        "entries", "list", "--date", "2026-06-15",
     ]);
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -410,7 +410,7 @@ fn test_entries_list_human() {
 
     let output = run(&[
         "--root-path", tmp.to_str().unwrap(),
-        "entries", "--date", "2026-06-15",
+        "entries", "list", "--date", "2026-06-15",
     ]);
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
