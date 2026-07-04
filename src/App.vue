@@ -8,6 +8,7 @@ import { yearMonthFromDate, rolloverDecision, formatDate } from "./utils/dates";
 import { SAVED_TOAST_DURATION, UNDO_DELETE_DELAY } from "./utils/constants";
 import SetupScreen from "./components/SetupScreen.vue";
 import RecoveryScreen from "./components/RecoveryScreen.vue";
+import DataVersionScreen from "./components/DataVersionScreen.vue";
 import MonthView from "./components/MonthView.vue";
 import Toast from "./components/base/Toast.vue";
 import type { InitResult, ConfigErrorDetail, ScanWarning, Commitment, CommitmentProgressResult, MonthDimensions } from "./types";
@@ -233,6 +234,11 @@ provide(FOCUS_REQUEST_KEY, focusRequestId);
       Loading…
     </div>
     <SetupScreen v-else-if="store.status === 'setup'" />
+    <DataVersionScreen
+      v-else-if="store.status === 'migration_needed'"
+      :message="store.dataVersionMessage ?? 'Data format version error.'"
+      :root-path="store.rootPath"
+    />
     <RecoveryScreen v-else-if="store.status === 'error'" :reload="initApp" />
     <div v-else-if="store.status === 'ready'" class="p-2xl">
       <MonthView />

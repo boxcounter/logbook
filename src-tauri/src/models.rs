@@ -116,6 +116,10 @@ pub struct UpdateEntryInput {
     pub dimensions: Option<BTreeMap<String, String>>,
 }
 
+/// Current data format version. The main app never bumps this — only a
+/// format-changing PR does. A separate migration tool bumps version.txt on disk.
+pub const CURRENT_DATA_VERSION: u32 = 1;
+
 // --- Init result ---
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -130,6 +134,14 @@ pub enum RecoveryCategory {
 #[serde(tag = "status", content = "data")]
 pub enum InitResult {
     NeedsSetup,
+    DataVersionNotFound {
+        root_path: String,
+    },
+    DataVersionMismatch {
+        root_path: String,
+        expected: u32,
+        found: u32,
+    },
     ConfigError {
         category: RecoveryCategory,
         root_path: String,

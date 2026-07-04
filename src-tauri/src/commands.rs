@@ -87,6 +87,38 @@ pub fn parse_duration(input: &str) -> Result<u32, String> {
     Ok(total)
 }
 
+/// Check that the data root has a version.txt matching `expected_version`.
+/// Pure function — does not modify files.
+pub fn check_data_version(
+    root: &std::path::Path,
+    expected_version: u32,
+) -> Result<(), InitResult> {
+    let version = match files::read_version_file(root) {
+        Ok(Some(v)) => v,
+        Ok(None) => {
+            return Err(InitResult::DataVersionNotFound {
+                root_path: root.to_string_lossy().into_owned(),
+            });
+        }
+        Err(_e) => {
+            // Invalid content → treat as version not found
+            return Err(InitResult::DataVersionNotFound {
+                root_path: root.to_string_lossy().into_owned(),
+            });
+        }
+    };
+
+    if version != expected_version {
+        return Err(InitResult::DataVersionMismatch {
+            root_path: root.to_string_lossy().into_owned(),
+            expected: expected_version,
+            found: version,
+        });
+    }
+
+    Ok(())
+}
+
 /// Validate that all required dimensions have values in the entry.
 /// Returns Ok(()) or Err with a human-readable message naming the first missing required dimension.
 pub fn validate_required_dimensions(
@@ -301,6 +333,26 @@ pub fn init(app: AppHandle) -> InitResult {
         }
     };
 
+    match check_data_version(&root_path, CURRENT_DATA_VERSION) {
+        Err(e) => {
+            match &e {
+                InitResult::DataVersionNotFound { .. } => {
+                    error_log::log_command_exit("init", true, "DataVersionNotFound");
+                }
+                InitResult::DataVersionMismatch { expected, found, .. } => {
+                    error_log::log_command_exit(
+                        "init",
+                        false,
+                        &format!("DataVersionMismatch: expected {}, found {}", expected, found),
+                    );
+                }
+                _ => unreachable!(),
+            }
+            return e;
+        }
+        Ok(()) => {}
+    }
+
     let result = load_root_state(&root_path);
     if root_path.exists() {
         crate::config::ensure_watcher(&app, root_path.clone());
@@ -329,6 +381,9 @@ pub fn init(app: AppHandle) -> InitResult {
         InitResult::NeedsSetup => {
             error_log::log_command_exit("init", true, "NeedsSetup");
         }
+        InitResult::DataVersionNotFound { .. } | InitResult::DataVersionMismatch { .. } => {
+            unreachable!("version check should have returned early")
+        }
     }
     result
 }
@@ -349,6 +404,8 @@ pub fn set_root_path(app: AppHandle, path: String) -> Result<InitResult, String>
     }
 
     save_root_path(&app_data_dir, root_path)?;
+
+    files::write_version_file(root_path, CURRENT_DATA_VERSION)?;
 
     let result = load_root_state(root_path);
     crate::config::ensure_watcher(&app, root_path.to_path_buf());
@@ -375,6 +432,9 @@ pub fn set_root_path(app: AppHandle, path: String) -> Result<InitResult, String>
         }
         InitResult::NeedsSetup => {
             error_log::log_command_exit("set_root_path", true, "NeedsSetup");
+        }
+        InitResult::DataVersionNotFound { .. } | InitResult::DataVersionMismatch { .. } => {
+            unreachable!("version just written should be current")
         }
     }
     Ok(result)
@@ -2614,5 +2674,73 @@ entries:
         let changes = detect_role_changes(&old, &new);
         assert_eq!(changes.len(), 1);
         assert_eq!(changes[0], ("OldName".to_string(), "NewName".to_string()));
+    }
+
+    // --- check_data_version tests ---
+
+    #[test]
+    fn test_check_data_version_ok_when_absent() {
+        use std::fs;
+        let tmp = std::env::temp_dir().join("logbook_check_v_ok");
+        let _ = fs::remove_dir_all(&tmp);
+        fs::create_dir_all(&tmp).unwrap();
+        fs::write(tmp.join("version.txt"), "1").unwrap();
+        let result = check_data_version(&tmp, 1);
+        assert!(result.is_ok(), "expected ok, got {:?}", result);
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_check_data_version_not_found() {
+        use std::fs;
+        let tmp = std::env::temp_dir().join("logbook_check_v_nf");
+        let _ = fs::remove_dir_all(&tmp);
+        fs::create_dir_all(&tmp).unwrap();
+        let result = check_data_version(&tmp, 1);
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            InitResult::DataVersionNotFound { root_path } => {
+                assert_eq!(root_path, tmp.to_string_lossy());
+            }
+            other => panic!("expected DataVersionNotFound, got {:?}", other),
+        }
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_check_data_version_mismatch() {
+        use std::fs;
+        let tmp = std::env::temp_dir().join("logbook_check_v_mm");
+        let _ = fs::remove_dir_all(&tmp);
+        fs::create_dir_all(&tmp).unwrap();
+        fs::write(tmp.join("version.txt"), "5").unwrap();
+        let result = check_data_version(&tmp, 1);
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            InitResult::DataVersionMismatch { root_path, expected, found } => {
+                assert_eq!(root_path, tmp.to_string_lossy());
+                assert_eq!(expected, 1);
+                assert_eq!(found, 5);
+            }
+            other => panic!("expected DataVersionMismatch, got {:?}", other),
+        }
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_check_data_version_invalid_content() {
+        use std::fs;
+        let tmp = std::env::temp_dir().join("logbook_check_v_inv");
+        let _ = fs::remove_dir_all(&tmp);
+        fs::create_dir_all(&tmp).unwrap();
+        fs::write(tmp.join("version.txt"), "not-a-number").unwrap();
+        let result = check_data_version(&tmp, 1);
+        // Invalid content is treated like version not found
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            InitResult::DataVersionNotFound { .. }
+        ));
+        let _ = fs::remove_dir_all(&tmp);
     }
 }

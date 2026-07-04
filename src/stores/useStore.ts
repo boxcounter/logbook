@@ -14,6 +14,7 @@ export interface AppStore {
   usingDefaultDimensions: boolean;
   configErrors: ConfigErrorDetail[];
   configCategory: RecoveryCategory | null;
+  dataVersionMessage: string | null;
   today: DayFile | null;
   commitments: Commitment[];
   commitmentProgress: CommitmentProgress[];
@@ -36,6 +37,7 @@ export function createStore(): AppStore {
     usingDefaultDimensions: false,
     configErrors: [],
     configCategory: null,
+    dataVersionMessage: null,
     today: null,
     commitments: [],
     commitmentProgress: [],
