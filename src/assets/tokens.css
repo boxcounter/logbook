@@ -33,16 +33,6 @@
   --color-danger: #ef4444;
   --color-warning: #f59e0b;
 
-  /* === Problem Entry (unattributed / mismatch) === */
-  --color-problem-entry-bg: #fffbeb;
-  --color-problem-entry-hover-bg: #fef3c7;
-  --color-problem-entry-border: #fde68a;
-  --color-problem-entry-text: #d97706;
-
-  /* === Warning Bar (CommitmentsPanel unattributed/mismatch) === */
-  --color-warning-bar-text: #92400e;
-  --color-warning-bar-hint: #b45309;
-
   /* === Progress Bar (general spent gradient) === */
   --color-progress-general-from: #c4b5fd;
   --color-progress-general-to: #ddd6fe;
@@ -149,12 +139,6 @@
     --color-missing-border: #334155;
     --color-missing-text: #64748b;
     --color-missing-dot: #475569;
-    --color-problem-entry-bg: #422006;
-    --color-problem-entry-hover-bg: #5c2d0a;
-    --color-problem-entry-border: #78350f;
-    --color-problem-entry-text: #f59e0b;
-    --color-warning-bar-text: #facc15;
-    --color-warning-bar-hint: #fde68a;
     --color-progress-general-from: #7c3aed;
     --color-progress-general-to: #a78bfa;
     --color-popover-dim-header-bg: #1e1b3a;
