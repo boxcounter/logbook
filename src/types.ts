@@ -34,14 +34,7 @@ export interface GoalProgress {
   spent_minutes: number;
 }
 
-export type Attribution = "ok" | "unattributed" | "mismatch";
-
-export interface CommitmentProgressResult {
-  roles: CommitmentProgress[];
-  unattributed_count: number;
-  unattributed_total_minutes: number;
-  mismatch_count: number;
-}
+export type CommitmentProgressResult = CommitmentProgress[];
 
 // Working-copy row models for the commitments editor
 // (CommitmentsModal / RoleCard / GoalRow). `orig*` capture the name at load time
@@ -67,7 +60,6 @@ export interface Entry {
   item: string;
   duration: number; // minutes
   dimensions: Record<string, string>;
-  attribution: Attribution;
 }
 
 export interface DayFile {
