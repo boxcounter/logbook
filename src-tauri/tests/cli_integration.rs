@@ -422,6 +422,25 @@ fn test_entries_list_human() {
 }
 
 #[test]
+fn test_dimensions_list() {
+    let tmp = std::env::temp_dir().join("logbook_cli_test_dims_list");
+    let _ = fs::remove_dir_all(&tmp);
+    setup_fixture(&tmp);
+
+    let output = run(&[
+        "--root-path", tmp.to_str().unwrap(),
+        "--json",
+        "dimensions", "list", "--year", "2026", "--month", "6",
+    ]);
+    assert!(output.status.success(), "stderr: {}", String::from_utf8_lossy(&output.stderr));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("\"Goal\""), "stdout: {}", stdout);
+    assert!(stdout.contains("\"Role\""), "stdout: {}", stdout);
+
+    let _ = fs::remove_dir_all(&tmp);
+}
+
+#[test]
 fn test_root_path_flag_priority() {
     let tmp = std::env::temp_dir().join("logbook_cli_test_root_flag");
     let _ = fs::remove_dir_all(&tmp);

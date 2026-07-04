@@ -7,8 +7,8 @@ use std::path::Path;
 
 #[derive(Subcommand)]
 pub enum DimensionsCommands {
-    /// Get dimensions for a month or the template
-    Get {
+    /// List dimensions for a month or the template
+    List {
         /// Year
         #[arg(long, required_unless_present = "template")]
         year: Option<i32>,
@@ -41,7 +41,7 @@ pub enum DimensionsCommands {
 
 pub fn handle_dimensions(cmd: DimensionsCommands, root: &Path) -> Result<(), String> {
     match cmd {
-        DimensionsCommands::Get { year, month, template, json } => {
+        DimensionsCommands::List { year, month, template, json } => {
             let dims: Vec<Dimension> = if template {
                 files::read_dimensions_template(root)?.dimensions
             } else {
