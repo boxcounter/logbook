@@ -92,6 +92,14 @@ describe("DimensionEditorModal", () => {
     expect(wrapper.text()).toContain("Values are derived from commitment goals");
   });
 
+  it("shows commitments:role info card", async () => {
+    const roleDim: Dimension = { name: "Role", key: "role", source: "commitments:role", values: undefined, required: false, deleted: false };
+    const wrapper = mountModal({ open: true, dimensions: [roleDim, ...MOCK_DIMENSIONS] });
+    const roleRow = wrapper.findAll('[data-test="dim-row"]')[0];
+    await roleRow.trigger("click");
+    expect(wrapper.text()).toContain("Values are derived from commitment roles");
+  });
+
   it("does not show values section for commitments:goals dimensions", () => {
     const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
     // Goal is commitments:goals — no values list or "New value" input

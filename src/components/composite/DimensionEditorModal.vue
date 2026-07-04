@@ -461,6 +461,11 @@ const monthLabel = new Date(props.year, props.month - 1, 1)
                     <p class="text-secondary text-[var(--color-text-muted)]">Values are derived from commitment goals.</p>
                   </div>
                 </template>
+                <template v-if="selectedDimension.source === 'commitments:role'">
+                  <div class="border border-[var(--color-border-form)] rounded-[var(--radius-form-lg)] bg-[var(--color-surface-muted)] p-md">
+                    <p class="text-secondary text-[var(--color-text-muted)]">Values are derived from commitment roles.</p>
+                  </div>
+                </template>
               </div>
 
               <!-- Delete / Restore dimension button -->
