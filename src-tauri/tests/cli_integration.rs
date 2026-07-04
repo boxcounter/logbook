@@ -491,7 +491,7 @@ fn test_entries_add_minimal() {
     let _ = fs::remove_dir_all(&tmp);
     setup_fixture(&tmp);
 
-    let input = r#"{"item":"Coffee break","duration":"15m"}"#;
+    let input = r#"{"item":"Coffee break","duration":"15m","dimensions":{"role":"Developer"}}"#;
 
     let output = run_with_stdin(&[
         "--root-path", tmp.to_str().unwrap(),

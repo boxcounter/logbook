@@ -136,8 +136,9 @@ pub fn validate_required_dimensions(
     Ok(())
 }
 
-/// Validate cross-dimension constraints: if entry has both role and goal,
-/// the goal must be declared under that role in commitments.yaml.
+/// Validate cross-dimension constraints: if commitments are declared,
+/// (1) any role value must be listed in commitments, and
+/// (2) if both role and goal are present, the goal must be declared under that role.
 fn validate_cross_dimension_constraints(
     dimensions: &BTreeMap<String, String>,
     role_key: &str,
@@ -146,13 +147,23 @@ fn validate_cross_dimension_constraints(
 ) -> Result<(), String> {
     let role = dimensions.get(role_key);
     let goal = dimensions.get(goal_key);
-    if let (Some(r), Some(g)) = (role, goal) {
-        if let Some(goals) = role_to_goals.get(r.as_str()) {
-            if !goals.contains(g) {
-                return Err(format!(
-                    "Goal '{}' is not declared under role '{}'",
-                    g, r
-                ));
+
+    if let Some(r) = role {
+        if !role_to_goals.is_empty() && !role_to_goals.contains_key(r.as_str()) {
+            return Err(format!(
+                "Role '{}' is not declared in commitments",
+                r
+            ));
+        }
+
+        if let Some(g) = goal {
+            if let Some(goals) = role_to_goals.get(r.as_str()) {
+                if !goals.contains(g) {
+                    return Err(format!(
+                        "Goal '{}' is not declared under role '{}'",
+                        g, r
+                    ));
+                }
             }
         }
     }
@@ -2552,11 +2563,35 @@ entries:
     }
 
     #[test]
-    fn test_validate_cross_dimension_ok_role_not_in_map() {
+    fn test_validate_cross_dimension_ok_empty_commitments() {
         let mut dims = BTreeMap::new();
         dims.insert("role".to_string(), "UnknownRole".to_string());
         dims.insert("goal".to_string(), "SomeGoal".to_string());
         let role_to_goals = std::collections::HashMap::new(); // empty
+        assert!(validate_cross_dimension_constraints(
+            &dims, "role", "goal", &role_to_goals
+        ).is_ok());
+    }
+
+    #[test]
+    fn test_validate_cross_dimension_reject_unknown_role() {
+        let mut dims = BTreeMap::new();
+        dims.insert("role".to_string(), "UnknownRole".to_string());
+        let mut role_to_goals = std::collections::HashMap::new();
+        role_to_goals.insert("Eng".to_string(), vec!["ShipIt".to_string()]);
+        let result = validate_cross_dimension_constraints(
+            &dims, "role", "goal", &role_to_goals
+        );
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("not declared in commitments"));
+    }
+
+    #[test]
+    fn test_validate_cross_dimension_ok_role_in_commitments_no_goal() {
+        let mut dims = BTreeMap::new();
+        dims.insert("role".to_string(), "Eng".to_string());
+        let mut role_to_goals = std::collections::HashMap::new();
+        role_to_goals.insert("Eng".to_string(), vec!["ShipIt".to_string()]);
         assert!(validate_cross_dimension_constraints(
             &dims, "role", "goal", &role_to_goals
         ).is_ok());
