@@ -95,6 +95,8 @@ export interface ScanWarning {
 
 export type InitResult =
   | { status: "NeedsSetup" }
+  | { status: "DataVersionNotFound"; data: { root_path: string } }
+  | { status: "DataVersionMismatch"; data: { root_path: string; expected: number; found: number } }
   | { status: "ConfigError"; data: { category: RecoveryCategory; root_path: string; errors: ConfigErrorDetail[]; scan_warnings: ScanWarning[] } }
   | {
       status: "Ready";
@@ -115,7 +117,7 @@ export interface ConfigErrorDetail {
 
 export type RecoveryCategory = "in_place" | "config_missing" | "root_missing";
 
-export type AppStatus = "loading" | "setup" | "error" | "ready";
+export type AppStatus = "loading" | "setup" | "migration_needed" | "error" | "ready";
 
 export const UNDO_TOAST_KEY: InjectionKey<(undoFn: () => void) => void> = Symbol("triggerUndoToast");
 export const SAVED_TOAST_KEY: InjectionKey<(msg: string) => void> = Symbol("triggerSavedToast");

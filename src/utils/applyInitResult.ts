@@ -11,6 +11,16 @@ export function applyInitResult(store: AppStore, result: InitResult): ScanWarnin
     case "NeedsSetup":
       store.status = "setup";
       return [];
+    case "DataVersionNotFound":
+      store.rootPath = result.data.root_path;
+      store.dataVersionMessage = "Data version file not found. Please run the Logbook migration tool to initialize your data directory.";
+      store.status = "migration_needed";
+      return [];
+    case "DataVersionMismatch":
+      store.rootPath = result.data.root_path;
+      store.dataVersionMessage = `Data format version mismatch. Expected version ${result.data.expected}, found version ${result.data.found}. Please run the Logbook migration tool to update your data directory.`;
+      store.status = "migration_needed";
+      return [];
     case "ConfigError":
       store.configErrors = result.data.errors;
       store.configCategory = result.data.category;
