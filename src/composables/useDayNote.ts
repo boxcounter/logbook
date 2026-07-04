@@ -52,7 +52,7 @@ export function useDayNote(store: AppStore) {
   function onNoteEsc(e: KeyboardEvent) {
     e.preventDefault();
     if (noteRef.value) noteRef.value.textContent = noteSnapshot;
-    noteRef.value?.blur();
+    noteRef.value?.blur(); // triggers saveNote with unchanged content (no-op write)
   }
 
   function onNoteEnter(e: KeyboardEvent) {
