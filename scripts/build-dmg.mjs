@@ -37,7 +37,10 @@ function exec(cmd, opts = {}) {
 
 // 1. Clean up stale mounts from previous builds
 try { exec("hdiutil detach /Volumes/Logbook 2>/dev/null || true"); } catch {}
+try { exec(`hdiutil detach "/Volumes/${VOLNAME}" 2>/dev/null || true`); } catch {}
 try { exec(`hdiutil detach "${TMP_MOUNT}" 2>/dev/null || true`); } catch {}
+// Remove leftover intermediate DMGs from Tauri's bundler
+try { exec(`rm -f ${BUNDLE_DIR}/macos/rw.*.dmg 2>/dev/null || true`); } catch {}
 try { rmSync(TMP_DMG, { force: true }); } catch {}
 try { rmSync(TMP_MOUNT, { recursive: true, force: true }); } catch {}
 
