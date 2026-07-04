@@ -573,6 +573,15 @@ pub fn append_entry(root_path: String, date: String, entry: CreateEntryInput) ->
     let dims = files::resolve_month_dimensions(root, year, month)?;
     validate_required_dimensions(&dims, &entry.dimensions)?;
 
+    // Cross-dimension validation
+    {
+        let commitments = crate::files::read_commitments_file(root, year, month).unwrap_or_default();
+        let goal_key = goal_dim_key(root, year, month)?;
+        let role_key = role_dim_key(root, year, month)?;
+        let (_, role_to_goals) = build_commitment_maps(&commitments);
+        validate_cross_dimension_constraints(&entry.dimensions, &role_key, &goal_key, &role_to_goals)?;
+    }
+
     let entry_id = uuid::Uuid::new_v4().to_string();
 
     // Log before mutation
@@ -631,6 +640,13 @@ pub fn update_entry(
     if let Some(ref dims) = update.dimensions {
         let effective = files::resolve_month_dimensions(root, year, month)?;
         validate_required_dimensions(&effective, dims)?;
+        {
+            let commitments = crate::files::read_commitments_file(root, year, month).unwrap_or_default();
+            let goal_key = goal_dim_key(root, year, month)?;
+            let role_key = role_dim_key(root, year, month)?;
+            let (_, role_to_goals) = build_commitment_maps(&commitments);
+            validate_cross_dimension_constraints(dims, &role_key, &goal_key, &role_to_goals)?;
+        }
     }
 
     // Read before snapshot
