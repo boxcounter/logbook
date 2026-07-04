@@ -7,13 +7,14 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useStore } from "../stores/useStore";
 import { useDayNote } from "../composables/useDayNote";
 import { useFileActions } from "../composables/useFileActions";
+import { useMonthData } from "../composables/useMonthData";
 import HeatmapCalendar from "./HeatmapCalendar.vue";
 import CommitmentsPanel from "./CommitmentsPanel.vue";
 import DayHeader from "./DayHeader.vue";
 import EntryList from "./EntryList.vue";
 import EntryComposer from "./EntryComposer.vue";
 import DimensionEditorModal from "./composite/DimensionEditorModal.vue";
-import type { DayFile, Entry, Commitment, CommitmentProgressResult, MonthDimensions, Dimension } from "../types";
+import type { DayFile, Entry, Dimension } from "../types";
 import { UNDO_TOAST_KEY, SAVED_TOAST_KEY } from "../types";
 import { logError, logInfo } from "../utils/errorLog";
 import { yearMonthFromDate, parseDate, addDays, formatDate } from "../utils/dates";
@@ -55,123 +56,14 @@ const triggerUndoToast = inject(UNDO_TOAST_KEY, () => {});
 const triggerSavedToast = inject(SAVED_TOAST_KEY, () => {});
 const { noteRef, saveNote, onNotePaste, onNoteInput, onNoteFocus, onNoteEsc, onNoteEnter } = useDayNote(store);
 const { dayFilePath, displayPath, revealDayFile, copyFilePath, copiedFeedback } = useFileActions(store);
-
-// ---- Month loading ----
-async function loadMonth(year: number, month: number, defaultDay?: number) {
-  store.configErrors = [];
-  store.commitments = [];
-  store.commitmentProgress = [];
-  store.commitmentProgressResult = null;
-  const now = new Date();
-  const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
-  let day: number;
-  if (defaultDay !== undefined) day = defaultDay;
-  else if (isCurrentMonth) day = now.getDate();
-  else day = new Date(year, month, 0).getDate();
-
-  const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-  store.currentDate = dateStr;
-
-  try {
-    store.monthEntries = await invoke<Record<string, Entry[]>>("get_month_entries", { rootPath: store.rootPath, year, month });
-  } catch (e) {
-    logError("MonthView.loadMonth", e);
-    store.monthEntries = {};
-    const msg = String(e);
-    if (msg.includes("dimensions")) {
-      store.configErrors = [{ kind: "ConfigError", message: msg }];
-      store.configCategory = "in_place";
-      return;
-    }
-  }
-  await loadCommitmentProgress(year, month);
-  await loadCommitments(year, month);
-  await loadMonthDimensions(year, month);
-  if (store.currentDate in store.monthEntries) {
-    store.today = { note: null, entries: store.monthEntries[store.currentDate] };
-    loadDayNote(store.currentDate);
-  }
-}
-
-async function loadCommitmentProgress(year: number, month: number) {
-  try {
-    const result = await invoke<CommitmentProgressResult>("get_commitment_progress", { rootPath: store.rootPath, year, month });
-    store.commitmentProgress = result.roles;
-    store.commitmentProgressResult = result;
-  } catch (e) {
-    logError("MonthView.loadCommitmentProgress", e);
-    store.commitmentProgress = [];
-    store.commitmentProgressResult = null;
-    const msg = String(e);
-    if (msg.includes("dimensions")) {
-      store.configErrors = [{ kind: "ConfigError", message: msg }];
-      store.configCategory = "in_place";
-    }
-  }
-}
-
-async function loadCommitments(year: number, month: number) {
-  try {
-    store.commitments = await invoke<Commitment[]>("get_commitments", { rootPath: store.rootPath, year, month });
-  } catch (e) { logError("MonthView.loadCommitments", e); store.commitments = []; }
-}
-
-// Refresh the dimension set for the viewed month: a month's own snapshot if
-// instantiated, else the global template (usingDefaultDimensions = true → preview state).
-async function loadMonthDimensions(year: number, month: number) {
-  try {
-    const md = await invoke<MonthDimensions>("get_month_dimensions", { rootPath: store.rootPath, year, month });
-    // Only adopt a well-formed response; never wipe dimensions on a malformed/missing one.
-    if (md && Array.isArray(md.dimensions)) {
-      store.dimensions = md.dimensions;
-      store.usingDefaultDimensions = md.usingDefaultDimensions;
-    }
-  } catch (e) {
-    logError("MonthView.loadMonthDimensions", e);
-    const msg = String(e);
-    if (msg.includes("dimensions")) {
-      store.configErrors = [{ kind: "ConfigError", message: msg }];
-      store.configCategory = "in_place";
-    }
-  }
-}
-
-// Optimistically reflect the just-saved commitments so the panel's Edit/Set-up
-// gating and the next modal open use fresh data immediately, rather than waiting
-// for the `commitments-changed` file-watcher round-trip. Progress is recomputed
-// from the backend since logged totals can shift with goal renames.
-async function onCommitmentsSaved(commitments: Commitment[]) {
-  store.commitments = commitments;
-  await loadCommitmentProgress(selectedYear.value, selectedMonth.value);
-}
-
-async function loadDayNote(dateStr: string) {
-  try {
-    const df = await invoke<DayFile>("get_entries", { rootPath: store.rootPath, date: dateStr });
-    if (store.today) store.today.note = df.note;
-  } catch (e) { logError("MonthView.loadDayNote", e); }
-}
-
-async function handleSelectDay(dateStr: string) {
-  if (!guardUnsaved()) return;
-  store.currentDate = dateStr;
-  if (dateStr in store.monthEntries) {
-    store.today = { note: null, entries: store.monthEntries[dateStr] };
-    await loadDayNote(dateStr);
-  }
-}
-
-async function handleNavigate({ year, month }: { year: number; month: number }) {
-  if (!guardUnsaved()) return;
-  await loadMonth(year, month);
-}
-
-async function handleRequestMonths() {
-  if (store.availableMonths !== null) return;
-  try {
-    store.availableMonths = (await invoke("get_available_months", { rootPath: store.rootPath })) as { year: number; month: number }[];
-  } catch (e) { logError("MonthView.handleRequestMonths", e); store.availableMonths = []; }
-}
+const {
+  loadMonth,
+  loadCommitmentProgress,
+  onCommitmentsSaved,
+  handleSelectDay,
+  handleNavigate,
+  handleRequestMonths,
+} = useMonthData(store, guardUnsaved);
 
 // ---- Append (absorbed from the deleted QuickEntry) ----
 function sanitizeValues(vals: Record<string, string>): Record<string, string> {
