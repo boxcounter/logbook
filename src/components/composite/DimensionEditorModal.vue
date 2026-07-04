@@ -233,7 +233,7 @@ const monthLabel = new Date(props.year, props.month - 1, 1)
               <span class="text-[var(--color-text-disabled)]">|</span>
               <button
                 data-test="save-as-template"
-                class="text-secondary font-semibold text-[var(--color-brand-link)] cursor-pointer disabled:opacity-50 disabled:cursor-default"
+                class="ml-2xs text-secondary font-semibold text-[var(--color-brand-link)] cursor-pointer disabled:opacity-50 disabled:cursor-default"
                 :disabled="savingTemplate"
                 @click="saveAsTemplate"
               >{{ savingTemplate ? 'Saving...' : templateSaved ? 'Saved!' : 'Save as template' }}</button>
