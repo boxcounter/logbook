@@ -6,6 +6,7 @@ import { getVersion } from "@tauri-apps/api/app";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useStore } from "../stores/useStore";
 import { useDayNote } from "../composables/useDayNote";
+import { useFileActions } from "../composables/useFileActions";
 import HeatmapCalendar from "./HeatmapCalendar.vue";
 import CommitmentsPanel from "./CommitmentsPanel.vue";
 import DayHeader from "./DayHeader.vue";
@@ -53,6 +54,7 @@ const dayTitle = computed(() => {
 const triggerUndoToast = inject(UNDO_TOAST_KEY, () => {});
 const triggerSavedToast = inject(SAVED_TOAST_KEY, () => {});
 const { noteRef, saveNote, onNotePaste, onNoteInput, onNoteFocus, onNoteEsc, onNoteEnter } = useDayNote(store);
+const { dayFilePath, displayPath, revealDayFile, copyFilePath, copiedFeedback } = useFileActions(store);
 
 // ---- Month loading ----
 async function loadMonth(year: number, month: number, defaultDay?: number) {
@@ -266,31 +268,6 @@ async function handleDeleteEntry(entryId: string) {
   });
 }
 
-// ---- File path ----
-const dayFilePath = computed(() => {
-  if (!store.rootPath) return "";
-  const d = store.currentDate;
-  return `${d.slice(0, 4)}/${d.slice(5, 7)}/${d}.md`;
-});
-const displayPath = computed(() => (store.rootPath ? `…/${dayFilePath.value}` : ""));
-async function revealDayFile() {
-  if (!store.rootPath) return;
-  try { await invoke("reveal_day_file", { rootPath: store.rootPath, date: store.currentDate }); }
-  catch (e) { logError("MonthView.revealDayFile", e); }
-}
-
-// ---- File path right-click copy ----
-const copiedFeedback = ref(false);
-let copyTimer: ReturnType<typeof setTimeout> | null = null;
-async function copyFilePath(e: MouseEvent) {
-  e.preventDefault();
-  if (!store.rootPath) return;
-  await navigator.clipboard.writeText(store.rootPath + "/" + dayFilePath.value);
-  copiedFeedback.value = true;
-  if (copyTimer) clearTimeout(copyTimer);
-  copyTimer = setTimeout(() => { copiedFeedback.value = false; }, HIGHLIGHT_DURATION);
-}
-
 function guardUnsaved(): boolean {
   if (inputRef.value?.hasUnsavedContent?.()) {
     return confirm("Discard unsaved entry?");
@@ -366,7 +343,6 @@ onUnmounted(() => {
   window.removeEventListener("beforeunload", onBeforeUnload);
   if (pendingDeleteTimer) clearTimeout(pendingDeleteTimer);
   if (highlightTimer) clearTimeout(highlightTimer);
-  if (copyTimer) clearTimeout(copyTimer);
 });
 
 logInfo("MonthView", "mounted");
