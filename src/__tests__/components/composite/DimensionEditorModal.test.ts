@@ -92,6 +92,14 @@ describe("DimensionEditorModal", () => {
     expect(wrapper.text()).toContain("Values are derived from commitment goals");
   });
 
+  it("shows commitments:role info card", async () => {
+    const roleDim: Dimension = { name: "Role", key: "role", source: "commitments:role", values: undefined, required: false, deleted: false };
+    const wrapper = mountModal({ open: true, dimensions: [roleDim, ...MOCK_DIMENSIONS] });
+    const roleRow = wrapper.findAll('[data-test="dim-row"]')[0];
+    await roleRow.trigger("click");
+    expect(wrapper.text()).toContain("Values are derived from commitment roles");
+  });
+
   it("does not show values section for commitments:goals dimensions", () => {
     const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
     // Goal is commitments:goals — no values list or "New value" input
@@ -259,6 +267,25 @@ describe("DimensionEditorModal", () => {
       rootPath: "/test",
       dimensions: MOCK_DIMENSIONS,
     }));
+  });
+
+  it("saveAsTemplate filters out deleted dimensions", async () => {
+    const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
+    // Goal (index 0) is selected by default. Mark it as deleted.
+    const deleteBtn = wrapper.find('[data-test="delete-dim"]');
+    await deleteBtn.trigger("click");
+    await nextTick();
+
+    // Save as template
+    await wrapper.find('[data-test="save-as-template"]').trigger("click");
+    await nextTick();
+    await nextTick();
+
+    // Only the 2 non-deleted dimensions should be passed
+    const callArgs = (invoke as any).mock.calls.find((c: any[]) => c[0] === "save_dimensions_template")[1];
+    const passedDims: { key: string; deleted?: boolean }[] = callArgs.dimensions;
+    expect(passedDims).toHaveLength(2);
+    expect(passedDims.map((d: any) => d.key)).toEqual(["biz", "importance-urgency"]);
   });
 
   it("shows error and logs when save-as-template fails", async () => {

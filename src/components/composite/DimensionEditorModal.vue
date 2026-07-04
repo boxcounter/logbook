@@ -188,9 +188,10 @@ async function saveAsTemplate() {
   error.value = "";
   templateSaved.value = false;
   try {
+    const active = draft.value.filter(d => !d.deleted);
     await invoke("save_dimensions_template", {
       rootPath: props.rootPath,
-      dimensions: draft.value,
+      dimensions: active,
     });
     templateSaved.value = true;
     setTimeout(() => { templateSaved.value = false; }, 2000);
@@ -232,7 +233,7 @@ const monthLabel = new Date(props.year, props.month - 1, 1)
               <span class="text-[var(--color-text-disabled)]">|</span>
               <button
                 data-test="save-as-template"
-                class="text-secondary font-semibold text-[var(--color-brand-link)] cursor-pointer disabled:opacity-50 disabled:cursor-default"
+                class="ml-2xs text-secondary font-semibold text-[var(--color-brand-link)] cursor-pointer disabled:opacity-50 disabled:cursor-default"
                 :disabled="savingTemplate"
                 @click="saveAsTemplate"
               >{{ savingTemplate ? 'Saving...' : templateSaved ? 'Saved!' : 'Save as template' }}</button>
@@ -458,6 +459,11 @@ const monthLabel = new Date(props.year, props.month - 1, 1)
                 <template v-if="selectedDimension.source === 'commitments:goals'">
                   <div class="border border-[var(--color-border-form)] rounded-[var(--radius-form-lg)] bg-[var(--color-surface-muted)] p-md">
                     <p class="text-secondary text-[var(--color-text-muted)]">Values are derived from commitment goals.</p>
+                  </div>
+                </template>
+                <template v-if="selectedDimension.source === 'commitments:role'">
+                  <div class="border border-[var(--color-border-form)] rounded-[var(--radius-form-lg)] bg-[var(--color-surface-muted)] p-md">
+                    <p class="text-secondary text-[var(--color-text-muted)]">Values are derived from commitment roles.</p>
                   </div>
                 </template>
               </div>
