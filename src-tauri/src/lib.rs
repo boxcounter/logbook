@@ -169,6 +169,7 @@ pub fn run() {
             commands::init,
             commands::set_root_path,
             commands::get_entries,
+            commands::get_month_entries,
             commands::append_entry,
             commands::update_entry,
             commands::delete_entry,

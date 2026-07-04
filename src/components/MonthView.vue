@@ -14,7 +14,7 @@ import DimensionEditorModal from "./composite/DimensionEditorModal.vue";
 import type { DayFile, Entry, Commitment, CommitmentProgressResult, MonthDimensions, Dimension } from "../types";
 import { UNDO_TOAST_KEY, SAVED_TOAST_KEY } from "../types";
 import { logError, logInfo } from "../utils/errorLog";
-import { datesInMonth, yearMonthFromDate, parseDate, addDays, formatDate } from "../utils/dates";
+import { yearMonthFromDate, parseDate, addDays, formatDate } from "../utils/dates";
 import { HIGHLIGHT_DURATION, UNDO_DELETE_DELAY } from "../utils/constants";
 import ConfigErrorBanner from "./ConfigErrorBanner.vue";
 
@@ -68,29 +68,23 @@ async function loadMonth(year: number, month: number, defaultDay?: number) {
   const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
   store.currentDate = dateStr;
 
-  const dates = datesInMonth(dateStr);
-  const map: Record<string, Entry[]> = {};
-  for (const date of dates) {
-    try {
-      const df = await invoke<DayFile>("get_entries", { rootPath: store.rootPath, date });
-      map[date] = df.entries;
-    } catch (e) {
-      logError("MonthView.loadMonth", e);
-      map[date] = [];
-      const msg = String(e);
-      if (msg.includes("dimensions")) {
-        store.configErrors = [{ kind: "ConfigError", message: msg }];
-        store.configCategory = "in_place";
-        return;
-      }
+  try {
+    store.monthEntries = await invoke<Record<string, Entry[]>>("get_month_entries", { rootPath: store.rootPath, year, month });
+  } catch (e) {
+    logError("MonthView.loadMonth", e);
+    store.monthEntries = {};
+    const msg = String(e);
+    if (msg.includes("dimensions")) {
+      store.configErrors = [{ kind: "ConfigError", message: msg }];
+      store.configCategory = "in_place";
+      return;
     }
   }
-  store.monthEntries = map;
   await loadCommitmentProgress(year, month);
   await loadCommitments(year, month);
   await loadMonthDimensions(year, month);
-  if (store.currentDate in map) {
-    store.today = { note: null, entries: map[store.currentDate] };
+  if (store.currentDate in store.monthEntries) {
+    store.today = { note: null, entries: store.monthEntries[store.currentDate] };
     loadDayNote(store.currentDate);
   }
 }

@@ -377,6 +377,72 @@ pub fn set_root_path(app: AppHandle, path: String) -> Result<InitResult, String>
     Ok(result)
 }
 
+/// Batch-read all day files for a month, injecting attribution from
+/// commitments.yaml (read once). Returns entries keyed by YYYY-MM-DD date.
+#[tauri::command]
+pub fn get_month_entries(
+    root_path: String,
+    year: i32,
+    month: u32,
+) -> Result<std::collections::BTreeMap<String, Vec<crate::models::Entry>>, String> {
+    error_log::log_command_enter("get_month_entries", &format!("{}-{:02}", year, month));
+    let root = std::path::Path::new(&root_path);
+    let month_dir = root.join(year.to_string()).join(format!("{:02}", month));
+
+    if !month_dir.exists() {
+        error_log::log_command_exit("get_month_entries", true, "no month dir");
+        return Ok(std::collections::BTreeMap::new());
+    }
+
+    let commitments = crate::files::read_commitments_file(root, year, month).unwrap_or_default();
+    let goal_key = goal_dim_key(root, year, month)?;
+    let role_key = role_dim_key(root, year, month)?;
+    let (goal_to_role, role_to_goals) = build_commitment_maps(&commitments);
+
+    let mut result: std::collections::BTreeMap<String, Vec<crate::models::Entry>> =
+        std::collections::BTreeMap::new();
+
+    let entries = std::fs::read_dir(&month_dir)
+        .map_err(|e| format!("Failed to read month dir: {}", e))?;
+    let mut total = 0u32;
+
+    for entry in entries {
+        let entry = match entry {
+            Ok(e) => e,
+            Err(e) => {
+                error_log::log_error("get_month_entries", &format!("read_dir entry error: {:?}", e));
+                continue;
+            }
+        };
+        let path = entry.path();
+        let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+        if file_name == "_monthly.md" || !file_name.ends_with(".md") {
+            continue;
+        }
+        let date = file_name.trim_end_matches(".md");
+        if validate_date_format(date).is_err() {
+            continue;
+        }
+        match crate::files::read_day_file(root, date) {
+            Ok(mut day_file) => {
+                annotate_day_file(&mut day_file, &role_key, &goal_key, &goal_to_role, &role_to_goals);
+                total += day_file.entries.len() as u32;
+                result.insert(date.to_string(), day_file.entries);
+            }
+            Err(e) => {
+                error_log::log_error(
+                    "get_month_entries",
+                    &format!("Failed to read {}: {:?}", date, e),
+                );
+                result.insert(date.to_string(), vec![]);
+            }
+        }
+    }
+
+    error_log::log_command_exit("get_month_entries", true, &format!("{} days, {} entries", result.len(), total));
+    Ok(result)
+}
+
 #[tauri::command]
 pub fn get_entries(root_path: String, date: String) -> Result<DayFile, String> {
     error_log::log_command_enter("get_entries", &format!("date={}", date));

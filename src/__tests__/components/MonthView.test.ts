@@ -271,16 +271,14 @@ describe("MonthView", () => {
 describe("MonthView delete entry", () => {
   const DEL_ID = "del-1";
 
-  // Seed get_entries so loadMonth rebuilds store.today with a known entry, then
-  // mount and let loadMonth settle — mirroring real usage where the month load
-  // completes before the user deletes. Without settling, the unawaited
-  // loadMonth races the delete timer and swaps store.today out from under it.
+  // Seed get_month_entries so loadMonth rebuilds store.today with a known entry.
   async function mountWithUndo() {
+    const seedDate = todayDateStr();
     invokeMock.mockImplementation(async (cmd: string) => {
       if (cmd === "delete_entry") return null;
       if (cmd === "get_commitment_progress") return [];
       if (cmd === "get_commitments") return [];
-      if (cmd === "get_entries") return { note: null, entries: [makeEntry({ id: DEL_ID, item: "Doomed", duration: 60 })] };
+      if (cmd === "get_month_entries") return { [seedDate]: [makeEntry({ id: DEL_ID, item: "Doomed", duration: 60 })] };
       return { note: null, entries: [] };
     });
     const store = makeStore();
