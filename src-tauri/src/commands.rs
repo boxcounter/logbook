@@ -261,7 +261,7 @@ pub fn load_root_state(root: &std::path::Path) -> InitResult {
     };
 
     let today_date = format!("{}-{:02}-{:02}", now.year(), now.month(), now.day());
-    let mut today = match read_day_file_safe(root, &today_date) {
+    let today = match read_day_file_safe(root, &today_date) {
         Ok(df) => df,
         Err(e) => {
             all_errors.push(ConfigErrorDetail {
@@ -283,43 +283,6 @@ pub fn load_root_state(root: &std::path::Path) -> InitResult {
             error_log::log_error("load_root_state:dimensions", &format!("resolve failed: {e}"));
             Default::default()
         });
-
-    // Inject attribution into today's entries.  Don't fall back to hardcoded
-    // keys — if the dimension resolution fails the entries load without
-    // attribution, which is safer than guessing the wrong key name.
-    {
-        let commitments = crate::files::read_commitments_file(root, now.year(), now.month())
-            .unwrap_or_else(|e| {
-                error_log::log_error("load_root_state:commitments", &format!("read failed: {e}"));
-                Default::default()
-            });
-        let mut goal_key: Option<String> = None;
-        let mut role_key: Option<String> = None;
-        match goal_dim_key(root, now.year(), now.month()) {
-            Ok(k) => goal_key = Some(k),
-            Err(e) => {
-                all_errors.push(ConfigErrorDetail {
-                    kind: "GoalKeyMissing".to_string(),
-                    message: e,
-                });
-                error_log::log_error("load_root_state", "skipping attribution: goal key missing");
-            }
-        }
-        match role_dim_key(root, now.year(), now.month()) {
-            Ok(k) => role_key = Some(k),
-            Err(e) => {
-                all_errors.push(ConfigErrorDetail {
-                    kind: "RoleKeyMissing".to_string(),
-                    message: e,
-                });
-                error_log::log_error("load_root_state", "skipping attribution: role key missing");
-            }
-        }
-        if let (Some(ref gk), Some(ref rk)) = (&goal_key, &role_key) {
-            let (goal_to_role, role_to_goals) = build_commitment_maps(&commitments);
-            annotate_day_file(&mut today, rk, gk, &goal_to_role, &role_to_goals);
-        }
-    }
 
     if !all_errors.is_empty() {
         return InitResult::ConfigError {
@@ -463,8 +426,7 @@ pub fn set_root_path(app: AppHandle, path: String) -> Result<InitResult, String>
     Ok(result)
 }
 
-/// Batch-read all day files for a month, injecting attribution from
-/// commitments.yaml (read once). Returns entries keyed by YYYY-MM-DD date.
+/// Batch-read all day files for a month. Returns entries keyed by YYYY-MM-DD date.
 #[tauri::command]
 pub fn get_month_entries(
     root_path: String,
@@ -479,11 +441,6 @@ pub fn get_month_entries(
         error_log::log_command_exit("get_month_entries", true, "no month dir");
         return Ok(std::collections::BTreeMap::new());
     }
-
-    let commitments = crate::files::read_commitments_file(root, year, month).unwrap_or_default();
-    let goal_key = goal_dim_key(root, year, month).ok();
-    let role_key = role_dim_key(root, year, month).ok();
-    let (goal_to_role, role_to_goals) = build_commitment_maps(&commitments);
 
     let mut result: std::collections::BTreeMap<String, Vec<crate::models::Entry>> =
         std::collections::BTreeMap::new();
@@ -510,10 +467,7 @@ pub fn get_month_entries(
             continue;
         }
         match crate::files::read_day_file(root, date) {
-            Ok(mut day_file) => {
-                if let (Some(ref rk), Some(ref gk)) = (&role_key, &goal_key) {
-                    annotate_day_file(&mut day_file, rk, gk, &goal_to_role, &role_to_goals);
-                }
+            Ok(day_file) => {
                 total += day_file.entries.len() as u32;
                 result.insert(date.to_string(), day_file.entries);
             }
@@ -536,22 +490,7 @@ pub fn get_entries(root_path: String, date: String) -> Result<DayFile, String> {
     error_log::log_command_enter("get_entries", &format!("date={}", date));
     let root = std::path::Path::new(&root_path);
     validate_date_format(&date)?;
-    let mut result = files::read_day_file(root, &date);
-
-    // Inject attribution
-    if let Ok(d) = chrono::NaiveDate::parse_from_str(&date, "%Y-%m-%d") {
-        if let Ok(ref mut day_file) = result {
-            let year = d.format("%Y").to_string().parse::<i32>().unwrap_or(0);
-            let month = d.format("%m").to_string().parse::<u32>().unwrap_or(0);
-            let commitments = crate::files::read_commitments_file(root, year, month).unwrap_or_default();
-            let goal_key = goal_dim_key(root, year, month).ok();
-            let role_key = role_dim_key(root, year, month).ok();
-            if let (Some(ref rk), Some(ref gk)) = (&role_key, &goal_key) {
-                let (goal_to_role, role_to_goals) = build_commitment_maps(&commitments);
-                annotate_day_file(day_file, rk, gk, &goal_to_role, &role_to_goals);
-            }
-        }
-    }
+    let result = files::read_day_file(root, &date);
 
     let ok = result.is_ok();
     let entry_count = result.as_ref().map(|d| d.entries.len()).unwrap_or(0);
@@ -599,22 +538,12 @@ pub fn append_entry(root_path: String, date: String, entry: CreateEntryInput) ->
         },
     )?;
 
-    let mut entry = Entry {
+    let entry = Entry {
         id: entry_id,
         item: entry.item,
         duration,
         dimensions: entry.dimensions,
-        attribution: crate::models::Attribution::default(),
     };
-
-    // Inject attribution for the new entry
-    {
-        let commitments = crate::files::read_commitments_file(root, year, month).unwrap_or_default();
-        let goal_key = goal_dim_key(root, year, month)?;
-        let role_key = role_dim_key(root, year, month)?;
-        let (goal_to_role, role_to_goals) = build_commitment_maps(&commitments);
-        entry.attribution = compute_attribution(&entry.dimensions, &role_key, &goal_key, &goal_to_role, &role_to_goals);
-    }
 
     let result = files::append_to_day_file(root, &date, &entry);
     let ok = result.is_ok();
@@ -674,16 +603,7 @@ pub fn update_entry(
         },
     )?;
 
-    let mut result = files::update_entry_in_file(root, &date, &entry_id, &update);
-
-    // Inject attribution
-    if let Ok(ref mut day_file) = result {
-        let commitments = crate::files::read_commitments_file(root, year, month).unwrap_or_default();
-        let goal_key = goal_dim_key(root, year, month)?;
-        let role_key = role_dim_key(root, year, month)?;
-        let (goal_to_role, role_to_goals) = build_commitment_maps(&commitments);
-        annotate_day_file(day_file, &role_key, &goal_key, &goal_to_role, &role_to_goals);
-    }
+    let result = files::update_entry_in_file(root, &date, &entry_id, &update);
 
     let ok = result.is_ok();
     error_log::log_command_exit(
@@ -702,7 +622,7 @@ pub fn delete_entry(root_path: String, date: String, entry_id: String) -> Result
     error_log::log_command_enter("delete_entry", &format!("date={} id={}", date, entry_id));
     let root = std::path::Path::new(&root_path);
     validate_date_format(&date)?;
-    let (year, month) = files::year_month_from_date(&date)?;
+    let (_year, _month) = files::year_month_from_date(&date)?;
     // Deleting an entry does not customize the month's dimensions, so it must not
     // trigger instantiation (would freeze the month to the current template).
 
@@ -725,16 +645,7 @@ pub fn delete_entry(root_path: String, date: String, entry_id: String) -> Result
         },
     )?;
 
-    let mut result = files::delete_entry_from_file(root, &date, &entry_id);
-
-    // Inject attribution
-    if let Ok(ref mut day_file) = result {
-        let commitments = crate::files::read_commitments_file(root, year, month).unwrap_or_default();
-        let goal_key = goal_dim_key(root, year, month)?;
-        let role_key = role_dim_key(root, year, month)?;
-        let (goal_to_role, role_to_goals) = build_commitment_maps(&commitments);
-        annotate_day_file(day_file, &role_key, &goal_key, &goal_to_role, &role_to_goals);
-    }
+    let result = files::delete_entry_from_file(root, &date, &entry_id);
 
     let ok = result.is_ok();
     error_log::log_command_exit("delete_entry", ok, "");
@@ -860,40 +771,7 @@ fn role_dim_key(root: &std::path::Path, year: i32, month: u32) -> Result<String,
         })
 }
 
-fn compute_attribution(
-    dimensions: &BTreeMap<String, String>,
-    role_key: &str,
-    goal_key: &str,
-    goal_to_role: &std::collections::HashMap<String, String>,
-    role_to_goals: &std::collections::HashMap<String, Vec<String>>,
-) -> crate::models::Attribution {
-    use crate::models::Attribution;
-    let role = dimensions.get(role_key);
-    let goal = dimensions.get(goal_key);
 
-    match (role, goal) {
-        (None, None) => Attribution::Unattributed,
-        (None, Some(g)) => {
-            if goal_to_role.contains_key(g.as_str()) {
-                Attribution::Ok
-            } else {
-                Attribution::Unattributed
-            }
-        }
-        (Some(_), None) => Attribution::Ok,
-        (Some(r), Some(g)) => {
-            if let Some(goals) = role_to_goals.get(r.as_str()) {
-                if goals.contains(g) {
-                    Attribution::Ok
-                } else {
-                    Attribution::Mismatch
-                }
-            } else {
-                Attribution::Unattributed
-            }
-        }
-    }
-}
 
 /// 从 commitments 构建 goal→role 和 role→goals 映射
 fn build_commitment_maps(
@@ -914,25 +792,14 @@ fn build_commitment_maps(
     (goal_to_role, role_to_goals)
 }
 
-/// 为 DayFile 中所有 entry 计算 attribution
-fn annotate_day_file(
-    day_file: &mut crate::models::DayFile,
-    role_key: &str,
-    goal_key: &str,
-    goal_to_role: &std::collections::HashMap<String, String>,
-    role_to_goals: &std::collections::HashMap<String, Vec<String>>,
-) {
-    for entry in &mut day_file.entries {
-        entry.attribution = compute_attribution(&entry.dimensions, role_key, goal_key, goal_to_role, role_to_goals);
-    }
-}
+
 
 #[tauri::command]
 pub fn get_commitment_progress(
     root_path: String,
     year: i32,
     month: u32,
-) -> Result<crate::models::CommitmentProgressResult, String> {
+) -> Result<Vec<CommitmentProgress>, String> {
     use crate::models::{CommitmentProgress, GoalProgress};
     use std::collections::HashMap;
 
@@ -954,9 +821,6 @@ pub fn get_commitment_progress(
     let mut role_goal_spent: HashMap<String, u32> = HashMap::new();
     let mut role_general_spent: HashMap<String, u32> = HashMap::new();
     let mut goal_spent: HashMap<String, u32> = HashMap::new();
-    let mut unattributed_count: u32 = 0;
-    let mut unattributed_total: u32 = 0;
-    let mut mismatch_count: u32 = 0;
 
     for c in &commitments {
         role_goal_spent.entry(c.role.clone()).or_insert(0);
@@ -971,24 +835,14 @@ pub fn get_commitment_progress(
         Ok(k) => k,
         Err(e) => {
             error_log::log_error("get_commitment_progress", &format!("goal key missing: {e}"));
-            return Ok(crate::models::CommitmentProgressResult {
-                roles: vec![],
-                unattributed_count: 0,
-                unattributed_total_minutes: 0,
-                mismatch_count: 0,
-            });
+            return Ok(vec![]);
         }
     };
     let role_key = match role_dim_key(root, year, month) {
         Ok(k) => k,
         Err(e) => {
             error_log::log_error("get_commitment_progress", &format!("role key missing: {e}"));
-            return Ok(crate::models::CommitmentProgressResult {
-                roles: vec![],
-                unattributed_count: 0,
-                unattributed_total_minutes: 0,
-                mismatch_count: 0,
-            });
+            return Ok(vec![]);
         }
     };
     let month_dir = root.join(year.to_string()).join(format!("{:02}", month));
@@ -1011,48 +865,30 @@ pub fn get_commitment_progress(
                 match crate::files::read_day_file(root, file_name.trim_end_matches(".md")) {
                     Ok(day_file) => {
                         for e in &day_file.entries {
-                            let attr = compute_attribution(&e.dimensions, &role_key, &goal_key, &goal_to_role, &role_to_goals);
+                            let role = e.dimensions.get(&role_key);
+                            let goal = e.dimensions.get(&goal_key);
 
-                            match attr {
-                                crate::models::Attribution::Ok => {
-                                    // Determine which role and whether it's goal or general
-                                    if let Some(role) = e.dimensions.get(&role_key) {
-                                        if let Some(goal_val) = e.dimensions.get(&goal_key) {
-                                            if let Some(goals) = role_to_goals.get(role) {
-                                                if goals.contains(goal_val) {
-                                                    // Matching goal -> goal segment
-                                                    *role_goal_spent.entry(role.clone()).or_insert(0) += e.duration;
-                                                    *goal_spent.entry(goal_val.clone()).or_insert(0) += e.duration;
-                                                } else {
-                                                    // Goal not declared for this role -> general segment
-                                                    *role_general_spent.entry(role.clone()).or_insert(0) += e.duration;
-                                                }
-                                            } else {
-                                                *role_general_spent.entry(role.clone()).or_insert(0) += e.duration;
-                                            }
+                            match (role, goal) {
+                                (Some(r), Some(g)) => {
+                                    if let Some(goals) = role_to_goals.get(r.as_str()) {
+                                        if goals.contains(g) {
+                                            *role_goal_spent.entry(r.clone()).or_insert(0) += e.duration;
+                                            *goal_spent.entry(g.clone()).or_insert(0) += e.duration;
                                         } else {
-                                            // No goal -> general segment
-                                            *role_general_spent.entry(role.clone()).or_insert(0) += e.duration;
-                                        }
-                                    } else if let Some(goal_val) = e.dimensions.get(&goal_key) {
-                                        // No role, but has goal -> fallback to goal's role
-                                        if let Some(role) = goal_to_role.get(goal_val) {
-                                            *role_goal_spent.entry(role.clone()).or_insert(0) += e.duration;
-                                            *goal_spent.entry(goal_val.clone()).or_insert(0) += e.duration;
+                                            *role_general_spent.entry(r.clone()).or_insert(0) += e.duration;
                                         }
                                     }
                                 }
-                                crate::models::Attribution::Unattributed => {
-                                    unattributed_count += 1;
-                                    unattributed_total += e.duration;
+                                (Some(r), None) => {
+                                    *role_general_spent.entry(r.clone()).or_insert(0) += e.duration;
                                 }
-                                crate::models::Attribution::Mismatch => {
-                                    mismatch_count += 1;
-                                    // Still count toward the role's general segment
-                                    if let Some(role) = e.dimensions.get(&role_key) {
-                                        *role_general_spent.entry(role.clone()).or_insert(0) += e.duration;
+                                (None, Some(g)) => {
+                                    if let Some(r) = goal_to_role.get(g.as_str()) {
+                                        *role_goal_spent.entry(r.clone()).or_insert(0) += e.duration;
+                                        *goal_spent.entry(g.clone()).or_insert(0) += e.duration;
                                     }
                                 }
+                                (None, None) => {}
                             }
                         }
                     }
@@ -1084,12 +920,7 @@ pub fn get_commitment_progress(
         });
     }
 
-    Ok(crate::models::CommitmentProgressResult {
-        roles,
-        unattributed_count,
-        unattributed_total_minutes: unattributed_total,
-        mismatch_count,
-    })
+    Ok(roles)
 }
 
 #[tauri::command]
@@ -2094,13 +1925,13 @@ mod tests {
 
         let result = get_commitment_progress(tmp.to_string_lossy().into_owned(), 2026, 6).unwrap();
 
-        assert_eq!(result.roles.len(), 1);
-        assert_eq!(result.roles[0].role, "Dev");
-        assert_eq!(result.roles[0].allocation_minutes, 2400); // 40 * 60
-        assert_eq!(result.roles[0].goal_spent_minutes, 0);
-        assert_eq!(result.roles[0].goals.len(), 1);
-        assert_eq!(result.roles[0].goals[0].name, "Ship it");
-        assert_eq!(result.roles[0].goals[0].spent_minutes, 0);
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].role, "Dev");
+        assert_eq!(result[0].allocation_minutes, 2400); // 40 * 60
+        assert_eq!(result[0].goal_spent_minutes, 0);
+        assert_eq!(result[0].goals.len(), 1);
+        assert_eq!(result[0].goals[0].name, "Ship it");
+        assert_eq!(result[0].goals[0].spent_minutes, 0);
 
         let _ = fs::remove_dir_all(&tmp);
     }
@@ -2141,12 +1972,12 @@ mod tests {
         let result = get_commitment_progress(tmp.to_string_lossy().into_owned(), 2026, 6).unwrap();
 
         // Dev: Ship it(60) + Review(30) = 90 spent
-        let dev = result.roles.iter().find(|c| c.role == "Dev").unwrap();
+        let dev = result.iter().find(|c| c.role == "Dev").unwrap();
         assert_eq!(dev.goal_spent_minutes, 90);
         assert_eq!(dev.allocation_minutes, 2400);
 
         // PM: Planning(45) = 45 spent
-        let pm = result.roles.iter().find(|c| c.role == "PM").unwrap();
+        let pm = result.iter().find(|c| c.role == "PM").unwrap();
         assert_eq!(pm.goal_spent_minutes, 45);
         assert_eq!(pm.allocation_minutes, 600); // 10 * 60
 
@@ -2189,8 +2020,8 @@ mod tests {
 
         let result = get_commitment_progress(tmp.to_string_lossy().into_owned(), 2026, 6).unwrap();
 
-        assert_eq!(result.roles[0].goal_spent_minutes, 0);
-        assert_eq!(result.roles[0].goals[0].spent_minutes, 0);
+        assert_eq!(result[0].goal_spent_minutes, 0);
+        assert_eq!(result[0].goals[0].spent_minutes, 0);
 
         let _ = fs::remove_dir_all(&tmp);
     }
@@ -2208,7 +2039,7 @@ mod tests {
 
         let result = get_commitment_progress(tmp.to_string_lossy().into_owned(), 2026, 6).unwrap();
 
-        assert!(result.roles.is_empty());
+        assert!(result.is_empty());
 
         let _ = std::fs::remove_dir_all(&tmp);
     }
@@ -2290,24 +2121,19 @@ entries:
         ).unwrap();
 
         // Dev role
-        let dev = result.roles.iter().find(|r| r.role == "Dev").unwrap();
+        let dev = result.iter().find(|r| r.role == "Dev").unwrap();
         // e1 (120m goal=Ship X) + e2 (30m general) + e5 (45m goal=Roadmap but Dev role -> mismatch -> general)
         assert_eq!(dev.goal_spent_minutes, 120);  // only e1
         assert_eq!(dev.general_spent_minutes, 75);  // e2 + e5
         assert_eq!(dev.allocation_minutes, 1200);
 
         // PM role
-        let pm = result.roles.iter().find(|r| r.role == "PM").unwrap();
+        let pm = result.iter().find(|r| r.role == "PM").unwrap();
         // e4 (60m goal=Roadmap, fallback to PM)
         assert_eq!(pm.goal_spent_minutes, 60);
         assert_eq!(pm.general_spent_minutes, 0);
 
-        // Unattributed
-        assert_eq!(result.unattributed_count, 1);  // e3
-        assert_eq!(result.unattributed_total_minutes, 15);
-
-        // Mismatch
-        assert_eq!(result.mismatch_count, 1);  // e5
+        // e3 (no role, no goal) and e5 mismatches are ignored (not counted)
 
         let _ = std::fs::remove_dir_all(&tmp);
     }
@@ -2576,101 +2402,6 @@ entries:
         assert!(!t.select);
 
         let _ = fs::remove_dir_all(&tmp);
-    }
-
-    #[test]
-    fn test_compute_attribution_unattributed_no_dimensions() {
-        use std::collections::HashMap;
-        let dims = BTreeMap::new();
-        let goal_to_role: HashMap<String, String> = HashMap::new();
-        let role_to_goals: HashMap<String, Vec<String>> = HashMap::new();
-        let result = compute_attribution(&dims, "role", "goal", &goal_to_role, &role_to_goals);
-        assert_eq!(result, Attribution::Unattributed);
-    }
-
-    #[test]
-    fn test_compute_attribution_ok_via_goal_fallback() {
-        use std::collections::HashMap;
-        let mut dims = BTreeMap::new();
-        dims.insert("goal".to_string(), "Ship X".to_string());
-        let mut goal_to_role: HashMap<String, String> = HashMap::new();
-        goal_to_role.insert("Ship X".to_string(), "Dev".to_string());
-        let role_to_goals: HashMap<String, Vec<String>> = HashMap::new();
-        let result = compute_attribution(&dims, "role", "goal", &goal_to_role, &role_to_goals);
-        assert_eq!(result, Attribution::Ok);
-    }
-
-    #[test]
-    fn test_compute_attribution_unattributed_unknown_goal() {
-        use std::collections::HashMap;
-        let mut dims = BTreeMap::new();
-        dims.insert("goal".to_string(), "Unknown".to_string());
-        let goal_to_role: HashMap<String, String> = HashMap::new();
-        let role_to_goals: HashMap<String, Vec<String>> = HashMap::new();
-        let result = compute_attribution(&dims, "role", "goal", &goal_to_role, &role_to_goals);
-        assert_eq!(result, Attribution::Unattributed);
-    }
-
-    #[test]
-    fn test_compute_attribution_ok_role_only() {
-        use std::collections::HashMap;
-        let mut dims = BTreeMap::new();
-        dims.insert("role".to_string(), "Dev".to_string());
-        let goal_to_role: HashMap<String, String> = HashMap::new();
-        let mut role_to_goals: HashMap<String, Vec<String>> = HashMap::new();
-        role_to_goals.insert("Dev".to_string(), vec!["Ship X".to_string()]);
-        let result = compute_attribution(&dims, "role", "goal", &goal_to_role, &role_to_goals);
-        assert_eq!(result, Attribution::Ok);
-    }
-
-    #[test]
-    fn test_compute_attribution_ok_role_and_matching_goal() {
-        use std::collections::HashMap;
-        let mut dims = BTreeMap::new();
-        dims.insert("role".to_string(), "Dev".to_string());
-        dims.insert("goal".to_string(), "Ship X".to_string());
-        let goal_to_role: HashMap<String, String> = HashMap::new();
-        let mut role_to_goals: HashMap<String, Vec<String>> = HashMap::new();
-        role_to_goals.insert("Dev".to_string(), vec!["Ship X".to_string()]);
-        let result = compute_attribution(&dims, "role", "goal", &goal_to_role, &role_to_goals);
-        assert_eq!(result, Attribution::Ok);
-    }
-
-    #[test]
-    fn test_compute_attribution_mismatch() {
-        use std::collections::HashMap;
-        let mut dims = BTreeMap::new();
-        dims.insert("role".to_string(), "Dev".to_string());
-        dims.insert("goal".to_string(), "Design review".to_string());
-        let goal_to_role: HashMap<String, String> = HashMap::new();
-        let mut role_to_goals: HashMap<String, Vec<String>> = HashMap::new();
-        role_to_goals.insert("Dev".to_string(), vec!["Ship X".to_string()]);
-        let result = compute_attribution(&dims, "role", "goal", &goal_to_role, &role_to_goals);
-        assert_eq!(result, Attribution::Mismatch);
-    }
-
-    #[test]
-    fn test_compute_attribution_unattributed_unknown_role() {
-        use std::collections::HashMap;
-        let mut dims = BTreeMap::new();
-        dims.insert("role".to_string(), "Ghost".to_string());
-        dims.insert("goal".to_string(), "Ship X".to_string());
-        let goal_to_role: HashMap<String, String> = HashMap::new();
-        let role_to_goals: HashMap<String, Vec<String>> = HashMap::new();
-        let result = compute_attribution(&dims, "role", "goal", &goal_to_role, &role_to_goals);
-        assert_eq!(result, Attribution::Unattributed);
-    }
-
-    #[test]
-    fn test_compute_attribution_dynamic_goal_key() {
-        use std::collections::HashMap;
-        let mut dims = BTreeMap::new();
-        dims.insert("objective".to_string(), "Launch".to_string());
-        let mut goal_to_role: HashMap<String, String> = HashMap::new();
-        goal_to_role.insert("Launch".to_string(), "PM".to_string());
-        let role_to_goals: HashMap<String, Vec<String>> = HashMap::new();
-        let result = compute_attribution(&dims, "role", "objective", &goal_to_role, &role_to_goals);
-        assert_eq!(result, Attribution::Ok);
     }
 
     // --- detect_role_changes tests ---
