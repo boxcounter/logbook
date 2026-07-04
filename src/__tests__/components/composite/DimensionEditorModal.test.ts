@@ -166,6 +166,7 @@ describe("DimensionEditorModal", () => {
     expect(wrapper.text()).toContain("Press Enter or click + to add");
     // Commit the value
     await wrapper.find('[data-test="add-value"]').trigger("click");
+    await nextTick();
     // Hint should disappear (newValue cleared by addValue)
     expect(wrapper.text()).not.toContain("Press Enter or click + to add");
   });
