@@ -39,6 +39,14 @@
   --color-problem-entry-border: #fde68a;
   --color-problem-entry-text: #d97706;
 
+  /* === Warning Bar (CommitmentsPanel unattributed/mismatch) === */
+  --color-warning-bar-text: #92400e;
+  --color-warning-bar-hint: #b45309;
+
+  /* === Progress Bar (general spent gradient) === */
+  --color-progress-general-from: #c4b5fd;
+  --color-progress-general-to: #ddd6fe;
+
   /* === Duration Token (editing state) === */
   --color-token-dur-bg: #fff7ed;
   --color-token-dur-text: #c2410c;
@@ -145,6 +153,10 @@
     --color-problem-entry-hover-bg: #5c2d0a;
     --color-problem-entry-border: #78350f;
     --color-problem-entry-text: #f59e0b;
+    --color-warning-bar-text: #facc15;
+    --color-warning-bar-hint: #fde68a;
+    --color-progress-general-from: #7c3aed;
+    --color-progress-general-to: #a78bfa;
     --color-popover-dim-header-bg: #1e1b3a;
     --color-popover-val-header-bg: #1e1e1a;
     --shadow-card: none;

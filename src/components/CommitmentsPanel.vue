@@ -87,7 +87,7 @@ function onSaved(c: Commitment[]) { modalOpen.value = false; emit("saved", c); }
           class="h-full transition-all"
           :style="{
             width: pct(s.general_spent_minutes, s.allocation_minutes),
-            background: 'linear-gradient(90deg, #c4b5fd, #ddd6fe)'
+            background: 'linear-gradient(90deg, var(--color-progress-general-from), var(--color-progress-general-to))'
           }"
         />
       </div>
@@ -113,7 +113,7 @@ function onSaved(c: Commitment[]) { modalOpen.value = false; emit("saved", c); }
         Goal
       </span>
       <span class="flex items-center gap-xs">
-        <span class="w-[10px] h-[10px] rounded-[2px] flex-shrink-0" style="background: linear-gradient(90deg, #c4b5fd, #ddd6fe)"></span>
+        <span class="w-[10px] h-[10px] rounded-[2px] flex-shrink-0" style="background: linear-gradient(90deg, var(--color-progress-general-from), var(--color-progress-general-to))"></span>
         General
       </span>
     </div>
@@ -121,7 +121,7 @@ function onSaved(c: Commitment[]) { modalOpen.value = false; emit("saved", c); }
     <div
       v-if="warningVisible"
       data-test="warning-bar"
-      class="mt-md p-sm rounded-[var(--radius-form)] bg-[#fffbeb] border border-[#fde68a] text-secondary flex items-center justify-between text-[#92400e]"
+      class="mt-md p-sm rounded-[var(--radius-form)] bg-[var(--color-problem-entry-bg)] border border-[var(--color-problem-entry-border)] text-secondary flex items-center justify-between text-[var(--color-warning-bar-text)]"
     >
       <span>
         ⚠ 未归属耗时：<strong>{{ formatDurationCompact(warningUnattributedMinutes) }}</strong>
@@ -129,7 +129,7 @@ function onSaved(c: Commitment[]) { modalOpen.value = false; emit("saved", c); }
           / role/goal 不匹配：{{ warningMismatchCount }} 条
         </template>
       </span>
-      <span class="text-micro" style="color: #b45309">entry 缺少 role 或 goal 维度</span>
+      <span class="text-micro" style="color: var(--color-warning-bar-hint)">entry 缺少 role 或 goal 维度</span>
     </div>
 
     <button

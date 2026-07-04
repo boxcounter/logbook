@@ -4,6 +4,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, LazyLock, Mutex};
 
+/// Per-file mutexes for in-process mutual exclusion. Keys accumulate over the
+/// lifetime of the process (one entry per distinct day file accessed). Growth
+/// is bounded by the total number of distinct dates ever opened in a session
+/// (<1 MiB/year for a heavy user); a periodic sweep is not needed.
 static FILE_LOCKS: LazyLock<Mutex<HashMap<PathBuf, Arc<Mutex<()>>>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 

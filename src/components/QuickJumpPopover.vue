@@ -1,6 +1,6 @@
 <!-- src/components/QuickJumpPopover.vue -->
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, watch, onMounted } from "vue";
 import type { AvailableMonth } from "../stores/useStore";
 
 const MONTH_NAMES = [
@@ -21,6 +21,14 @@ const rootEl = ref<HTMLDivElement>();
 onMounted(() => rootEl.value?.focus());
 
 const selectedYear = ref(props.year);
+const selectedMonth = ref(props.month);
+
+watch(selectedYear, (newYear) => {
+  const available = props.availableMonths.filter(m => m.year === newYear).map(m => m.month);
+  if (available.length > 0 && !available.includes(selectedMonth.value)) {
+    selectedMonth.value = available[available.length - 1];
+  }
+});
 
 const years = computed(() => {
   const ys = [...new Set(props.availableMonths.map(m => m.year))];
@@ -56,13 +64,13 @@ function onMonthChange(month: number) {
       <option v-for="y in years" :key="y" :value="y">{{ y }}</option>
     </select>
     <select
+      v-model.number="selectedMonth"
       class="text-secondary text-[var(--color-text-primary)] bg-[var(--color-surface)]
              border border-[var(--color-border-form)] rounded-[var(--radius-form-lg)] px-sm py-xs outline-none"
-      @change="onMonthChange(parseInt(($event.target as HTMLSelectElement).value, 10))"
+      @change="onMonthChange(selectedMonth)"
     >
       <option
         v-for="m in monthsForYear" :key="m" :value="m"
-        :selected="m === month && selectedYear === year"
       >{{ MONTH_NAMES[m - 1] }}</option>
     </select>
     <span class="text-micro text-[var(--color-text-secondary)] whitespace-nowrap">Go</span>

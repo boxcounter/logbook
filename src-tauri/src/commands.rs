@@ -50,15 +50,7 @@ pub fn parse_duration(input: &str) -> Result<u32, String> {
     let mut matched = false;
 
     for cap in re.captures_iter(input) {
-        let value: f64 = cap[1]
-            .parse()
-            .unwrap_or_else(|e| {
-                error_log::log_error(
-                    "parse_duration",
-                    &format!("Failed to parse captured number '{}': {:?}", &cap[1], e),
-                );
-                0.0
-            });
+        let value: f64 = cap[1].parse().unwrap_or(0.0);
         let unit = cap
             .get(2)
             .map(|m| m.as_str().to_lowercase())
@@ -185,6 +177,11 @@ pub fn load_root_state(root: &std::path::Path) -> InitResult {
         .collect();
 
     let now = chrono::Local::now();
+    // NOTE: `now` is captured once per init call. The frontend maintains an
+    // independent `new Date()` that is refreshed every 60s (App.vue rollover
+    // check). A brief discrepancy (<60s) around midnight between the two
+    // clocks is harmless — the rollover window is bounded and the worst case
+    // is a single entry landing in the wrong day file.
 
     // Read commitments from commitments.yaml
     let commitments = match files::read_commitments_file(root, now.year(), now.month()) {

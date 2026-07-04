@@ -63,10 +63,17 @@ const cellBg: Record<string, string> = {
 
 function cellClass(date: string): string {
   const base = cellBg[heatLevel(dayMinutes(date))];
-  const rings: string[] = [];
-  if (date === formatDate(new Date())) rings.push("shadow-[0_0_0_2px_var(--heatmap-today-ring)]");
-  if (date === props.selectedDate) rings.push("shadow-[0_0_0_2px_var(--heatmap-selected-ring)]");
-  return [base, ...rings, isFuture(date) ? "opacity-40 cursor-default" : "cursor-pointer hover:scale-[1.15]"].join(" ");
+  const isToday = date === formatDate(new Date());
+  const isSelected = date === props.selectedDate;
+  let ring = "";
+  if (isToday && isSelected) {
+    ring = "shadow-[0_0_0_2px_var(--heatmap-today-ring),0_0_0_4px_var(--heatmap-selected-ring)]";
+  } else if (isToday) {
+    ring = "shadow-[0_0_0_2px_var(--heatmap-today-ring)]";
+  } else if (isSelected) {
+    ring = "shadow-[0_0_0_2px_var(--heatmap-selected-ring)]";
+  }
+  return [base, ring, isFuture(date) ? "opacity-40 cursor-default" : "cursor-pointer hover:scale-[1.15]"].join(" ");
 }
 
 function dayNum(date: string): number {
