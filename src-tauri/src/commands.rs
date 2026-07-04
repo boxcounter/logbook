@@ -329,6 +329,20 @@ pub fn init(app: AppHandle) -> InitResult {
         InitResult::NeedsSetup => {
             error_log::log_command_exit("init", true, "NeedsSetup");
         }
+        InitResult::DataVersionNotFound { root_path } => {
+            error_log::log_error("init", &format!("version.txt not found at {}", root_path));
+            error_log::log_command_exit("init", false, "DataVersionNotFound");
+        }
+        InitResult::DataVersionMismatch { root_path, expected, found } => {
+            error_log::log_error(
+                "init",
+                &format!(
+                    "data version mismatch at {}: expected {}, found {}",
+                    root_path, expected, found
+                ),
+            );
+            error_log::log_command_exit("init", false, "DataVersionMismatch");
+        }
     }
     result
 }
@@ -375,6 +389,20 @@ pub fn set_root_path(app: AppHandle, path: String) -> Result<InitResult, String>
         }
         InitResult::NeedsSetup => {
             error_log::log_command_exit("set_root_path", true, "NeedsSetup");
+        }
+        InitResult::DataVersionNotFound { root_path } => {
+            error_log::log_error("set_root_path", &format!("version.txt not found at {}", root_path));
+            error_log::log_command_exit("set_root_path", false, "DataVersionNotFound");
+        }
+        InitResult::DataVersionMismatch { root_path, expected, found } => {
+            error_log::log_error(
+                "set_root_path",
+                &format!(
+                    "data version mismatch at {}: expected {}, found {}",
+                    root_path, expected, found
+                ),
+            );
+            error_log::log_command_exit("set_root_path", false, "DataVersionMismatch");
         }
     }
     Ok(result)
