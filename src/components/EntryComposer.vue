@@ -4,6 +4,7 @@ import { ref, computed, inject, watch } from "vue";
 import { useClickOutside } from "../composables/useClickOutside";
 import type { Dimension, Commitment } from "../types";
 import { FOCUS_REQUEST_KEY } from "../types";
+import { useStore } from "../stores/useStore";
 import { parseDurationFromText, stripDurations, formatDuration } from "../utils/format";
 import { dimensionHues, dimTokenChipStyle } from "../utils/dimensionColor";
 import DimensionPopover from "./DimensionPopover.vue";
@@ -22,6 +23,13 @@ const text = ref("");
 const inputEl = ref<HTMLInputElement | null>(null);
 const popoverOpen = ref(false);
 const dimValues = ref<Record<string, string>>({});
+const store = useStore();
+
+// Clear dimension selections when navigating to a different date so
+// chips from the previous day don't misleadingly appear in the composer.
+watch(() => store.currentDate, () => {
+  dimValues.value = {};
+});
 // Set true after a submit blocked by missing required dimensions, to emphasize
 // the missing chips (frontend hard-block; the backend also rejects them).
 const submitAttempted = ref(false);

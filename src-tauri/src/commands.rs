@@ -1435,7 +1435,7 @@ pub fn get_available_months(root_path: String) -> Result<Vec<AvailableMonth>, St
         let year_name = year_entry.file_name();
         let year_str = year_name.to_string_lossy();
         let year: i32 = match year_str.parse() {
-            Ok(y) if y >= 2000 && y <= 2100 => y,
+            Ok(y) if y >= 2000 && y <= 9999 => y,
             _ => continue,
         };
 

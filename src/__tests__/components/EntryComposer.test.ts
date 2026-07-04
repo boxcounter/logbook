@@ -4,7 +4,11 @@ import { ref } from "vue";
 import { mount, enableAutoUnmount } from "@vue/test-utils";
 import EntryComposer from "../../components/EntryComposer.vue";
 import { makeDimension, makeCommitment } from "../mocks/fixtures";
+import { createTestStore } from "../mocks/store";
+import { STORE_KEY } from "../../stores/useStore";
 import { FOCUS_REQUEST_KEY } from "../../types";
+
+const testStore = createTestStore({ status: "ready" });
 
 // The popover registers a window keydown listener; unmount after each test.
 enableAutoUnmount(afterEach);
@@ -16,7 +20,10 @@ const dimensions = [
 const commitments = [makeCommitment({ goals: ["Bug fixes"] })];
 
 function mountInput() {
-  return mount(EntryComposer, { props: { dimensions, commitments } });
+  return mount(EntryComposer, {
+    props: { dimensions, commitments },
+    global: { provide: { [STORE_KEY as symbol]: testStore } },
+  });
 }
 
 // Drive dimension selections through the popover (replaces the removed
@@ -105,6 +112,7 @@ describe("EntryComposer", () => {
     const wrapper = mount(EntryComposer, {
       props: { dimensions, commitments },
       attachTo: document.body,
+      global: { provide: { [STORE_KEY as symbol]: testStore } },
     });
     const input = wrapper.find("input");
     await input.setValue("Code review 1h");
@@ -155,7 +163,7 @@ describe("EntryComposer", () => {
     const wrapper = mount(EntryComposer, {
       props: { dimensions, commitments },
       attachTo: document.body,
-      global: { provide: { [FOCUS_REQUEST_KEY as symbol]: fid } },
+      global: { provide: { [FOCUS_REQUEST_KEY as symbol]: fid, [STORE_KEY as symbol]: testStore } },
     });
     btn.focus();
     expect(document.activeElement).toBe(btn);
@@ -173,7 +181,7 @@ describe("EntryComposer", () => {
     const wrapper = mount(EntryComposer, {
       props: { dimensions, commitments },
       attachTo: document.body,
-      global: { provide: { [FOCUS_REQUEST_KEY as symbol]: fid } },
+      global: { provide: { [FOCUS_REQUEST_KEY as symbol]: fid, [STORE_KEY as symbol]: testStore } },
     });
     other.focus();
     expect(document.activeElement).toBe(other);
@@ -188,6 +196,7 @@ describe("EntryComposer", () => {
     const wrapper = mount(EntryComposer, {
       props: { dimensions, commitments },
       attachTo: document.body,
+      global: { provide: { [STORE_KEY as symbol]: testStore } },
     });
     (wrapper.vm as unknown as { focusInput: () => void }).focusInput();
     expect(document.activeElement).toBe(wrapper.find("input").element);
@@ -197,6 +206,7 @@ describe("EntryComposer", () => {
   it("Esc clears typed text without emitting submit", async () => {
     const wrapper = mount(EntryComposer, {
       props: { dimensions: [], commitments: [] },
+      global: { provide: { [STORE_KEY as symbol]: testStore } },
     });
     const input = wrapper.find("input");
     await input.setValue("draft work 1h");
@@ -225,6 +235,7 @@ describe("EntryComposer", () => {
   it("Esc on an empty input does nothing", async () => {
     const wrapper = mount(EntryComposer, {
       props: { dimensions: [], commitments: [] },
+      global: { provide: { [STORE_KEY as symbol]: testStore } },
     });
     const input = wrapper.find("input");
     await input.trigger("keydown", { key: "Escape" });
@@ -237,7 +248,7 @@ describe("EntryComposer", () => {
       makeDimension({ name: "Visible", key: "visible", source: "static", values: ["v"], required: true }),
       makeDimension({ name: "Deleted", key: "deleted", source: "static", values: ["d"], required: true, deleted: true }),
     ];
-    const wrapper = mount(EntryComposer, { props: { dimensions: dims, commitments: [] } });
+    const wrapper = mount(EntryComposer, { props: { dimensions: dims, commitments: [] }, global: { provide: { [STORE_KEY as symbol]: testStore } } });
     const missing = wrapper.findAll("[data-test='missing']");
     expect(missing.length).toBe(1);
     expect(missing[0].text()).toContain("Visible");
@@ -249,7 +260,7 @@ describe("EntryComposer", () => {
       makeDimension({ name: "Visible", key: "visible", source: "static", values: ["v"], required: false }),
       makeDimension({ name: "Deleted", key: "deleted", source: "static", values: ["d"], required: false, deleted: true }),
     ];
-    const wrapper = mount(EntryComposer, { props: { dimensions: dims, commitments: [] } });
+    const wrapper = mount(EntryComposer, { props: { dimensions: dims, commitments: [] }, global: { provide: { [STORE_KEY as symbol]: testStore } } });
 
     // fill the visible dimension via popover
     await wrapper.find("input").trigger("keydown", { key: "@" });

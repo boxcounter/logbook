@@ -9,6 +9,8 @@ use clap::{Parser, Subcommand};
 use dimensions::{DimensionsCommands, handle_dimensions};
 use root_path::resolve_root_path;
 
+use crate::single_instance::InstanceLock;
+
 /// Where the CLI writes logbook.log. Honours `LOGBOOK_LOG_DIR` (used by tests to
 /// avoid polluting the real product log), else the shared GUI app-data dir.
 fn log_dir() -> Option<std::path::PathBuf> {
@@ -88,6 +90,26 @@ pub fn run() {
 
     let cli = Cli::parse();
     crate::error_log::log_info("cli", &format!("invoked: {:?}", std::env::args().collect::<Vec<_>>()));
+
+    // Prevent concurrent writes: if the GUI is running, refuse CLI writes to
+    // avoid cross-process read-modify-write races that would silently lose data.
+    let _lock = if let Some(lock_dir) = log_dir() {
+        match InstanceLock::try_acquire(&lock_dir) {
+            Ok(guard) => Some(guard),
+            Err(pid) => {
+                eprintln!(
+                    "Error: Logbook GUI is already running (PID {}).\n\
+                     Close the GUI before using CLI commands, or use LOGBOOK_LOG_DIR\n\
+                     to point to a separate data directory for CLI-only use.",
+                    pid
+                );
+                std::process::exit(1);
+            }
+        }
+    } else {
+        None
+    };
+
     let root = resolve_root_path(cli.root_path).unwrap_or_else(|| {
         crate::error_log::log_error("cli", "could not determine data root path");
         eprintln!(
