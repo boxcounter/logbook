@@ -26,8 +26,8 @@ export function useEntryActions(store: AppStore, inputRef: Ref<ComposerRef | nul
     return cleaned;
   }
 
-  async function refreshProgress() {
-    const ym = yearMonthFromDate(store.currentDate);
+  async function refreshProgress(date?: string) {
+    const ym = yearMonthFromDate(date ?? store.currentDate);
     try {
       const result = await invoke<CommitmentProgressResult>("get_commitment_progress", {
         rootPath: store.rootPath,
@@ -131,7 +131,7 @@ export function useEntryActions(store: AppStore, inputRef: Ref<ComposerRef | nul
       try {
         await invoke("delete_entry", { rootPath: store.rootPath, date, entryId });
         store.monthEntries[date] = [...entries];
-        await refreshProgress();
+        await refreshProgress(date);
       } catch (e) {
         logError("useEntryActions.handleDeleteEntry", e);
         if (entries.findIndex((e) => e.id === entryId) === -1) entries.splice(idx, 0, removed);
