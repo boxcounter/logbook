@@ -398,8 +398,8 @@ pub fn get_month_entries(
     }
 
     let commitments = crate::files::read_commitments_file(root, year, month).unwrap_or_default();
-    let goal_key = goal_dim_key(root, year, month)?;
-    let role_key = role_dim_key(root, year, month)?;
+    let goal_key = goal_dim_key(root, year, month).ok();
+    let role_key = role_dim_key(root, year, month).ok();
     let (goal_to_role, role_to_goals) = build_commitment_maps(&commitments);
 
     let mut result: std::collections::BTreeMap<String, Vec<crate::models::Entry>> =
@@ -428,7 +428,9 @@ pub fn get_month_entries(
         }
         match crate::files::read_day_file(root, date) {
             Ok(mut day_file) => {
-                annotate_day_file(&mut day_file, &role_key, &goal_key, &goal_to_role, &role_to_goals);
+                if let (Some(ref rk), Some(ref gk)) = (&role_key, &goal_key) {
+                    annotate_day_file(&mut day_file, rk, gk, &goal_to_role, &role_to_goals);
+                }
                 total += day_file.entries.len() as u32;
                 result.insert(date.to_string(), day_file.entries);
             }
@@ -459,10 +461,12 @@ pub fn get_entries(root_path: String, date: String) -> Result<DayFile, String> {
             let year = d.format("%Y").to_string().parse::<i32>().unwrap_or(0);
             let month = d.format("%m").to_string().parse::<u32>().unwrap_or(0);
             let commitments = crate::files::read_commitments_file(root, year, month).unwrap_or_default();
-            let goal_key = goal_dim_key(root, year, month)?;
-            let role_key = role_dim_key(root, year, month)?;
-            let (goal_to_role, role_to_goals) = build_commitment_maps(&commitments);
-            annotate_day_file(day_file, &role_key, &goal_key, &goal_to_role, &role_to_goals);
+            let goal_key = goal_dim_key(root, year, month).ok();
+            let role_key = role_dim_key(root, year, month).ok();
+            if let (Some(ref rk), Some(ref gk)) = (&role_key, &goal_key) {
+                let (goal_to_role, role_to_goals) = build_commitment_maps(&commitments);
+                annotate_day_file(day_file, rk, gk, &goal_to_role, &role_to_goals);
+            }
         }
     }
 
@@ -864,8 +868,30 @@ pub fn get_commitment_progress(
     }
 
     // 4. Scan day files
-    let goal_key = goal_dim_key(root, year, month)?;
-    let role_key = role_dim_key(root, year, month)?;
+    let goal_key = match goal_dim_key(root, year, month) {
+        Ok(k) => k,
+        Err(e) => {
+            error_log::log_error("get_commitment_progress", &format!("goal key missing: {e}"));
+            return Ok(crate::models::CommitmentProgressResult {
+                roles: vec![],
+                unattributed_count: 0,
+                unattributed_total_minutes: 0,
+                mismatch_count: 0,
+            });
+        }
+    };
+    let role_key = match role_dim_key(root, year, month) {
+        Ok(k) => k,
+        Err(e) => {
+            error_log::log_error("get_commitment_progress", &format!("role key missing: {e}"));
+            return Ok(crate::models::CommitmentProgressResult {
+                roles: vec![],
+                unattributed_count: 0,
+                unattributed_total_minutes: 0,
+                mismatch_count: 0,
+            });
+        }
+    };
     let month_dir = root.join(year.to_string()).join(format!("{:02}", month));
 
     if month_dir.exists() {
