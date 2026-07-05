@@ -55,6 +55,7 @@ function maybeRollover() {
 }
 
 // Store listener handles for cleanup (prevents HMR duplication)
+let unlistenCopyResult: (() => void) | null = null;
 let unlistenDimensions: (() => void) | null = null;
 let unlistenCommitments: (() => void) | null = null;
 let unlistenFocus: (() => void) | null = null;
@@ -123,6 +124,10 @@ onMounted(async () => {
       focusRequestId.value++;
       maybeRollover();
     });
+
+    unlistenCopyResult = await listen<string>("copy-data-path-event", (event) => {
+      triggerSavedToast(event.payload);
+    });
   } catch (e) {
     logError("App.onMounted", e);
   }
@@ -151,6 +156,7 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
+  unlistenCopyResult?.();
   unlistenDimensions?.();
   unlistenCommitments?.();
   unlistenFocus?.();

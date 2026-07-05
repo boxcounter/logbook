@@ -12,8 +12,7 @@ mod window_state;
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
-use std::thread;
-use std::time::Duration;
+use tauri::Emitter;
 use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
@@ -150,7 +149,6 @@ pub fn run() {
 
             app.set_menu(menu)?;
 
-            let copy_item_for_event = copy_data_path_item.clone();
             let app_data_dir_event = app_data_dir.clone();
 
             app.on_menu_event(move |app_handle, event| {
@@ -191,13 +189,13 @@ pub fn run() {
                                 {
                                     Ok(mut child) => {
                                         if child.stdin.as_mut().unwrap().write_all(path_str.as_bytes()).is_ok() {
-                                            let _ = copy_item_for_event.set_text("Copied!");
+                                            let _ = app_handle.emit("copy-data-path-event", "Copied!");
                                         } else {
                                             crate::error_log::log_error(
                                                 "copy-data-path",
                                                 "pbcopy write failed",
                                             );
-                                            let _ = copy_item_for_event.set_text("Copy failed");
+                                            let _ = app_handle.emit("copy-data-path-event", "Copy failed");
                                         }
                                         let _ = child.wait();
                                     }
@@ -206,14 +204,9 @@ pub fn run() {
                                             "copy-data-path",
                                             &format!("pbcopy spawn failed: {}", e),
                                         );
-                                        let _ = copy_item_for_event.set_text("Copy failed");
+                                        let _ = app_handle.emit("copy-data-path-event", "Copy failed");
                                     }
                                 }
-                                let item = copy_item_for_event.clone();
-                                thread::spawn(move || {
-                                    thread::sleep(Duration::from_millis(1500));
-                                    let _ = item.set_text("Copy User Data Path");
-                                });
                             }
                             None => {
                                 let _ = app_handle
