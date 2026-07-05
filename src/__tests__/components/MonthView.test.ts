@@ -293,7 +293,7 @@ describe("MonthView", () => {
     expect(store.commitments).toHaveLength(1); // 当前月：有数据
 
     // 切到上一个月（⌘⇧[）—— 该月没有 commitments
-    window.dispatchEvent(new KeyboardEvent("keydown", { key: "[", metaKey: true, shiftKey: true }));
+    window.dispatchEvent(new KeyboardEvent("keydown", { code: "BracketLeft", metaKey: true, shiftKey: true }));
     await flushPromises();
     await flushPromises(); // belt-and-suspenders: chained async loads must settle before asserting
 

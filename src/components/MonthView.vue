@@ -85,10 +85,10 @@ function shiftDay(delta: number) {
   if (delta > 0 && isSelectedToday.value) return; // never navigate into the future
   if (!guardUnsaved()) return;
   const next = addDays(store.currentDate, delta);
-  if (next in store.monthEntries) {
+  const { year, month } = yearMonthFromDate(next);
+  if (year === selectedYear.value && month === selectedMonth.value) {
     handleSelectDay(next);
   } else {
-    const { year, month } = yearMonthFromDate(next);
     loadMonth(year, month, parseInt(next.slice(8, 10), 10));
   }
 }
