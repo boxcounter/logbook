@@ -111,13 +111,13 @@ pub fn validate_dimensions(dimensions: &[Dimension]) -> Vec<ConfigErrorDetail> {
                 }),
                 _ => {}
             },
-            "commitments:goals" => {
+            "commitments:role:goals" => {
                 goal_source_count += 1;
                 if goal_source_count > 1 {
                     errors.push(ConfigErrorDetail {
                         kind: "MultipleGoalSource".to_string(),
                         message: format!(
-                            "Dimension '{}': only one dimension may have source: commitments:goals",
+                            "Dimension '{}': only one dimension may have source: commitments:role:goals",
                             dim.name
                         ),
                     });
@@ -139,7 +139,7 @@ pub fn validate_dimensions(dimensions: &[Dimension]) -> Vec<ConfigErrorDetail> {
                 errors.push(ConfigErrorDetail {
                     kind: "InvalidSource".to_string(),
                     message: format!(
-                        "Dimension '{}': invalid source '{}' (expected 'static', 'commitments:goals', or 'commitments:role')",
+                        "Dimension '{}': invalid source '{}' (expected 'static', 'commitments:role:goals', or 'commitments:role')",
                         dim.name, other
                     ),
                 });
@@ -520,7 +520,7 @@ mod tests {
                 Dimension {
                     name: "Goal".into(),
                     key: "goal".into(),
-                    source: "commitments:goals".into(),
+                    source: "commitments:role:goals".into(),
                     values: None,
                     required: false,
                     deleted: false,
@@ -588,7 +588,7 @@ mod tests {
                 Dimension {
                     name: "G1".into(),
                     key: "g1".into(),
-                    source: "commitments:goals".into(),
+                    source: "commitments:role:goals".into(),
                     values: None,
                     required: false,
                     deleted: false,
@@ -596,7 +596,7 @@ mod tests {
                 Dimension {
                     name: "G2".into(),
                     key: "g2".into(),
-                    source: "commitments:goals".into(),
+                    source: "commitments:role:goals".into(),
                     values: None,
                     required: false,
                     deleted: false,
@@ -648,7 +648,7 @@ mod tests {
                 Dimension {
                     name: "Goal".into(),
                     key: "goal".into(),
-                    source: "commitments:goals".into(),
+                    source: "commitments:role:goals".into(),
                     values: None,
                     required: true,
                     deleted: false,
