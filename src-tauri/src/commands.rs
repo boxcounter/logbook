@@ -628,11 +628,25 @@ pub fn update_entry(
     validate_date_format(&date)?;
     let (year, month) = files::year_month_from_date(&date)?;
     files::create_dimensions_if_missing(root, year, month)?;
+    if let Some(ref item) = update.item {
+        if item.trim().is_empty() {
+            return Err("Entry item cannot be empty".to_string());
+        }
+    }
     if let Some(ref dur_str) = update.duration {
         parse_duration(dur_str)?;
     }
     if let Some(ref dims) = update.dimensions {
         let effective = files::resolve_month_dimensions(root, year, month)?;
+        let known_keys: std::collections::HashSet<&str> = effective
+            .iter()
+            .map(|d| d.key.as_str())
+            .collect();
+        for key in dims.keys() {
+            if !known_keys.contains(key.as_str()) {
+                return Err(format!("Unknown dimension key '{}'", key));
+            }
+        }
         validate_required_dimensions(&effective, dims)?;
         {
             let commitments = crate::files::read_commitments_file(root, year, month).unwrap_or_default();
