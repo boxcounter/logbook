@@ -2,6 +2,7 @@ pub mod commitments;
 pub mod dimensions;
 mod entries;
 pub mod install;
+pub mod migrate;
 pub mod output;
 pub mod root_path;
 
@@ -50,6 +51,8 @@ pub enum Commands {
     /// List or set dimensions for a month or the template
     #[command(subcommand)]
     Dimensions(DimensionsCommands),
+    /// Migrate day files from .md (frontmatter) to .yaml format
+    Migrate,
 }
 
 #[derive(Subcommand)]
@@ -158,6 +161,12 @@ pub fn run() {
         },
         Commands::Dimensions(cmd) => {
             if let Err(e) = handle_dimensions(cmd, &root) {
+                output::print_error(&e);
+                std::process::exit(1);
+            }
+        }
+        Commands::Migrate => {
+            if let Err(e) = migrate::run(&root) {
                 output::print_error(&e);
                 std::process::exit(1);
             }
