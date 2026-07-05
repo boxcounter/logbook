@@ -20,7 +20,6 @@ const overlayRef = ref<HTMLElement>();
 const showDiscard = ref(false);
 const draft = ref<Dimension[]>([]);
 const selectedIndex = ref(0);
-const newValue = ref("");
 const error = ref("");
 const saving = ref(false);
 const savingTemplate = ref(false);
@@ -43,7 +42,6 @@ watch(() => props.open, (o) => {
   draft.value = JSON.parse(JSON.stringify(props.dimensions));
   selectedIndex.value = 0;
   showDiscard.value = false;
-  newValue.value = "";
   error.value = "";
   saving.value = false;
   showAddForm.value = false;
@@ -93,16 +91,16 @@ function updateValue(index: number, e: Event) {
   );
 }
 
-function addValue() {
-  const val = newValue.value.trim();
-  if (!val || !selectedDimension.value?.values) return;
-  selectedDimension.value.values = [...selectedDimension.value.values, val];
-  newValue.value = "";
-}
-
 function removeValue(index: number) {
   if (!selectedDimension.value?.values) return;
   selectedDimension.value.values = selectedDimension.value.values.filter((_, i) => i !== index);
+}
+
+function onValueEnter(index: number) {
+  if (!selectedDimension.value?.values) return;
+  const values = selectedDimension.value.values;
+  if (index === values.length - 1 && values[index].trim() === "") return;
+  values.splice(index + 1, 0, "");
 }
 
 function toggleDelete() {
@@ -168,11 +166,17 @@ async function save() {
   saving.value = true;
   error.value = "";
   try {
+    const cleaned = draft.value.map(d => {
+      if (d.source === "static" && d.values) {
+        return { ...d, values: d.values.filter(v => v.trim() !== "") };
+      }
+      return d;
+    });
     const result = await invoke<Dimension[]>("save_dimensions", {
       rootPath: props.rootPath,
       year: props.year,
       month: props.month,
-      dimensions: draft.value,
+      dimensions: cleaned,
     });
     emit("saved", result);
     emit("close");
