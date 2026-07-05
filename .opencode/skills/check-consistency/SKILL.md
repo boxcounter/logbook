@@ -88,7 +88,7 @@ disable-model-invocation: true
 
 #### A4. 组件树
 - SPEC.md「组件树」列出的组件 vs 实际 `src/components/` 下的 `.vue` 文件（用 ls 动态列出）
-- 注意区分「已实现」和「planned/Phase 3」的组件
+- 注意区分「已实现」和「planned」的组件
 
 #### A5. 数据结构
 - SPEC.md「数据结构」中的 struct 定义 vs src-tauri/CLAUDE.md「关键约定」中的描述
@@ -96,7 +96,7 @@ disable-model-invocation: true
 
 #### A6. 技术栈
 - SPEC.md「技术栈」表格 vs Cargo.toml、package.json 和 tauri.conf.json 的实际依赖
-- 特别检查：yaml_serde（不是 serde_yml）、Chart.js 引入方式、Tauri 版本、tauri.conf.json 中的 identifier/window 配置是否与 SPEC.md 一致
+- 特别检查：yaml_serde（不是 serde_yml）、Tauri 版本、tauri.conf.json 中的 identifier/window 配置是否与 SPEC.md 一致
 
 #### A7. 测试覆盖
 - HANDOFF.md 声称的测试数（如存在）vs 实际运行测试的输出

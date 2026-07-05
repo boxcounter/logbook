@@ -86,7 +86,7 @@ disable-model-invocation: true
 
 #### A4. 组件树
 - CLAUDE.md「前端架构」组件树列出的组件 vs 实际 `src/components/` 下的 `.vue` 文件（用 ls 动态列出）
-- 注意区分「已实现」和「planned/Phase 3」的组件
+- 注意区分「已实现」和「planned」的组件
 
 #### A5. 关键约定一致性
 - src-tauri/CLAUDE.md「关键约定」中的描述 vs CLAUDE.md（根）「数据流」「前端架构」中的描述
@@ -94,7 +94,7 @@ disable-model-invocation: true
 
 #### A6. 技术栈
 - src-tauri/CLAUDE.md 和 Cargo.toml 依赖对照、package.json 和 tauri.conf.json 的实际配置
-- 特别检查：yaml_serde（不是 serde_yml）、Chart.js 引入方式、Tauri 版本、tauri.conf.json 中的 identifier/window 配置
+- 特别检查：yaml_serde（不是 serde_yml）、Tauri 版本、tauri.conf.json 中的 identifier/window 配置
 
 #### A7. 测试覆盖
 - HANDOFF.md 声称的测试数（如存在）vs 实际运行测试的输出

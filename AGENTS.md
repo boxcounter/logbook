@@ -42,16 +42,6 @@ App.vue
 //   Toast.vue
 // composite/ 复合组件：
 //   CommitmentsModal.vue, DimensionEditorModal.vue, GoalRow.vue, RoleCard.vue
-
-// Phase 3（planned）:
-// └── StatsView.vue
-//     ├── TabBar.vue
-//     ├── MonthSelector.vue
-//     ├── MonthTotal.vue
-//     ├── CommitmentsPanel.vue（复用）
-//     ├── TrendChart.vue (Chart.js Bar)
-//     ├── DonutChart.vue (Chart.js Doughnut)
-//     └── EntryDetailPanel.vue
 ```
 
 ### 状态管理
@@ -74,15 +64,10 @@ App.vue
 | `src/utils/applyInitResult.ts` | init 结果应用到 store 的逻辑 |
 | `src/__tests__/` | 前端单元测试（vitest + jsdom） |
 
-### 图表
-
-- **DonutChart**: Chart.js `DoughnutController` + `ArcElement`，点击扇区 emit 事件。所有维度统一使用此组件。
-- **TrendChart**: Chart.js `BarController` + `BarElement` + `CategoryScale` + `LinearScale`。支持按维度 stack（下拉选维度 key）。
-
 ### 特殊处理
 
 - Goal 维度：值列表不从 template/月度维度块取，从 Rust 端 `get_commitments` 返回的 goals 并集构建
-- CommitmentsPanel：Today 页和 Stats 页复用同一组件。Today 页始终可见（录入框上方）
+- CommitmentsPanel：始终可见（录入框上方）
 - DimensionPopover 键盘导航：`CTRL+N`/`CTRL+P` 或 `↑`/`↓` 移动高亮（循环），默认高亮第一个还没填 value 的维度（从 val 阶段返回时高亮下一个未填项）。popover 开启时 `Enter` 改为「选中当前高亮项」（dim 阶段进入值菜单 / val 阶段填值），不再提交 entry / 保存编辑；按 `Esc` 关闭 popover 后 `Enter` 恢复提交。`EntryComposer` 与 `EntryRowEdit` 复用同一 popover，行为一致。
 
 ## 数据流
@@ -93,13 +78,9 @@ App.vue
   - 正常 → 返回 `Ready { root_path, dimensions, from_template, today, commitments, scan_warnings }`（dimensions = 当前月生效维度）→ 渲染 Today
 - **文件监听**: Tauri `setup` hook 中启动 `notify` 线程，watch `dimensions.template.yaml` + 当月 `dimensions.yaml` + `commitments.yaml`。变更时重新校验，emit `dimensions-changed` 或 `commitments-changed` 事件推前端。
 - **录入**: 用户输入 → 前端扫描全文 duration（regex 求和） → 去除匹配片段得到 item → 添加继承的维度 → `invoke('append_entry', ...)` → Rust 解析 duration 字符串为 u32，写文件 → 返回 Entry → 前端 refresh 列表 + Commitments
-- **统计** (Phase 3 planned): 切换月份 → `invoke('get_stats', ...)` → Rust 遍历月目录下所有 .md → 内存聚合（含 Commitments） → 返回 MonthStats → 更新图表。当前 MonthView 通过逐个调用 `get_entries` 加载月份数据。
+- MonthView 通过逐个调用 `get_entries` 加载月份数据。
 
 ## 项目级规则
-
-### Phase checkpoint
-
-每完成一个独立 phase（如 Integration tests、Phase 2）停下确认，**不连续推进多个 phase 不征求同意**。HANDOFF.md 的「下一步」是选项清单，不是空头支票。
 
 ### 文档一致性检查
 
