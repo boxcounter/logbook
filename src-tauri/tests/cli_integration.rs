@@ -579,3 +579,60 @@ fn test_entries_add_json_output() {
 
     let _ = fs::remove_dir_all(&tmp);
 }
+
+#[test]
+fn test_entries_add_rejects_empty_item() {
+    let tmp = std::env::temp_dir().join("logbook_cli_test_entries_add_empty_item");
+    let _ = fs::remove_dir_all(&tmp);
+    setup_fixture(&tmp);
+
+    let input = r#"{"item":"","duration":"1h","dimensions":{}}"#;
+
+    let output = run_with_stdin(&[
+        "--root-path", tmp.to_str().unwrap(),
+        "entries", "add", "--date", "2026-06-15",
+    ], input);
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("Entry item cannot be empty"), "stderr: {}", stderr);
+
+    let _ = fs::remove_dir_all(&tmp);
+}
+
+#[test]
+fn test_entries_add_rejects_unknown_dim_key() {
+    let tmp = std::env::temp_dir().join("logbook_cli_test_entries_add_unknown_key");
+    let _ = fs::remove_dir_all(&tmp);
+    setup_fixture(&tmp);
+
+    let input = r#"{"item":"Work","duration":"1h","dimensions":{"nonexistent":"x"}}"#;
+
+    let output = run_with_stdin(&[
+        "--root-path", tmp.to_str().unwrap(),
+        "entries", "add", "--date", "2026-06-15",
+    ], input);
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("Unknown dimension key"), "stderr: {}", stderr);
+
+    let _ = fs::remove_dir_all(&tmp);
+}
+
+#[test]
+fn test_dimensions_set_rejects_empty_value_string() {
+    let tmp = std::env::temp_dir().join("logbook_cli_test_dims_set_empty_val");
+    let _ = fs::remove_dir_all(&tmp);
+    setup_fixture(&tmp);
+
+    let input = r#"[{"name":"X","key":"x","source":"static","values":["a",""]}]"#;
+
+    let output = run_with_stdin(&[
+        "--root-path", tmp.to_str().unwrap(),
+        "dimensions", "set", "--year", "2026", "--month", "6",
+    ], input);
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("ValuesEmpty") || stderr.contains("empty"), "stderr: {}", stderr);
+
+    let _ = fs::remove_dir_all(&tmp);
+}
