@@ -19,7 +19,7 @@ mod tests {
     required: true
   - name: Goal
     key: goal
-    source: commitments:goals
+    source: commitments:role:goals
 "#;
         fs::create_dir_all(root).unwrap();
         fs::write(root.join("dimensions.template.yaml"), dims).unwrap();
@@ -51,7 +51,7 @@ mod tests {
             "  required: true\n",
             "- name: Goal\n",
             "  key: goal\n",
-            "  source: commitments:goals\n",
+            "  source: commitments:role:goals\n",
         );
         fs::write(month_dir.join("dimensions.yaml"), month_dims).unwrap();
     }

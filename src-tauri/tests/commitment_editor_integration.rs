@@ -11,7 +11,7 @@ fn setup(suffix: &str) -> std::path::PathBuf {
 
     fs::write(
         root.join("dimensions.template.yaml"),
-        "dimensions:\n  - name: Goal\n    key: goal\n    source: commitments:goals\n  - name: Role\n    key: role\n    source: commitments:role\n",
+        "dimensions:\n  - name: Goal\n    key: goal\n    source: commitments:role:goals\n  - name: Role\n    key: role\n    source: commitments:role\n",
     )
     .unwrap();
 

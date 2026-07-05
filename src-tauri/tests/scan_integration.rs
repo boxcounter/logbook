@@ -12,7 +12,7 @@ const CONFIG_YAML: &str = "\
 dimensions:
   - name: Goal
     key: goal
-    source: commitments:goals
+    source: commitments:role:goals
 ";
 
 fn temp_root() -> PathBuf {

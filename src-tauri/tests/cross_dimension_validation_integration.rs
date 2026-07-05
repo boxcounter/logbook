@@ -24,7 +24,7 @@ fn setup(suffix: &str) {
         root.join("dimensions.template.yaml"),
         concat!(
             "dimensions:\n",
-            "  - name: Goal\n    key: goal\n    source: commitments:goals\n",
+            "  - name: Goal\n    key: goal\n    source: commitments:role:goals\n",
             "  - name: Role\n    key: role\n    source: commitments:role\n",
         ),
     )
@@ -228,7 +228,7 @@ fn append_accepts_when_no_commitments_file_exists() {
         root.join("dimensions.template.yaml"),
         concat!(
             "dimensions:\n",
-            "  - name: Goal\n    key: goal\n    source: commitments:goals\n",
+            "  - name: Goal\n    key: goal\n    source: commitments:role:goals\n",
             "  - name: Role\n    key: role\n    source: commitments:role\n",
         ),
     )

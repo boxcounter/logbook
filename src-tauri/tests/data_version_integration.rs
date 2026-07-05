@@ -18,7 +18,7 @@ fn load_root_state_with_no_version_file_works() {
     fs::create_dir_all(&root).unwrap();
     fs::write(
         root.join("dimensions.template.yaml"),
-        "dimensions:\n  - name: Goal\n    key: goal\n    source: commitments:goals\n  - name: Role\n    key: role\n    source: commitments:role\n",
+        "dimensions:\n  - name: Goal\n    key: goal\n    source: commitments:role:goals\n  - name: Role\n    key: role\n    source: commitments:role\n",
     )
     .unwrap();
     let result = load_root_state(&root);
