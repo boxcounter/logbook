@@ -171,6 +171,40 @@ fn validate_cross_dimension_constraints(
     Ok(())
 }
 
+/// Unified pre-write validation for entry input (append + update paths).
+/// Returns parsed duration (u32 minutes) on success.
+pub fn validate_entry_input(
+    item: &str,
+    duration_str: &str,
+    dimensions: &BTreeMap<String, String>,
+    dimension_config: &[Dimension],
+    role_key: &str,
+    goal_key: &str,
+    role_to_goals: &std::collections::HashMap<String, Vec<String>>,
+) -> Result<u32, String> {
+    if item.trim().is_empty() {
+        return Err("Entry item cannot be empty".to_string());
+    }
+
+    let duration = parse_duration(duration_str)?;
+
+    let known_keys: std::collections::HashSet<&str> = dimension_config
+        .iter()
+        .map(|d| d.key.as_str())
+        .collect();
+    for key in dimensions.keys() {
+        if !known_keys.contains(key.as_str()) {
+            return Err(format!("Unknown dimension key '{}'", key));
+        }
+    }
+
+    validate_required_dimensions(dimension_config, dimensions)?;
+
+    validate_cross_dimension_constraints(dimensions, role_key, goal_key, role_to_goals)?;
+
+    Ok(duration)
+}
+
 /// Classify the data root and load initial state.
 /// No AppHandle → unit/integration testable. init/set_root_path delegate here.
 pub fn load_root_state(root: &std::path::Path) -> InitResult {
@@ -2699,5 +2733,103 @@ entries:
         assert!(validate_cross_dimension_constraints(
             &dims, "role", "goal", &role_to_goals
         ).is_ok());
+    }
+
+    // --- validate_entry_input tests ---
+
+    fn make_dim_config() -> Vec<Dimension> {
+        vec![
+            Dimension {
+                name: "Biz".into(),
+                key: "biz".into(),
+                source: "static".into(),
+                values: Some(vec!["A".into()]),
+                required: false,
+                deleted: false,
+            },
+            Dimension {
+                name: "Goal".into(),
+                key: "goal".into(),
+                source: "commitments:role:goals".into(),
+                values: None,
+                required: false,
+                deleted: false,
+            },
+            Dimension {
+                name: "Role".into(),
+                key: "role".into(),
+                source: "commitments:role".into(),
+                values: None,
+                required: false,
+                deleted: false,
+            },
+            // Deleted dimension — key still valid for unknown key check
+            Dimension {
+                name: "Old".into(),
+                key: "old".into(),
+                source: "static".into(),
+                values: Some(vec!["X".into()]),
+                required: false,
+                deleted: true,
+            },
+        ]
+    }
+
+    #[test]
+    fn test_validate_entry_input_rejects_empty_item() {
+        let config = make_dim_config();
+        let dims = BTreeMap::new();
+        let role_to_goals = std::collections::HashMap::new();
+        let err = validate_entry_input("", "1h", &dims, &config, "role", "goal", &role_to_goals).unwrap_err();
+        assert!(err.contains("Entry item cannot be empty"));
+    }
+
+    #[test]
+    fn test_validate_entry_input_rejects_whitespace_item() {
+        let config = make_dim_config();
+        let dims = BTreeMap::new();
+        let role_to_goals = std::collections::HashMap::new();
+        let err = validate_entry_input("   ", "1h", &dims, &config, "role", "goal", &role_to_goals).unwrap_err();
+        assert!(err.contains("Entry item cannot be empty"));
+    }
+
+    #[test]
+    fn test_validate_entry_input_rejects_unknown_dim_key() {
+        let config = make_dim_config();
+        let mut dims = BTreeMap::new();
+        dims.insert("nonexistent".to_string(), "x".to_string());
+        let role_to_goals = std::collections::HashMap::new();
+        let err = validate_entry_input("Item", "1h", &dims, &config, "role", "goal", &role_to_goals).unwrap_err();
+        assert!(err.contains("Unknown dimension key"));
+        assert!(err.contains("nonexistent"));
+    }
+
+    #[test]
+    fn test_validate_entry_input_allows_deleted_dim_key() {
+        let config = make_dim_config();
+        let mut dims = BTreeMap::new();
+        dims.insert("old".to_string(), "legacy_value".to_string());
+        let role_to_goals = std::collections::HashMap::new();
+        // Should NOT reject—deleted dimension key is still a known key
+        assert!(validate_entry_input("Item", "1h", &dims, &config, "role", "goal", &role_to_goals).is_ok());
+    }
+
+    #[test]
+    fn test_validate_entry_input_ok() {
+        let config = make_dim_config();
+        let mut dims = BTreeMap::new();
+        dims.insert("biz".to_string(), "A".to_string());
+        let role_to_goals = std::collections::HashMap::new();
+        let result = validate_entry_input("Test item", "1h 30m", &dims, &config, "role", "goal", &role_to_goals).unwrap();
+        assert_eq!(result, 90);
+    }
+
+    #[test]
+    fn test_validate_entry_input_duration_fail() {
+        let config = make_dim_config();
+        let dims = BTreeMap::new();
+        let role_to_goals = std::collections::HashMap::new();
+        let err = validate_entry_input("Item", "no duration", &dims, &config, "role", "goal", &role_to_goals).unwrap_err();
+        assert!(err.contains("Could not parse duration"));
     }
 }
