@@ -36,6 +36,11 @@ pub fn progress(root: &Path, year: i32, month: u32, json: bool) {
 }
 
 pub fn set(root: &Path, year: i32, month: u32, json: bool) {
+    if let Err(e) = crate::integrity::check() {
+        output::print_error(&e);
+        std::process::exit(1);
+    }
+
     let mut input = String::new();
     std::io::stdin()
         .read_to_string(&mut input)

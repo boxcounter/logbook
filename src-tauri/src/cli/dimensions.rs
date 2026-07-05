@@ -1,4 +1,5 @@
 use clap::Subcommand;
+use crate::cli::output;
 use crate::models::{Dimension, Template};
 use crate::config::validate_dimensions;
 use crate::files;
@@ -62,6 +63,11 @@ pub fn handle_dimensions(cmd: DimensionsCommands, root: &Path) -> Result<(), Str
             Ok(())
         }
         DimensionsCommands::Set { year, month, template, json } => {
+            if let Err(e) = crate::integrity::check() {
+                output::print_error(&e);
+                std::process::exit(1);
+            }
+
             let mut input = String::new();
             std::io::stdin().read_to_string(&mut input).map_err(|e| e.to_string())?;
             let dims: Vec<Dimension> = if json {
