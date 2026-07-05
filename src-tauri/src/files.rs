@@ -24,7 +24,7 @@ fn with_file_lock<T, F: FnOnce() -> Result<T, String>>(path: &Path, f: F) -> Res
     f()
 }
 
-/// Day file path: {root}/{year}/{month:02}/{date}.md
+/// Day file path: {root}/{year}/{month:02}/{date}.yaml
 /// Validates date format before constructing path.
 /// date format: "2026-06-12". Date is canonical from filename, not stored in frontmatter.
 pub fn day_path(root: &Path, date: &str) -> Result<PathBuf, String> {
@@ -32,13 +32,13 @@ pub fn day_path(root: &Path, date: &str) -> Result<PathBuf, String> {
     let d = chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d")
         .map_err(|e| format!("Invalid date '{}': {}", date, e))?;
     // Derive the path from the parsed date so a lenient input like "2026-6-5"
-    // still lands in the canonical zero-padded /YYYY/MM/YYYY-MM-DD.md that
+    // still lands in the canonical zero-padded /YYYY/MM/YYYY-MM-DD.yaml that
     // monthly_path and every month scan use. Otherwise the file would be
     // written to /2026/6/ and silently missed by aggregation.
     Ok(root
         .join(format!("{:04}", d.year()))
         .join(format!("{:02}", d.month()))
-        .join(format!("{:04}-{:02}-{:02}.md", d.year(), d.month(), d.day())))
+        .join(format!("{:04}-{:02}-{:02}.yaml", d.year(), d.month(), d.day())))
 }
 
 /// Template path: {root}/template.yaml
@@ -120,11 +120,12 @@ pub fn read_day_file(root: &Path, date: &str) -> Result<DayFile, String> {
     }
     let content = fs::read_to_string(&path)
         .map_err(|e| format!("Failed to read {}: {}", path.display(), e))?;
-    parse_frontmatter::<DayFile>(&content)
+    let content = content.trim_start_matches('\u{feff}');
+    yaml_serde::from_str::<DayFile>(content)
         .map_err(|e| format!("Failed to parse {}: {}", path.display(), e))
 }
 
-/// Write a full day file (atomic: temp then rename).
+/// Write a full day file (atomic: tmp then rename).
 pub fn write_day_file(root: &Path, date: &str, day_file: &DayFile) -> Result<(), String> {
     let path = day_path(root, date)?;
     if let Some(parent) = path.parent() {
@@ -132,9 +133,8 @@ pub fn write_day_file(root: &Path, date: &str, day_file: &DayFile) -> Result<(),
     }
     let yaml_body =
         yaml_serde::to_string(day_file).map_err(|e| format!("Failed to serialize: {}", e))?;
-    let content = format!("---\n{}---\n", yaml_body);
     let tmp_path = path.with_extension("tmp");
-    fs::write(&tmp_path, &content).map_err(|e| format!("Failed to write temp file: {}", e))?;
+    fs::write(&tmp_path, &yaml_body).map_err(|e| format!("Failed to write temp file: {}", e))?;
     fs::rename(&tmp_path, &path).map_err(|e| format!("Failed to rename temp file: {}", e))?;
     Ok(())
 }
@@ -458,46 +458,12 @@ pub fn read_root_path(app_data_dir: &Path) -> Option<PathBuf> {
     }
 }
 
-/// Parse YAML frontmatter: extract between --- delimiters.
-/// Second `---` must appear at line start (or end of file) to avoid
-/// matching horizontal rules in Markdown body.
-fn parse_frontmatter<T: serde::de::DeserializeOwned>(content: &str) -> Result<T, String> {
-    // Strip a leading UTF-8 BOM (U+FEFF) before trimming: `str::trim()` does not
-    // treat the BOM as whitespace, so external editors that prepend one would
-    // otherwise make `starts_with("---")` fail and silently drop the frontmatter.
-    let content = content.trim_start_matches('\u{feff}').trim();
-    if !content.starts_with("---") {
-        return Err("No frontmatter found".to_string());
-    }
-    let after_first = &content[3..];
-    // Find `\n---` (second delimiter at line start) or end of string
-    let end = after_first.find("\n---").unwrap_or_else(|| {
-        if after_first.starts_with("---") {
-            0
-        } else {
-            after_first.len()
-        }
-    });
-    let yaml_str = if end == 0 { "" } else { &after_first[..end] }.trim();
-    if yaml_str.is_empty() {
-        return yaml_serde::from_str("{}").map_err(|e| format!("YAML parse error: {}", e));
-    }
-    yaml_serde::from_str(yaml_str).map_err(|e| format!("YAML parse error: {}", e))
-}
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::models::Entry;
     use std::collections::BTreeMap;
-
-    #[test]
-    fn test_parse_frontmatter_basic() {
-        let input = "---\nentries: []\n---\n";
-        let df: DayFile = parse_frontmatter(input).unwrap();
-        assert!(df.entries.is_empty());
-        assert!(df.note.is_none());
-    }
 
     #[test]
     fn test_entry_dimensions_serialize_deterministically() {
@@ -529,29 +495,10 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_frontmatter_with_note() {
-        let input = "---\nnote: \"test note\"\nentries: []\n---\n";
-        let df: DayFile = parse_frontmatter(input).unwrap();
-        assert_eq!(df.note, Some("test note".to_string()));
-    }
-
-    #[test]
-    fn test_parse_frontmatter_with_utf8_bom() {
-        // External editors (Windows Notepad, some macOS editors) save UTF-8 with a
-        // leading BOM (U+FEFF). `str::trim()` does NOT treat it as whitespace, so
-        // without explicit stripping `starts_with("---")` fails and the frontmatter
-        // is silently lost. The app's whole premise is plain-text external editing,
-        // so this must round-trip.
-        let input = "\u{feff}---\nnote: \"bom note\"\nentries: []\n---\n";
-        let df: DayFile = parse_frontmatter(input).unwrap();
-        assert_eq!(df.note, Some("bom note".to_string()));
-    }
-
-    #[test]
     fn test_day_path() {
         let root = Path::new("/data");
         let p = day_path(root, "2026-06-12").unwrap();
-        assert_eq!(p, PathBuf::from("/data/2026/06/2026-06-12.md"));
+        assert_eq!(p, PathBuf::from("/data/2026/06/2026-06-12.yaml"));
     }
 
     #[test]
@@ -560,7 +507,7 @@ mod tests {
         // form so it lands in the same /2026/06/ dir that month scans look in.
         let root = Path::new("/data");
         let p = day_path(root, "2026-6-5").unwrap();
-        assert_eq!(p, PathBuf::from("/data/2026/06/2026-06-05.md"));
+        assert_eq!(p, PathBuf::from("/data/2026/06/2026-06-05.yaml"));
     }
 
     #[test]
@@ -770,14 +717,14 @@ mod tests {
         // Create an orphaned .tmp file (simulating crash during atomic write)
         let day_dir = tmp.join("2026/07");
         fs::create_dir_all(&day_dir).unwrap();
-        fs::write(day_dir.join("2026-07-04.md.tmp"), "data").unwrap();
-        // Also create a valid .md file that should survive
-        fs::write(day_dir.join("2026-07-04.md"), "---\nentries: []\n---\n").unwrap();
+        fs::write(day_dir.join("2026-07-04.yaml.tmp"), "data").unwrap();
+        // Also create a valid .yaml file that should survive
+        fs::write(day_dir.join("2026-07-04.yaml"), "note:\nentries: []\n").unwrap();
 
         cleanup_tmp_files(&tmp);
 
-        assert!(!day_dir.join("2026-07-04.md.tmp").exists(), "orphaned .tmp should be removed");
-        assert!(day_dir.join("2026-07-04.md").exists(), "valid .md should survive");
+        assert!(!day_dir.join("2026-07-04.yaml.tmp").exists(), "orphaned .tmp should be removed");
+        assert!(day_dir.join("2026-07-04.yaml").exists(), "valid .yaml should survive");
 
         let _ = fs::remove_dir_all(&tmp);
     }
