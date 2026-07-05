@@ -5,7 +5,6 @@ import { getVersion } from "@tauri-apps/api/app";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useStore } from "../stores/useStore";
 import { useDayNote } from "../composables/useDayNote";
-import { useFileActions } from "../composables/useFileActions";
 import { useMonthData } from "../composables/useMonthData";
 import { useEntryActions } from "../composables/useEntryActions";
 import HeatmapCalendar from "./HeatmapCalendar.vue";
@@ -55,7 +54,6 @@ const dayTitle = computed(() => {
 });
 
 const { noteRef, saveNote, onNotePaste, onNoteInput, onNoteFocus, onNoteEsc, onNoteEnter } = useDayNote(store);
-const { dayFilePath, displayPath, revealDayFile, copyFilePath, copiedFeedback } = useFileActions(store);
 const {
   loadMonth,
   onCommitmentsSaved,
@@ -223,14 +221,6 @@ logInfo("MonthView", "mounted");
         @saved="onDimensionsSaved"
       />
 
-      <div v-if="store.rootPath" class="mt-sm text-right flex justify-end items-baseline gap-md">
-        <button
-          class="text-micro text-[var(--color-text-disabled)] hover:text-[var(--color-text-secondary)] cursor-pointer"
-          :title="store.rootPath + '/' + dayFilePath"
-          @click="revealDayFile"
-          @contextmenu.prevent="copyFilePath"
-        >{{ copiedFeedback ? 'Copied!' : displayPath }}</button>
-      </div>
     </main>
   </div>
 </template>
