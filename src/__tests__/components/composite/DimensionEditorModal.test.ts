@@ -11,7 +11,7 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("../../../utils/errorLog", () => ({ logError: vi.fn() }));
 
 const MOCK_DIMENSIONS: Dimension[] = [
-  { name: "Goal", key: "goal", source: "commitments:goals", values: undefined, required: false, deleted: false },
+  { name: "Goal", key: "goal", source: "commitments:role:goals", values: undefined, required: false, deleted: false },
   { name: "Biz", key: "biz", source: "static", values: ["Product", "Marketing", "Engineering"], required: true, deleted: false },
   { name: "Importance", key: "importance-urgency", source: "static", values: ["P0", "P1"], required: false, deleted: false },
 ];
@@ -63,7 +63,7 @@ describe("DimensionEditorModal", () => {
 
   it("shows values for selected static dimension", async () => {
     const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
-    // Default selects index 0 (Goal, commitments:goals). Click Biz (index 1) for static values.
+    // Default selects index 0 (Goal, commitments:role:goals). Click Biz (index 1) for static values.
     const bizRow = wrapper.findAll('[data-test="dim-row"]')[1];
     await bizRow.trigger("click");
     const valueInputs = wrapper.findAll('[data-test="value-input"]');
@@ -80,15 +80,15 @@ describe("DimensionEditorModal", () => {
 
   it("shows key and source in readonly mode", () => {
     const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
-    // Default selects index 0 = Goal, key is "goal", source is "commitments:goals"
+    // Default selects index 0 = Goal, key is "goal", source is "commitments:role:goals"
     expect(wrapper.text()).toContain("goal");
-    expect(wrapper.text()).toContain("commitments:goals");
+    expect(wrapper.text()).toContain("commitments:role:goals");
     expect(wrapper.text()).toContain("locked");
   });
 
-  it("shows commitments:goals info card", () => {
+  it("shows commitments:role:goals info card", () => {
     const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
-    // Goal is commitments:goals (index 0, selected by default)
+    // Goal is commitments:role:goals (index 0, selected by default)
     expect(wrapper.text()).toContain("Values are derived from commitment goals");
   });
 
@@ -100,9 +100,9 @@ describe("DimensionEditorModal", () => {
     expect(wrapper.text()).toContain("Values are derived from commitment roles");
   });
 
-  it("does not show values section for commitments:goals dimensions", () => {
+  it("does not show values section for commitments:role:goals dimensions", () => {
     const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
-    // Goal is commitments:goals — no values list or + Add Value button
+    // Goal is commitments:role:goals — no values list or + Add Value button
     expect(wrapper.find('[data-test="add-value-btn"]').exists()).toBe(false);
   });
 
@@ -443,7 +443,7 @@ describe("DimensionEditorModal", () => {
   it("shows special message for duplicate of a soft-deleted key", async () => {
     const dimsWithDeleted: Dimension[] = [
       { name: "Old", key: "old-dim", source: "static", values: [], required: false, deleted: true },
-      { name: "Goal", key: "goal", source: "commitments:goals", values: undefined, required: false, deleted: false },
+      { name: "Goal", key: "goal", source: "commitments:role:goals", values: undefined, required: false, deleted: false },
     ];
     const wrapper = mountModal({ open: true, dimensions: dimsWithDeleted });
     await wrapper.find('[data-test="add-dim-btn"]').trigger("click");
@@ -454,14 +454,14 @@ describe("DimensionEditorModal", () => {
     expect(wrapper.find('[data-test="add-dim-error"]').text()).toContain("Restore it or choose a different key");
   });
 
-  it("prevents creating a second commitments:goals source dimension", async () => {
-    const wrapper = mountModal(); // Goal (index 0) is commitments:goals
+  it("prevents creating a second commitments:role:goals source dimension", async () => {
+    const wrapper = mountModal(); // Goal (index 0) is commitments:role:goals
     await wrapper.find('[data-test="add-dim-btn"]').trigger("click");
     await wrapper.find('[data-test="add-dim-name"]').setValue("Second Monthly");
     await wrapper.find('[data-test="add-dim-key"]').setValue("monthly2");
-    await wrapper.find('[data-test="add-dim-source"]').setValue("commitments:goals");
+    await wrapper.find('[data-test="add-dim-source"]').setValue("commitments:role:goals");
     await wrapper.find('[data-test="add-dim-create"]').trigger("click");
-    expect(wrapper.find('[data-test="add-dim-error"]').text()).toContain("Only one commitments:goals source dimension allowed");
+    expect(wrapper.find('[data-test="add-dim-error"]').text()).toContain("Only one commitments:role:goals source dimension allowed");
   });
 
   it("resets form after successful create", async () => {
