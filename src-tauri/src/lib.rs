@@ -5,6 +5,7 @@ mod error_log;
 pub mod files;
 pub mod models;
 pub mod operation_log;
+pub mod integrity;
 pub mod scan;
 pub mod single_instance;
 mod window_state;
