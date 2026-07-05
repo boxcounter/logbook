@@ -32,7 +32,7 @@ mod tests {
         fs::create_dir_all(&month_dir).unwrap();
 
         let valid_entry = format!(
-            "---\nentries:\n  - id: {}\n    item: test\n    duration: 30\n    dimensions:\n      biz: A\n---\n",
+            "entries:\n  - id: {}\n    item: test\n    duration: 30\n    dimensions:\n      biz: A\n",
             uuid::Uuid::new_v4()
         );
         let today = format!(
@@ -41,7 +41,7 @@ mod tests {
             now.month(),
             now.day()
         );
-        fs::write(month_dir.join(format!("{}.md", today)), valid_entry).unwrap();
+        fs::write(month_dir.join(format!("{}.yaml", today)), valid_entry).unwrap();
 
         let month_dims = concat!(
             "- name: Biz\n",
@@ -94,7 +94,7 @@ mod tests {
             now.month(),
             if now.day() > 1 { now.day() - 1 } else { 1 }
         );
-        fs::write(month_dir.join(format!("{}.md", bad_date)), "this is not valid yaml\n").unwrap();
+        fs::write(month_dir.join(format!("{}.yaml", bad_date)), "this is not valid yaml\n").unwrap();
 
         let issues = integrity::check_scoped_integrity(&root);
         assert_eq!(issues.len(), 1, "expected 1 issue, got {:?}", issues);
@@ -120,10 +120,10 @@ mod tests {
             if now.day() > 1 { now.day() - 1 } else { 1 }
         );
         let bad_entry = format!(
-            "---\nentries:\n  - id: {}\n    item: bad\n    duration: 0\n---\n",
+            "entries:\n  - id: {}\n    item: bad\n    duration: 0\n",
             uuid::Uuid::new_v4()
         );
-        fs::write(month_dir.join(format!("{}.md", bad_date)), bad_entry).unwrap();
+        fs::write(month_dir.join(format!("{}.yaml", bad_date)), bad_entry).unwrap();
 
         let issues = integrity::check_scoped_integrity(&root);
         assert_eq!(issues.len(), 1);
@@ -137,7 +137,7 @@ mod tests {
         integrity::reset();
 
         integrity::set_compromised(IntegrityIssue {
-            path: "test.md".into(),
+            path: "test.yaml".into(),
             message: "test error".into(),
             kind: "Test".into(),
         });
@@ -152,7 +152,7 @@ mod tests {
         integrity::reset();
 
         integrity::set_compromised(IntegrityIssue {
-            path: "test.md".into(),
+            path: "test.yaml".into(),
             message: "test".into(),
             kind: "Test".into(),
         });
@@ -177,8 +177,8 @@ mod tests {
             now.month(),
             if now.day() > 1 { now.day() - 1 } else { 1 }
         );
-        let bad_entry = "---\nentries:\n  - id: not-a-uuid\n    item: bad\n    duration: 30\n---\n";
-        fs::write(month_dir.join(format!("{}.md", bad_date)), bad_entry).unwrap();
+        let bad_entry = "entries:\n  - id: not-a-uuid\n    item: bad\n    duration: 30\n";
+        fs::write(month_dir.join(format!("{}.yaml", bad_date)), bad_entry).unwrap();
 
         let issues = integrity::check_scoped_integrity(&root);
         assert_eq!(issues.len(), 1);
@@ -204,10 +204,10 @@ mod tests {
             if now.day() > 1 { now.day() - 1 } else { 1 }
         );
         let bad_entry = format!(
-            "---\nentries:\n  - id: {}\n    item: bad\n    duration: 30\n    dimensions:\n      biz: A\n      unknown_key: X\n---\n",
+            "entries:\n  - id: {}\n    item: bad\n    duration: 30\n    dimensions:\n      biz: A\n      unknown_key: X\n",
             uuid::Uuid::new_v4()
         );
-        fs::write(month_dir.join(format!("{}.md", bad_date)), bad_entry).unwrap();
+        fs::write(month_dir.join(format!("{}.yaml", bad_date)), bad_entry).unwrap();
 
         let issues = integrity::check_scoped_integrity(&root);
         assert_eq!(issues.len(), 1);
@@ -233,10 +233,10 @@ mod tests {
             if now.day() > 1 { now.day() - 1 } else { 1 }
         );
         let bad_entry = format!(
-            "---\nentries:\n  - id: {}\n    item: bad\n    duration: 30\n    dimensions:\n      biz: '   '\n---\n",
+            "entries:\n  - id: {}\n    item: bad\n    duration: 30\n    dimensions:\n      biz: '   '\n",
             uuid::Uuid::new_v4()
         );
-        fs::write(month_dir.join(format!("{}.md", bad_date)), bad_entry).unwrap();
+        fs::write(month_dir.join(format!("{}.yaml", bad_date)), bad_entry).unwrap();
 
         let issues = integrity::check_scoped_integrity(&root);
         assert_eq!(issues.len(), 1);
@@ -258,7 +258,7 @@ mod tests {
             .join(format!("{:02}", now.month()));
         fs::create_dir_all(&op_dir).unwrap();
 
-        // day that is today-1 (or day 1 if today is 1), write a valid .md file
+        // day that is today-1 (or day 1 if today is 1), write a valid .yaml file
         // and a corrupt .jsonl — the YAML check passes, then JSONL fails
         let bad_date = format!(
             "{}-{:02}-{:02}",
@@ -270,10 +270,10 @@ mod tests {
             .join(format!("{}", now.year()))
             .join(format!("{:02}", now.month()));
         let valid_entry = format!(
-            "---\nentries:\n  - id: {}\n    item: test\n    duration: 30\n    dimensions:\n      biz: A\n---\n",
+            "entries:\n  - id: {}\n    item: test\n    duration: 30\n    dimensions:\n      biz: A\n",
             uuid::Uuid::new_v4()
         );
-        fs::write(month_dir.join(format!("{}.md", bad_date)), valid_entry).unwrap();
+        fs::write(month_dir.join(format!("{}.yaml", bad_date)), valid_entry).unwrap();
 
         // Write invalid JSON (no closing brace) as a JSONL line
         fs::write(op_dir.join(format!("{}.jsonl", bad_date)), "{\"ts\":\"x\",\n").unwrap();

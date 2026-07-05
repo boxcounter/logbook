@@ -67,6 +67,31 @@ fn scan_dir(root: &Path, dir: &Path, warnings: &mut Vec<ScanWarning>) {
             continue;
         }
 
+        // Only scan .yaml files inside YYYY/MM/ directories.
+        // Root-level .yaml files (dimensions.template.yaml, etc.) are silently skipped.
+        {
+            let parent = path.parent();
+            let grandparent = parent.and_then(|p| p.parent());
+            let is_in_month_dir = parent
+                .and_then(|p| p.file_name())
+                .and_then(|n| n.to_str())
+                .map(|name| {
+                    name.len() == 2
+                        && name
+                            .parse::<u32>()
+                            .map_or(false, |m| (1..=12).contains(&m))
+                })
+                .unwrap_or(false)
+                && grandparent
+                    .and_then(|p| p.file_name())
+                    .and_then(|n| n.to_str())
+                    .map(|name| name.len() == 4 && name.parse::<u32>().is_ok())
+                    .unwrap_or(false);
+            if !is_in_month_dir {
+                continue;
+            }
+        }
+
         let stem = &file_name[..file_name.len() - 5]; // strip ".yaml"
 
         // Validate date stem (YYYY-MM-DD)

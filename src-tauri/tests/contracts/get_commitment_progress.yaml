@@ -11,9 +11,8 @@ cases:
             goals:
               - Ship it
       - action: write_file
-        path: "2026/06/2026-06-01.md"
+        path: "2026/06/2026-06-01.yaml"
         content: |
-          ---
           entries:
             - id: e1
               item: build feature
@@ -27,7 +26,6 @@ cases:
               dimensions:
                 role: Dev
                 goal: Ship it
-          ---
     input:
       root_path: "{ROOT}"
       year: 2026

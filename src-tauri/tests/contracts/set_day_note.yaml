@@ -13,12 +13,10 @@ cases:
   - name: clear day note sets to null
     before:
       - action: write_file
-        path: "2026/06/2026-06-15.md"
+        path: "2026/06/2026-06-15.yaml"
         content: |
-          ---
           note: existing note
           entries: []
-          ---
     input:
       root_path: "{ROOT}"
       date: "2026-06-15"

@@ -4,9 +4,8 @@ cases:
   - name: update item and duration
     before:
       - action: write_file
-        path: "2026/06/2026-06-15.md"
+        path: "2026/06/2026-06-15.yaml"
         content: |
-          ---
           entries:
             - id: e1
               item: original item
@@ -18,7 +17,6 @@ cases:
               duration: 15
               dimensions:
                 goal: Review
-          ---
     input:
       root_path: "{ROOT}"
       date: "2026-06-15"
@@ -36,15 +34,13 @@ cases:
   - name: update nonexistent entry returns error
     before:
       - action: write_file
-        path: "2026/06/2026-06-15.md"
+        path: "2026/06/2026-06-15.yaml"
         content: |
-          ---
           entries:
             - id: e1
               item: only entry
               duration: 30
               dimensions: {}
-          ---
     input:
       root_path: "{ROOT}"
       date: "2026-06-15"
@@ -57,15 +53,13 @@ cases:
   - name: update with invalid duration returns error
     before:
       - action: write_file
-        path: "2026/06/2026-06-15.md"
+        path: "2026/06/2026-06-15.yaml"
         content: |
-          ---
           entries:
             - id: e1
               item: test
               duration: 30
               dimensions: {}
-          ---
     input:
       root_path: "{ROOT}"
       date: "2026-06-15"

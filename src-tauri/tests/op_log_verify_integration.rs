@@ -93,8 +93,8 @@ fn test_verify_detects_missing_operation() {
     // corresponding operation log entry.
     let day_dir = tmp.join("2026").join("06");
     fs::create_dir_all(&day_dir).unwrap();
-    let day_content = "---\nentries:\n- id: manual-id\n  item: manual entry\n  duration: 30\n  dimensions: {}\n---\n";
-    fs::write(day_dir.join("2026-06-15.md"), day_content).unwrap();
+    let day_content = "entries:\n- id: manual-id\n  item: manual entry\n  duration: 30\n  dimensions: {}\n";
+    fs::write(day_dir.join("2026-06-15.yaml"), day_content).unwrap();
 
     // The op log directory doesn't exist → verify_op_log should return Ok
     // (no log = nothing to verify). This documents the current behavior:

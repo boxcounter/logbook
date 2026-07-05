@@ -18,12 +18,17 @@ fn setup(suffix: &str) {
         "dimensions:\n  - name: Goal\n    key: goal\n    source: commitments:role:goals\n  - name: Role\n    key: role\n    source: commitments:role\n",
     )
     .unwrap();
-    // Write minimal _monthly.md for June 2026
+    // Write commitments.yaml and dimensions.yaml for June 2026
     let monthly_dir = root.join("2026/06");
     fs::create_dir_all(&monthly_dir).unwrap();
     fs::write(
-        monthly_dir.join("_monthly.md"),
-        "---\ncommitments:\n  - role: Dev\n    allocation: 40\n    goals:\n      - Ship it\n---\n",
+        monthly_dir.join("commitments.yaml"),
+        "- role: Dev\n  allocation: 40\n  goals:\n    - Ship it\n",
+    )
+    .unwrap();
+    fs::write(
+        monthly_dir.join("dimensions.yaml"),
+        "[]\n",
     )
     .unwrap();
 }

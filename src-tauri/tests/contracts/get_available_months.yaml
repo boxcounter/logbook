@@ -1,14 +1,12 @@
 command: get_available_months
-description: Scan data directory for months that have .md files.
+description: Scan data directory for months that have .yaml files.
 cases:
   - name: finds month with data
     before:
       - action: write_file
-        path: "2026/06/2026-06-15.md"
+        path: "2026/06/2026-06-15.yaml"
         content: |
-          ---
           entries: []
-          ---
     input:
       root_path: "{ROOT}"
     expect:

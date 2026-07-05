@@ -218,7 +218,7 @@ fn test_set_commitments_delete_goal_allowed_when_no_entries() {
     teardown(&root);
 }
 
-// F3: a stray non-date .md (or corrupt file) in the month dir must NOT abort the
+// F3: a stray non-date file (or corrupt file) in the month dir must NOT abort the
 // whole rename. Mirrors the tolerant scan in count_entries_with_goal.
 #[test]
 fn test_set_commitments_rename_tolerates_stray_md_file() {
@@ -233,8 +233,8 @@ fn test_set_commitments_rename_tolerates_stray_md_file() {
     )
     .unwrap();
 
-    // A user-placed, non-date markdown file sits in the month directory.
-    fs::write(root.join("2026/06/notes.md"), "# scratch notes\n").unwrap();
+    // A user-placed, non-date file sits in the month directory.
+    fs::write(root.join("2026/06/notes.txt"), "# scratch notes\n").unwrap();
 
     // Rename "Feature A" → "Feature X": must succeed despite the stray file.
     let new = make_commitments(vec![
@@ -243,7 +243,7 @@ fn test_set_commitments_rename_tolerates_stray_md_file() {
     ]);
     let result =
         tauri_app_lib::commands::set_commitments(root.to_string_lossy().into_owned(), 2026, 6, new)
-            .expect("rename must not abort on a stray non-date .md file");
+            .expect("rename must not abort on a stray non-date file");
     assert_eq!(result[0].goals, vec!["Feature X", "Code review"]);
 
     let day1 = tauri_app_lib::files::read_day_file(&root, "2026-06-01").unwrap();
@@ -270,7 +270,7 @@ fn test_set_commitments_rename_aborts_before_write_on_corrupt_file() {
     }
 
     // A corrupt file with a VALID date name (not a stray non-date file).
-    fs::write(root.join("2026/06/2026-06-03.md"), "this is not valid frontmatter\n").unwrap();
+    fs::write(root.join("2026/06/2026-06-03.yaml"), "\tbad: yaml\n").unwrap();
 
     let new = make_commitments(vec![
         ("Developer", 40, vec!["Feature X", "Code review"]),
@@ -278,7 +278,7 @@ fn test_set_commitments_rename_aborts_before_write_on_corrupt_file() {
     ]);
     let err = tauri_app_lib::commands::set_commitments(root.to_string_lossy().into_owned(), 2026, 6, new)
         .expect_err("a corrupt valid-date file must abort the rename");
-    assert!(err.contains("parse") || err.contains("frontmatter") || err.contains("2026-06-03"), "unexpected error: {}", err);
+    assert!(err.contains("parse") || err.contains("yaml") || err.contains("2026-06-03"), "unexpected error: {}", err);
 
     // No partial rename: both good files still hold the OLD goal name.
     for date in ["2026-06-01", "2026-06-02"] {

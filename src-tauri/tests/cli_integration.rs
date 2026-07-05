@@ -37,8 +37,7 @@ fn setup_day_file(tmp: &Path, date: &str, body: &str) {
     let parts: Vec<&str> = date.split('-').collect();
     let dir = tmp.join(parts[0]).join(parts[1]);
     fs::create_dir_all(&dir).unwrap();
-    let content = format!("---\n{}\n---\n", body);
-    fs::write(dir.join(format!("{}.md", date)), &content).unwrap();
+    fs::write(dir.join(format!("{}.yaml", date)), body.as_bytes()).unwrap();
 }
 
 fn run(args: &[&str]) -> std::process::Output {
@@ -477,7 +476,7 @@ fn test_entries_add_valid_with_dimensions() {
     assert!(stdout.contains("30m"), "stdout: {}", stdout);
 
     // Verify day file was written
-    let day_path = tmp.join("2026").join("06").join("2026-06-15.md");
+    let day_path = tmp.join("2026").join("06").join("2026-06-15.yaml");
     assert!(day_path.exists(), "day file not created");
     let content = fs::read_to_string(&day_path).unwrap();
     assert!(content.contains("Code review"));

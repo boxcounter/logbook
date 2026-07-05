@@ -4,9 +4,8 @@ cases:
   - name: delete existing entry
     before:
       - action: write_file
-        path: "2026/06/2026-06-15.md"
+        path: "2026/06/2026-06-15.yaml"
         content: |
-          ---
           entries:
             - id: e1
               item: keep me
@@ -16,7 +15,6 @@ cases:
               item: delete me
               duration: 15
               dimensions: {}
-          ---
     input:
       root_path: "{ROOT}"
       date: "2026-06-15"
@@ -29,15 +27,13 @@ cases:
   - name: delete nonexistent entry returns error
     before:
       - action: write_file
-        path: "2026/06/2026-06-15.md"
+        path: "2026/06/2026-06-15.yaml"
         content: |
-          ---
           entries:
             - id: e1
               item: only
               duration: 30
               dimensions: {}
-          ---
     input:
       root_path: "{ROOT}"
       date: "2026-06-15"
