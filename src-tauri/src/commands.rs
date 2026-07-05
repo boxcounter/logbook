@@ -1530,8 +1530,14 @@ pub fn validate_date_format(date: &str) -> Result<chrono::NaiveDate, String> {
 
 /// Detects goal renames and deletions between old and new commitments.
 ///
-/// A rename is detected when a role has the same number of goals and exactly
-/// one goal differs between old and new.
+/// Renames are detected in two passes:
+///
+/// 1. **Exact**: same role, same goal count, exactly one old goal missing and
+///    one new goal added.
+/// 2. **Substring**: when a new goal name contains one or more unmatched old
+///    goal names as substrings, treat all contained old goals as renames to
+///    the new goal. This handles both simple appending and merging multiple
+///    goals into one combined name, even when the goal count changes.
 #[derive(Debug, PartialEq)]
 struct GoalChanges {
     renames: Vec<(String, String)>,
@@ -1550,11 +1556,15 @@ fn detect_goal_changes(old: &[Commitment], new: &[Commitment]) -> GoalChanges {
         .flat_map(|c| c.goals.iter().cloned())
         .collect();
 
-    let deleted: Vec<String> = old_goals.difference(&new_goals).cloned().collect();
+    let deleted_candidates: Vec<String> = old_goals.difference(&new_goals).cloned().collect();
+    let added_candidates: Vec<String> = new_goals.difference(&old_goals).cloned().collect();
 
     let mut renames: Vec<(String, String)> = Vec::new();
     let mut matched_old_goals: HashSet<String> = HashSet::new();
+    let mut matched_new_goals: HashSet<String> = HashSet::new();
 
+    // Step 1: Exact rename detection — same role, same goal count,
+    // exactly one old goal missing and one new goal added.
     for old_c in old {
         if let Some(new_c) = new.iter().find(|c| c.role == old_c.role) {
             if old_c.goals.len() == new_c.goals.len() {
@@ -1567,12 +1577,37 @@ fn detect_goal_changes(old: &[Commitment], new: &[Commitment]) -> GoalChanges {
                 if old_not_new.len() == 1 && new_not_old.len() == 1 {
                     renames.push((old_not_new[0].clone(), new_not_old[0].clone()));
                     matched_old_goals.insert(old_not_new[0].clone());
+                    matched_new_goals.insert(new_not_old[0].clone());
                 }
             }
         }
     }
 
-    let deleted: Vec<String> = deleted
+    // Step 2: Substring-based rename detection for remaining unmatched goals.
+    // When a new goal name contains an old goal name as a substring, treat it
+    // as a rename — but only if the containment is unambiguous (exactly one
+    // unmatched old goal is contained by the new goal). This handles the common
+    // case of appending text to a goal title, even when the goal count changed
+    // due to a simultaneous deletion.
+    for new_goal in &added_candidates {
+        if matched_new_goals.contains(new_goal) {
+            continue;
+        }
+        let contained: Vec<&String> = deleted_candidates
+            .iter()
+            .filter(|o| !matched_old_goals.contains(o.as_str()))
+            .filter(|o| new_goal.contains(o.as_str()) && o.as_str() != new_goal.as_str())
+            .collect();
+        if !contained.is_empty() {
+            for old_goal in &contained {
+                renames.push(((*old_goal).clone(), new_goal.clone()));
+                matched_old_goals.insert((*old_goal).clone());
+            }
+            matched_new_goals.insert(new_goal.clone());
+        }
+    }
+
+    let deleted: Vec<String> = deleted_candidates
         .into_iter()
         .filter(|g| !matched_old_goals.contains(g))
         .collect();
@@ -2564,6 +2599,61 @@ mod tests {
         let c = make_commitments(vec![("Dev", 40, vec!["A", "B"])]);
         let changes = detect_goal_changes(&c, &c);
         assert!(changes.renames.is_empty());
+        assert!(changes.deleted.is_empty());
+    }
+
+    #[test]
+    fn test_detect_goal_rename_when_count_differs_substring_containment() {
+        // Rename + delete in same role: goal count changes, but
+        // the renamed goal's new name contains the old name as a substring.
+        let old = make_commitments(vec![("Dev", 40, vec!["Goal A", "浸泡用户社区"])]);
+        let new = make_commitments(vec![("Dev", 40, vec!["浸泡用户社区 + appended text"])]);
+        let changes = detect_goal_changes(&old, &new);
+        assert_eq!(
+            changes.renames.len(),
+            1,
+            "substring containment must detect rename even when goal count changes"
+        );
+        assert_eq!(
+            changes.renames[0],
+            ("浸泡用户社区".to_string(), "浸泡用户社区 + appended text".to_string())
+        );
+        assert_eq!(changes.deleted, vec!["Goal A"], "Goal A was deleted, not renamed");
+    }
+
+    #[test]
+    fn test_detect_goal_rename_substring_containment_multiple_old_to_one_new() {
+        // Multiple old goals are substrings of the new goal → rename ALL to the new goal.
+        // This handles merging two goals into one combined name.
+        let old = make_commitments(vec![("Dev", 40, vec!["吃", "很好吃"])]);
+        let new = make_commitments(vec![("Dev", 40, vec!["很好吃吃"])]);
+        let changes = detect_goal_changes(&old, &new);
+        assert_eq!(changes.renames.len(), 2, "both old goals should be renamed");
+        let renamed_old: Vec<&String> = changes.renames.iter().map(|(o, _)| o).collect();
+        let renamed_new: Vec<&String> = changes.renames.iter().map(|(_, n)| n).collect();
+        assert!(renamed_old.contains(&&"吃".to_string()));
+        assert!(renamed_old.contains(&&"很好吃".to_string()));
+        for n in &renamed_new {
+            assert_eq!(*n, "很好吃吃", "all renames should point to the new goal");
+        }
+        assert!(changes.deleted.is_empty(), "no goals should be deleted");
+    }
+
+    #[test]
+    fn test_detect_goal_rename_merge_two_goals() {
+        // Real-world merge scenario: user deletes one goal and appends its
+        // text to another goal's title. Both old names are substrings of
+        // the new combined name.
+        let old = make_commitments(vec![("Dev", 40, vec!["风险监控", "浸泡用户社区"])]);
+        let new = make_commitments(vec![("Dev", 40, vec!["浸泡用户社区 风险监控"])]);
+        let changes = detect_goal_changes(&old, &new);
+        assert_eq!(changes.renames.len(), 2, "both goals should be detected as renamed (merged)");
+        let renamed_old: Vec<&String> = changes.renames.iter().map(|(o, _)| o).collect();
+        assert!(renamed_old.contains(&&"风险监控".to_string()));
+        assert!(renamed_old.contains(&&"浸泡用户社区".to_string()));
+        for (_, n) in &changes.renames {
+            assert_eq!(*n, "浸泡用户社区 风险监控");
+        }
         assert!(changes.deleted.is_empty());
     }
 

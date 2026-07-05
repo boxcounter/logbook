@@ -90,6 +90,23 @@ export function useMonthData(store: AppStore, guardUnsaved: () => boolean) {
       yearMonthFromDate(store.currentDate).year,
       yearMonthFromDate(store.currentDate).month,
     );
+    await reloadMonthEntries(
+      yearMonthFromDate(store.currentDate).year,
+      yearMonthFromDate(store.currentDate).month,
+    );
+  }
+
+  async function reloadMonthEntries(year: number, month: number) {
+    try {
+      const monthDays = await invoke<Record<string, DayFile>>("get_month_entries", { rootPath: store.rootPath, year, month });
+      store.monthEntries = {};
+      for (const [d, df] of Object.entries(monthDays)) {
+        store.monthEntries[d] = df.entries;
+      }
+    } catch (e) {
+      logError("useMonthData.reloadMonthEntries", e);
+    }
+    store.today = { note: store.today?.note ?? null, entries: store.monthEntries[store.currentDate] ?? [] };
   }
 
   async function handleSelectDay(dateStr: string) {

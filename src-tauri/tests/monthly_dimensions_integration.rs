@@ -139,7 +139,7 @@ fn set_commitments_preserves_dimensions_yaml() {
 
 // 5. get_month_dimensions reports usingDefaultDimensions: true before instantiation, false after.
 #[test]
-fn get_month_dimensions_reports_usingDefaultDimensions_flag() {
+fn get_month_dimensions_reports_using_default_dimensions_flag() {
     let root = fresh_root("logbook_md_fromtemplate");
     write_template(&root, TPL);
     let root_str = root.to_string_lossy().into_owned();

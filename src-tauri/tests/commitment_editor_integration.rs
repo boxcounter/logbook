@@ -170,6 +170,69 @@ fn test_set_commitments_goal_rename_syncs_entries() {
 }
 
 #[test]
+fn test_set_commitments_goal_merge_syncs_entries() {
+    let root = setup("merge_sync");
+
+    // Overwrite old commitments with two goals under Developer:
+    // "浸泡用户社区" (has entries) and "风险监控" (unused, will be deleted via merge)
+    let monthly_dir = root.join("2026/06");
+    fs::write(
+        monthly_dir.join("commitments.yaml"),
+        "- role: Developer\n  allocation: 40\n  goals:\n    - 浸泡用户社区\n    - 风险监控\n    - Code review\n- role: VP\n  allocation: 10\n  goals:\n    - Strategy\n",
+    )
+    .unwrap();
+
+    // Two entries referencing "浸泡用户社区"
+    let mut dims = BTreeMap::new();
+    dims.insert("goal".to_string(), "浸泡用户社区".to_string());
+
+    tauri_app_lib::files::append_new_entry(
+        &root,
+        "2026-06-01",
+        &CreateEntryInput {
+            item: "Community work".into(),
+            duration: "60m".into(),
+            dimensions: dims.clone(),
+        },
+    )
+    .unwrap();
+
+    tauri_app_lib::files::append_new_entry(
+        &root,
+        "2026-06-02",
+        &CreateEntryInput {
+            item: "More community".into(),
+            duration: "30m".into(),
+            dimensions: dims,
+        },
+    )
+    .unwrap();
+
+    // Merge: delete "风险监控", rename "浸泡用户社区" → "浸泡用户社区 风险监控"
+    let new = make_commitments(vec![
+        ("Developer", 40, vec!["浸泡用户社区 风险监控", "Code review"]),
+        ("VP", 10, vec!["Strategy"]),
+    ]);
+
+    let result =
+        tauri_app_lib::commands::set_commitments(root.to_string_lossy().into_owned(), 2026, 6, new)
+            .unwrap();
+
+    assert_eq!(result[0].goals, vec!["浸泡用户社区 风险监控", "Code review"]);
+
+    // Verify entries were updated to the new goal name
+    let day1 = tauri_app_lib::files::read_day_file(&root, "2026-06-01").unwrap();
+    assert_eq!(day1.entries[0].dimensions.get("goal").unwrap(), "浸泡用户社区 风险监控",
+        "entry on 06-01 should have goal updated to merged name");
+
+    let day2 = tauri_app_lib::files::read_day_file(&root, "2026-06-02").unwrap();
+    assert_eq!(day2.entries[0].dimensions.get("goal").unwrap(), "浸泡用户社区 风险监控",
+        "entry on 06-02 should have goal updated to merged name");
+
+    teardown(&root);
+}
+
+#[test]
 fn test_set_commitments_role_rename_syncs_entries() {
     let root = setup("role_rename_sync");
 
