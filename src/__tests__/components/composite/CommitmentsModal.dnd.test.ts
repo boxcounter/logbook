@@ -5,9 +5,8 @@ import CommitmentsModal from "../../../components/composite/CommitmentsModal.vue
 import { makeCommitment, makeCommitmentProgress } from "../../mocks/fixtures";
 
 // vue-draggable-plus is intentionally NOT mocked here: this guards that the alloc input
-// DOM node survives a re-render (the focus-loss regression that drove the
-// RoleCard/GoalRow extraction). With the real component, stepping allocation must
-// patch the input in place, not remount it.
+// DOM node survives a re-render (the focus-loss regression that the inlined role editor
+// must preserve). Stepping allocation must patch the input in place, not remount it.
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 
 beforeEach(() => { (invoke as any).mockReset?.(); (invoke as any).mockResolvedValue?.([]); });
@@ -35,7 +34,8 @@ describe("CommitmentsModal — DnD focus stability (real vue-draggable-plus)", (
     const w = mountModal();
     const before = document.querySelector("[data-test='alloc']") as HTMLInputElement;
     before.setAttribute("data-marker", "X");
-    await w.findComponent({ name: "RoleCard" }).find("[data-test='alloc-inc']").trigger("click"); // 40 -> 45
+    (document.querySelector("[data-test='alloc-inc']") as HTMLButtonElement).click(); // 40 -> 45
+    await w.vm.$nextTick();
     const after = document.querySelector("[data-test='alloc']") as HTMLInputElement;
     expect(after.getAttribute("data-marker")).toBe("X"); // same node reused, not remounted
     expect(after.value).toBe("45");
