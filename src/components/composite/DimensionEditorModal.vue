@@ -102,6 +102,10 @@ function onValueEnter(index: number, e?: KeyboardEvent) {
   const values = selectedDimension.value.values;
   if (index === values.length - 1 && values[index].trim() === "") return;
   values.splice(index + 1, 0, "");
+  nextTick(() => {
+    const inputs = document.querySelectorAll('[data-test="value-input"]');
+    (inputs[index + 1] as HTMLInputElement)?.focus();
+  });
 }
 
 function toggleDelete() {

@@ -198,6 +198,10 @@ function onGoalEnter(g: GoalRowModel, e?: KeyboardEvent) {
   if (gi === -1) return;
   if (gi === goals.length - 1 && goals[gi].name.trim() === "") return;
   goals.splice(gi + 1, 0, { name: "", origName: null, key: nextKey() });
+  nextTick(() => {
+    const inputs = document.querySelectorAll('[data-test="goal-name"]');
+    (inputs[gi + 1] as HTMLInputElement)?.focus();
+  });
 }
 
 function goalLogged(origName: string | null): number {
