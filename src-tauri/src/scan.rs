@@ -92,6 +92,10 @@ fn scan_dir(root: &Path, dir: &Path, warnings: &mut Vec<ScanWarning>) {
             }
         }
 
+        if file_name == "commitments.yaml" || file_name == "dimensions.yaml" {
+            continue;
+        }
+
         let stem = &file_name[..file_name.len() - 5]; // strip ".yaml"
 
         // Validate date stem (YYYY-MM-DD)

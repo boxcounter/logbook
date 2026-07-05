@@ -40,6 +40,12 @@ fn test_scan_returns_warnings_for_bad_files() {
     // Invalid filename — not YYYY-MM-DD format
     write_file(&root.join("readme.txt"), "just some notes\n");
 
+    // Invalid filename in month dir — .yaml extension but not YYYY-MM-DD format
+    write_file(
+        &root.join("2026/06/notes.yaml"),
+        "note: not a date file\n",
+    );
+
     // Valid date filename but corrupt yaml content
     write_file(
         &root.join("2026/06/2026-06-15.yaml"),
@@ -47,8 +53,11 @@ fn test_scan_returns_warnings_for_bad_files() {
     );
 
     let warnings = tauri_app_lib::scan::scan_data_dir(&root);
-    assert_eq!(warnings.len(), 1, "expected 1 warning, got {:?}", warnings);
-    assert_eq!(warnings[0].kind, "CorruptedFile");
+    assert_eq!(warnings.len(), 2, "expected 2 warnings, got {:?}", warnings);
+
+    let kinds: Vec<&str> = warnings.iter().map(|w| w.kind.as_str()).collect();
+    assert!(kinds.contains(&"SkippedFile"));
+    assert!(kinds.contains(&"CorruptedFile"));
 
     // Verify individual warnings have non-empty messages
     for w in &warnings {
