@@ -5,6 +5,7 @@ mod error_log;
 pub mod files;
 pub mod models;
 pub mod operation_log;
+pub mod integrity;
 pub mod scan;
 pub mod single_instance;
 mod window_state;
@@ -279,6 +280,7 @@ pub fn run() {
             commands::create_starter_files,
             commands::log_error,
             commands::log_info,
+            commands::recheck_integrity,
             commands::check_watcher_health,
         ])
         .run(tauri::generate_context!())

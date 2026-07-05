@@ -127,6 +127,8 @@ pub enum InitResult {
         today: DayFile,
         commitments: Vec<Commitment>,
         scan_warnings: Vec<ScanWarning>,
+        #[serde(default)]
+        integrity_issues: Vec<IntegrityIssue>,
     },
 }
 
@@ -141,6 +143,19 @@ pub struct ScanWarning {
     pub kind: String,
     pub path: String,
     pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IntegrityIssue {
+    pub path: String,
+    pub message: String,
+    pub kind: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IntegrityStatus {
+    pub compromised: bool,
+    pub issues: Vec<IntegrityIssue>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -219,6 +234,7 @@ mod tests {
             today,
             commitments: vec![],
             scan_warnings: vec![warning],
+            integrity_issues: vec![],
         };
 
         match &result {
@@ -246,6 +262,7 @@ mod tests {
             today,
             commitments: vec![],
             scan_warnings: vec![],
+            integrity_issues: vec![],
         };
 
         match &result {
@@ -373,6 +390,7 @@ mod tests {
             today,
             commitments: vec![],
             scan_warnings: vec![warning],
+            integrity_issues: vec![],
         };
 
         let json = serde_json::to_string_pretty(&result).expect("serialize Ready");

@@ -3,6 +3,8 @@
 import { computed, ref, onMounted, onUnmounted, nextTick } from "vue";
 import { getVersion } from "@tauri-apps/api/app";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { useStore } from "../stores/useStore";
 import { useDayNote } from "../composables/useDayNote";
 import { useMonthData } from "../composables/useMonthData";
@@ -13,10 +15,11 @@ import DayHeader from "./DayHeader.vue";
 import EntryList from "./EntryList.vue";
 import EntryComposer from "./EntryComposer.vue";
 import DimensionEditorModal from "./composite/DimensionEditorModal.vue";
-import type { Dimension } from "../types";
+import type { Dimension, IntegrityStatus } from "../types";
 import { logError, logInfo } from "../utils/errorLog";
 import { yearMonthFromDate, parseDate, addDays, formatDate } from "../utils/dates";
 import ConfigErrorBanner from "./ConfigErrorBanner.vue";
+import IntegrityBanner from "./IntegrityBanner.vue";
 
 const store = useStore();
 const inputRef = ref<InstanceType<typeof EntryComposer> | null>(null);
@@ -113,11 +116,19 @@ function onGlobalKeydown(e: KeyboardEvent) {
   } else if (e.key === "t" || e.key === "T") {
     e.preventDefault();
     goToToday();
+  } else if (e.key === "r" || e.key === "R") {
+    if (store.integrityIssues.length > 0) {
+      e.preventDefault();
+      recheckIntegrity();
+    }
   }
 }
 
 onMounted(async () => {
   window.addEventListener("keydown", onGlobalKeydown);
+  unlistenIntegrity = await listen<IntegrityStatus>("integrity-changed", (event) => {
+    store.integrityIssues = event.payload.issues;
+  });
   getVersion()
     .then(v => { getCurrentWindow().setTitle("Logbook v" + v); })
     .catch((e: unknown) => { logError("MonthView.setTitle", e); });
@@ -128,7 +139,21 @@ onMounted(async () => {
 });
 onUnmounted(() => {
   window.removeEventListener("keydown", onGlobalKeydown);
+  unlistenIntegrity?.();
 });
+
+let unlistenIntegrity: (() => void) | null = null;
+
+async function recheckIntegrity() {
+  try {
+    const result = await invoke<IntegrityStatus>("recheck_integrity", {
+      rootPath: store.rootPath,
+    });
+    store.integrityIssues = result.issues;
+  } catch (_e) {
+    // recheck_integrity can only fail if the root path isn't valid
+  }
+}
 
 logInfo("MonthView", "mounted");
 </script>
@@ -163,6 +188,7 @@ logInfo("MonthView", "mounted");
       <ConfigErrorBanner
         v-if="store.configErrors.length > 0 && store.status === 'ready'"
       />
+      <IntegrityBanner />
       <DayHeader
         :title="dayTitle"
         :is-today="isSelectedToday"
@@ -177,7 +203,7 @@ logInfo("MonthView", "mounted");
         <div
           ref="noteRef"
           class="text-secondary italic text-[var(--color-text-secondary)] cursor-text px-sm py-sm rounded-[var(--radius-form-lg)] outline-none hover:bg-[var(--color-page-bg)]"
-          contenteditable="true"
+          :contenteditable="store.integrityIssues.length === 0 ? 'true' : 'false'"
           data-placeholder="Add a note…"
           @blur="saveNote"
           @paste="onNotePaste"
@@ -202,7 +228,11 @@ logInfo("MonthView", "mounted");
       />
 
       <div v-if="isSelectedToday" class="mt-md">
+        <div v-if="store.integrityIssues.length > 0" class="text-secondary text-center py-md text-[var(--color-text-disabled)]">
+          Entry disabled — data protection mode active
+        </div>
         <EntryComposer
+          v-else
           ref="inputRef"
           :dimensions="store.dimensions"
           :commitments="store.commitments"

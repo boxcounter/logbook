@@ -20,6 +20,11 @@ pub fn list(root: &Path, date: &str, json: bool) {
 }
 
 pub fn add(root: &Path, date: &str, json: bool) {
+    if let Err(e) = crate::integrity::check() {
+        output::print_error(&e);
+        std::process::exit(1);
+    }
+
     use std::io::Read;
 
     let mut input = String::new();
