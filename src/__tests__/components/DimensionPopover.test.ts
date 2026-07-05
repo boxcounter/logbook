@@ -9,7 +9,7 @@ enableAutoUnmount(afterEach);
 
 const dimensions = [
   makeDimension({ name: "Category", key: "category", source: "static", values: ["Engineering", "PM"], required: true }),
-  makeDimension({ name: "Goal", key: "goal", source: "commitments:goals", required: true }),
+  makeDimension({ name: "Goal", key: "goal", source: "commitments:role:goals", required: true }),
   makeDimension({ name: "Business Line", key: "business-line", source: "static", values: ["Slax"], required: false }),
 ];
 const commitments = [makeCommitment({ goals: ["Bug fixes", "Code review"] })];

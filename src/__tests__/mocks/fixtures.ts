@@ -38,7 +38,7 @@ export function makeDimension(overrides?: Partial<Dimension>): Dimension {
   return {
     name: "Goal",
     key: "goal",
-    source: "commitments:goals",
+    source: "commitments:role:goals",
     required: false,
     deleted: false,
     ...overrides,
@@ -47,7 +47,7 @@ export function makeDimension(overrides?: Partial<Dimension>): Dimension {
 
 export function makeDimensions(): Dimension[] {
   return [
-    makeDimension({ name: "Goal", key: "goal", source: "commitments:goals", required: true }),
+    makeDimension({ name: "Goal", key: "goal", source: "commitments:role:goals", required: true }),
     makeDimension({ name: "Business Line", key: "business-line", source: "static", values: ["Platform", "Growth"], required: true }),
     makeDimension({ name: "Category", key: "category", source: "static", values: ["Coding", "Meeting"], required: false }),
   ];
