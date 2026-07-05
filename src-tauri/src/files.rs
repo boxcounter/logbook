@@ -516,6 +516,23 @@ mod tests {
     }
 
     #[test]
+    fn test_read_day_file_with_utf8_bom() {
+        let tmp = std::env::temp_dir().join("logbook_test_bom");
+        let _ = fs::remove_dir_all(&tmp);
+        fs::create_dir_all(&tmp).unwrap();
+
+        let day_file = tmp.join("2026/07/2026-07-05.yaml");
+        fs::create_dir_all(day_file.parent().unwrap()).unwrap();
+        fs::write(&day_file, "\u{feff}note: bom note\nentries: []\n").unwrap();
+
+        let df = read_day_file(&tmp, "2026-07-05").unwrap();
+        assert_eq!(df.note, Some("bom note".to_string()));
+        assert!(df.entries.is_empty());
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
     fn test_template_path() {
         let root = Path::new("/data");
         let p = template_path(root);
