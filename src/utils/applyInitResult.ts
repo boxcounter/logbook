@@ -35,6 +35,7 @@ export function applyInitResult(store: AppStore, result: InitResult): ScanWarnin
       store.commitments = result.data.commitments;
       store.configCategory = null;
       store.status = "ready";
+      store.integrityIssues = result.data.integrity_issues ?? [];
       return result.data.scan_warnings;
   }
 }

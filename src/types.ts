@@ -85,6 +85,17 @@ export interface ScanWarning {
   message: string;
 }
 
+export interface IntegrityIssue {
+  path: string;
+  message: string;
+  kind: string;
+}
+
+export interface IntegrityStatus {
+  compromised: boolean;
+  issues: IntegrityIssue[];
+}
+
 export type InitResult =
   | { status: "NeedsSetup" }
   | { status: "DataVersionNotFound"; data: { root_path: string } }
@@ -99,6 +110,7 @@ export type InitResult =
         today: DayFile;
         commitments: Commitment[];
         scan_warnings: ScanWarning[];
+        integrity_issues: IntegrityIssue[];
       };
     };
 

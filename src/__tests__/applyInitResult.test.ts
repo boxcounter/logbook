@@ -42,6 +42,7 @@ describe("applyInitResult", () => {
         today: { note: null, entries: [] },
         commitments: [],
         scan_warnings: [],
+        integrity_issues: [],
       },
     };
     applyInitResult(store, result);
