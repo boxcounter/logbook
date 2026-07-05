@@ -41,6 +41,7 @@ function buildDraft() {
   error.value = "";
   showErrors.value = false;
   showDiscard.value = false;
+  confirmingDelete.value = false;
 }
 watch(() => props.open, (o) => {
   if (!o) return;
@@ -141,7 +142,7 @@ function addRole() {
   nextTick(() => roleNameInputRef.value?.focus());
 }
 
-function selectRole(index: number) { selectedIndex.value = index; }
+function selectRole(index: number) { selectedIndex.value = index; confirmingDelete.value = false; }
 
 function navigateRole(delta: 1 | -1) {
   if (draft.value.length <= 1) return;
@@ -187,7 +188,8 @@ function addGoal() {
   selectedRole.value.goals.push({ name: "", origName: null, key: nextKey() });
 }
 
-function onGoalEnter(g: GoalRowModel) {
+function onGoalEnter(g: GoalRowModel, e?: KeyboardEvent) {
+  if (e?.isComposing) return;
   if (!selectedRole.value) return;
   const goals = selectedRole.value.goals;
   const gi = goals.findIndex(x => x.key === g.key);
@@ -415,7 +417,7 @@ const leftRoleBar = (r: RoleRowModel): number => {
                     <span data-test="drag-grip-goal" class="drag-grip-goal cursor-grab text-[var(--color-text-disabled)] select-none px-2xs">⠿</span>
                     <input
                       v-model="g.name" data-test="goal-name" placeholder="Goal name"
-                      @keydown.enter.exact.prevent="onGoalEnter(g)"
+                      @keydown.enter.exact.prevent="onGoalEnter(g, $event)"
                       class="flex-1 px-sm py-xs border border-[var(--color-border-form)] rounded-[var(--radius-form)]
                              text-secondary text-[var(--color-text-secondary)]
                              bg-[var(--color-surface)] outline-none focus:border-[var(--color-brand-solid)]"
