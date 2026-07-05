@@ -1,5 +1,6 @@
 use crate::config::validate_dimensions;
 use crate::error_log;
+use crate::integrity;
 use crate::operation_log;
 use crate::files::{self, read_root_path, save_root_path};
 use crate::models::*;
@@ -304,6 +305,11 @@ pub fn load_root_state(root: &std::path::Path) -> InitResult {
         };
     }
 
+    let integrity_issues = integrity::check_scoped_integrity(root);
+    for issue in &integrity_issues {
+        integrity::set_compromised(issue.clone());
+    }
+
     InitResult::Ready {
         root_path: root.to_string_lossy().into_owned(),
         dimensions,
@@ -311,7 +317,7 @@ pub fn load_root_state(root: &std::path::Path) -> InitResult {
         today,
         commitments,
         scan_warnings,
-        integrity_issues: vec![],
+        integrity_issues,
     }
 }
 

@@ -24,6 +24,7 @@ fn load_root_state_with_no_version_file_works() {
     let result = load_root_state(&root);
     assert!(matches!(result, InitResult::Ready { .. }), "got {:?}", result);
     fs::remove_dir_all(&root).unwrap();
+    tauri_app_lib::integrity::reset();
 }
 
 #[test]

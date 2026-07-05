@@ -30,6 +30,7 @@ fn root_missing_when_dir_absent() {
         }
         _ => unreachable!(),
     }
+    tauri_app_lib::integrity::reset();
 }
 
 #[test]
@@ -39,6 +40,7 @@ fn config_missing_when_dir_present_but_no_config() {
     let result = load_root_state(&root);
     assert_eq!(category_of(&result), RecoveryCategory::ConfigMissing);
     fs::remove_dir_all(&root).unwrap();
+    tauri_app_lib::integrity::reset();
 }
 
 #[test]
@@ -49,6 +51,7 @@ fn in_place_when_config_present_but_malformed() {
     let result = load_root_state(&root);
     assert_eq!(category_of(&result), RecoveryCategory::InPlace);
     fs::remove_dir_all(&root).unwrap();
+    tauri_app_lib::integrity::reset();
 }
 
 #[test]
@@ -64,6 +67,7 @@ fn in_place_when_config_valid_but_invalid_values() {
     let result = load_root_state(&root);
     assert_eq!(category_of(&result), RecoveryCategory::InPlace);
     fs::remove_dir_all(&root).unwrap();
+    tauri_app_lib::integrity::reset();
 }
 
 #[test]
@@ -74,6 +78,7 @@ fn ready_when_everything_valid() {
     let result = load_root_state(&root);
     assert!(matches!(result, InitResult::Ready { .. }), "got {:?}", result);
     fs::remove_dir_all(&root).unwrap();
+    tauri_app_lib::integrity::reset();
 }
 
 use tauri_app_lib::commands::reveal_template_target;
