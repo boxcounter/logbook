@@ -139,6 +139,7 @@ function addRole() {
     goals: [{ name: "", origName: null, key: nextKey() }],
   });
   selectedIndex.value = draft.value.length - 1;
+  confirmingDelete.value = false;
   nextTick(() => roleNameInputRef.value?.focus());
 }
 
