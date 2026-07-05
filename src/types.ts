@@ -4,7 +4,7 @@ import type { InjectionKey, Ref } from "vue";
 export interface Dimension {
   name: string;
   key: string;
-  source: "static" | "commitments:goals" | "commitments:role";
+  source: "static" | "commitments:role:goals" | "commitments:role";
   values?: string[];
   required: boolean;
   deleted: boolean;
