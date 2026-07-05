@@ -523,6 +523,7 @@ pub fn append_entry(root_path: String, date: String, entry: CreateEntryInput) ->
         &format!("date={} item={} dur={}", date, entry.item, entry.duration),
     );
     let root = std::path::Path::new(&root_path);
+    integrity::check()?;
     validate_date_format(&date)?;
     let duration = parse_duration(&entry.duration)?;
     let (year, month) = files::year_month_from_date(&date)?;
@@ -537,6 +538,15 @@ pub fn append_entry(root_path: String, date: String, entry: CreateEntryInput) ->
         let role_key = role_dim_key(root, year, month)?;
         let (_, role_to_goals) = build_commitment_maps(&commitments);
         validate_cross_dimension_constraints(&entry.dimensions, &role_key, &goal_key, &role_to_goals)?;
+    }
+
+    // Pre-write integrity check on the target day file
+    if let Err(issue) = integrity::check_day_file_integrity(root, &date) {
+        integrity::set_compromised(issue.clone());
+        return Err(format!(
+            "Write denied: target file integrity check failed: {} — {}",
+            issue.path, issue.message
+        ));
     }
 
     let entry_id = uuid::Uuid::new_v4().to_string();
@@ -578,6 +588,7 @@ pub fn update_entry(
 ) -> Result<DayFile, String> {
     error_log::log_command_enter("update_entry", &format!("date={} id={}", date, entry_id));
     let root = std::path::Path::new(&root_path);
+    integrity::check()?;
     validate_date_format(&date)?;
     let (year, month) = files::year_month_from_date(&date)?;
     files::create_dimensions_if_missing(root, year, month)?;
@@ -594,6 +605,15 @@ pub fn update_entry(
             let (_, role_to_goals) = build_commitment_maps(&commitments);
             validate_cross_dimension_constraints(dims, &role_key, &goal_key, &role_to_goals)?;
         }
+    }
+
+    // Pre-write integrity check on the target day file
+    if let Err(issue) = integrity::check_day_file_integrity(root, &date) {
+        integrity::set_compromised(issue.clone());
+        return Err(format!(
+            "Write denied: target file integrity check failed: {} — {}",
+            issue.path, issue.message
+        ));
     }
 
     // Read before snapshot
@@ -639,6 +659,7 @@ pub fn update_entry(
 pub fn delete_entry(root_path: String, date: String, entry_id: String) -> Result<DayFile, String> {
     error_log::log_command_enter("delete_entry", &format!("date={} id={}", date, entry_id));
     let root = std::path::Path::new(&root_path);
+    integrity::check()?;
     validate_date_format(&date)?;
     let (_year, _month) = files::year_month_from_date(&date)?;
     // Deleting an entry does not customize the month's dimensions, so it must not
@@ -652,6 +673,15 @@ pub fn delete_entry(root_path: String, date: String, entry_id: String) -> Result
         .find(|e| e.id == entry_id)
         .cloned()
         .ok_or_else(|| format!("Entry {} not found", entry_id))?;
+
+    // Pre-write integrity check on the target day file
+    if let Err(issue) = integrity::check_day_file_integrity(root, &date) {
+        integrity::set_compromised(issue.clone());
+        return Err(format!(
+            "Write denied: target file integrity check failed: {} — {}",
+            issue.path, issue.message
+        ));
+    }
 
     // Log before mutation
     operation_log::append(
@@ -674,6 +704,7 @@ pub fn delete_entry(root_path: String, date: String, entry_id: String) -> Result
 pub fn set_day_note(root_path: String, date: String, note: String) -> Result<DayFile, String> {
     error_log::log_command_enter("set_day_note", &format!("date={}", date));
     let root = std::path::Path::new(&root_path);
+    integrity::check()?;
     validate_date_format(&date)?;
     // A day note does not customize the month's dimensions, so it must not
     // trigger instantiation (would freeze the month to the current template).
@@ -681,6 +712,15 @@ pub fn set_day_note(root_path: String, date: String, note: String) -> Result<Day
     // Read before snapshot
     let day_file = files::read_day_file(root, &date)?;
     let before = day_file.note.clone();
+
+    // Pre-write integrity check on the target day file
+    if let Err(issue) = integrity::check_day_file_integrity(root, &date) {
+        integrity::set_compromised(issue.clone());
+        return Err(format!(
+            "Write denied: target file integrity check failed: {} — {}",
+            issue.path, issue.message
+        ));
+    }
 
     // Log before mutation
     operation_log::append(
@@ -953,6 +993,7 @@ pub fn set_commitments(
         &format!("{}-{:02} {} roles", year, month, commitments.len()),
     );
     let root = std::path::Path::new(&root_path);
+    integrity::check()?;
     let role_key = role_dim_key(root, year, month)?;
 
     // 1. Validate
