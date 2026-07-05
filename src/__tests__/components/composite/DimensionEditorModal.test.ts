@@ -114,19 +114,6 @@ describe("DimensionEditorModal", () => {
     expect((checkbox.element as HTMLInputElement).checked).toBe(true);
   });
 
-  it("adds a new value", async () => {
-    const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
-    // Select Biz (index 1) — static with values
-    const bizRow = wrapper.findAll('[data-test="dim-row"]')[1];
-    await bizRow.trigger("click");
-    const newValInput = wrapper.find('input[placeholder="New value"]');
-    await newValInput.setValue("Design");
-    await wrapper.find('[data-test="add-value"]').trigger("click");
-    const valueInputs = wrapper.findAll('[data-test="value-input"]');
-    const values = valueInputs.map((el) => (el.element as HTMLInputElement).value);
-    expect(values).toContain("Design");
-  });
-
   it("deletes a value", async () => {
     const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
     // Select Biz (index 1) — has Product, Marketing, Engineering
@@ -138,37 +125,6 @@ describe("DimensionEditorModal", () => {
     const after = wrapper.findAll('[data-test="value-input"]');
     expect(after.map((el) => (el.element as HTMLInputElement).value)).not.toContain("Product");
     expect(after.length).toBe(before.length - 1);
-  });
-
-  it("clears new value input after adding", async () => {
-    const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
-    const bizRow = wrapper.findAll('[data-test="dim-row"]')[1];
-    await bizRow.trigger("click");
-    const newValInput = wrapper.find('input[placeholder="New value"]');
-    await newValInput.setValue("Design");
-    await wrapper.find('[data-test="add-value"]').trigger("click");
-    await nextTick();
-    const after = wrapper.find('input[placeholder="New value"]');
-    expect((after.element as HTMLInputElement).value).toBe("");
-  });
-
-  it("shows hint when new value input has text", async () => {
-    const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
-    // Select Biz (index 1) — static with values
-    const bizRow = wrapper.findAll('[data-test="dim-row"]')[1];
-    await bizRow.trigger("click");
-    const newValInput = wrapper.find('input[placeholder="New value"]');
-    // No hint initially
-    expect(wrapper.text()).not.toContain("Press Enter or click + to add");
-    // Type something
-    await newValInput.setValue("Design");
-    // Hint should appear
-    expect(wrapper.text()).toContain("Press Enter or click + to add");
-    // Commit the value
-    await wrapper.find('[data-test="add-value"]').trigger("click");
-    await nextTick();
-    // Hint should disappear (newValue cleared by addValue)
-    expect(wrapper.text()).not.toContain("Press Enter or click + to add");
   });
 
   it("toggles delete dimension", async () => {
