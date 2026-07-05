@@ -245,10 +245,10 @@ pub fn check_scoped_integrity(root: &Path) -> Vec<IntegrityIssue> {
                 Some(n) => n,
                 None => continue,
             };
-            if !file_name.ends_with(".md") || file_name == "_monthly.md" {
+            if !file_name.ends_with(".yaml") {
                 continue;
             }
-            let date = file_name.trim_end_matches(".md");
+            let date = file_name.trim_end_matches(".yaml");
             if chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d").is_err() {
                 continue;
             }
@@ -283,7 +283,7 @@ mod tests {
     fn set_compromised_blocks_writes() {
         reset();
         set_compromised(IntegrityIssue {
-            path: "2026/07/05.md".into(),
+            path: "2026/07/05.yaml".into(),
             message: "corrupt YAML".into(),
             kind: "YamlParseError".into(),
         });
@@ -297,7 +297,7 @@ mod tests {
     #[test]
     fn reset_restores_writes() {
         set_compromised(IntegrityIssue {
-            path: "x.md".into(),
+            path: "x.yaml".into(),
             message: "bad".into(),
             kind: "Test".into(),
         });
@@ -312,12 +312,12 @@ mod tests {
     fn multiple_issues_accumulate() {
         reset();
         set_compromised(IntegrityIssue {
-            path: "a.md".into(),
+            path: "a.yaml".into(),
             message: "e1".into(),
             kind: "K1".into(),
         });
         set_compromised(IntegrityIssue {
-            path: "b.md".into(),
+            path: "b.yaml".into(),
             message: "e2".into(),
             kind: "K2".into(),
         });

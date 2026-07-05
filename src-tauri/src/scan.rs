@@ -6,9 +6,9 @@ use crate::models::ScanWarning;
 /// Walk the data directory tree and collect integrity warnings.
 ///
 /// - Recurse into year/month subdirectories.
-/// - `.md` files (except `_monthly.md`): validate date stem and frontmatter.
+/// - `.yaml` files (except `_monthly.yaml`): validate date stem and YAML.
 /// - `.tmp` files: report as orphaned temp files.
-/// - Non-`.md`, non-`.tmp` files: silently skipped.
+/// - Non-`.yaml`, non-`.tmp` files: silently skipped.
 /// - Directories that cannot be read are reported as warnings.
 pub fn scan_data_dir(root: &Path) -> Vec<ScanWarning> {
     let mut warnings = Vec::new();
@@ -63,16 +63,11 @@ fn scan_dir(root: &Path, dir: &Path, warnings: &mut Vec<ScanWarning>) {
             continue;
         }
 
-        if !file_name.ends_with(".md") {
+        if !file_name.ends_with(".yaml") {
             continue;
         }
 
-        // _monthly.md is an internal metadata file, not a day file.
-        if file_name == "_monthly.md" {
-            continue;
-        }
-
-        let stem = &file_name[..file_name.len() - 3]; // strip ".md"
+        let stem = &file_name[..file_name.len() - 5]; // strip ".yaml"
 
         // Validate date stem (YYYY-MM-DD)
         if chrono::NaiveDate::parse_from_str(stem, "%Y-%m-%d").is_err() {
@@ -165,10 +160,10 @@ mod tests {
     #[test]
     fn test_valid_day_file_no_warnings() {
         let root = temp_root();
-        let day_file = root.join("2026/06/2026-06-15.md");
+        let day_file = root.join("2026/06/2026-06-15.yaml");
         write_file(
             &day_file,
-            "---\nnote: \"A valid note\"\n---\n\nSome body text.\n",
+            "note: A valid note\nentries: []\n",
         );
 
         let warnings = scan_data_dir(&root);
@@ -188,14 +183,14 @@ mod tests {
     #[test]
     fn test_invalid_filename_reported() {
         let root = temp_root();
-        let bad_file = root.join("2026/06/not-a-date.md");
-        write_file(&bad_file, "---\nnote: ok\n---\n");
+        let bad_file = root.join("2026/06/not-a-date.yaml");
+        write_file(&bad_file, "note: ok\n");
 
         let warnings = scan_data_dir(&root);
         assert_eq!(warnings.len(), 1, "expected 1 warning, got {:?}", warnings);
 
         assert_eq!(warnings[0].kind, "SkippedFile");
-        assert!(warnings[0].path.contains("not-a-date.md"));
+        assert!(warnings[0].path.contains("not-a-date.yaml"));
         assert!(!warnings[0].message.is_empty());
 
         fs::remove_dir_all(&root).expect("cleanup");
@@ -208,14 +203,14 @@ mod tests {
     #[test]
     fn test_corrupt_frontmatter_reported() {
         let root = temp_root();
-        let day_file = root.join("2026/06/2026-06-15.md");
-        write_file(&day_file, "this is not yaml\nno frontmatter markers\njust garbage\n");
+        let day_file = root.join("2026/06/2026-06-15.yaml");
+        write_file(&day_file, "\tindented: not valid yaml\n");
 
         let warnings = scan_data_dir(&root);
         assert_eq!(warnings.len(), 1, "expected 1 warning, got {:?}", warnings);
 
         assert_eq!(warnings[0].kind, "CorruptedFile");
-        assert!(warnings[0].path.contains("2026-06-15.md"));
+        assert!(warnings[0].path.contains("2026-06-15.yaml"));
         assert!(!warnings[0].message.is_empty());
 
         fs::remove_dir_all(&root).expect("cleanup");
@@ -228,7 +223,7 @@ mod tests {
     #[test]
     fn test_orphaned_tmp_reported() {
         let root = temp_root();
-        let tmp_file = root.join("2026/06/2026-06-15.md.tmp");
+        let tmp_file = root.join("2026/06/2026-06-15.yaml.tmp");
         write_file(&tmp_file, "leftover temp content\n");
 
         let warnings = scan_data_dir(&root);
@@ -242,11 +237,11 @@ mod tests {
     }
 
     // ---------------------------------------------------------------------------
-    // 8. non-.md files skipped
+    // 8. non-.yaml files skipped
     // ---------------------------------------------------------------------------
 
     #[test]
-    fn test_non_md_files_skipped() {
+    fn test_non_yaml_files_skipped() {
         let root = temp_root();
         let txt = root.join("2026/06/notes.txt");
         write_file(&txt, "some text file\n");
@@ -254,7 +249,7 @@ mod tests {
         let warnings = scan_data_dir(&root);
         assert!(
             warnings.is_empty(),
-            "non-.md files should be skipped, got {:?}",
+            "non-.yaml files should be skipped, got {:?}",
             warnings
         );
 
@@ -270,14 +265,14 @@ mod tests {
         let root = temp_root();
 
         // bad filename
-        write_file(&root.join("2026/06/not-a-date.md"), "---\nok: true\n---\n");
+        write_file(&root.join("2026/06/not-a-date.yaml"), "note: ok\n");
         // corrupt frontmatter
         write_file(
-            &root.join("2026/06/2026-06-15.md"),
-            "no valid yaml here\n",
+            &root.join("2026/06/2026-06-15.yaml"),
+            "\tbad yaml here\n",
         );
         // orphaned tmp
-        write_file(&root.join("2026/06/2026-06-16.md.tmp"), "orphan\n");
+        write_file(&root.join("2026/06/2026-06-16.yaml.tmp"), "orphan\n");
 
         let warnings = scan_data_dir(&root);
         assert_eq!(warnings.len(), 3, "expected 3 warnings, got {:?}", warnings);
