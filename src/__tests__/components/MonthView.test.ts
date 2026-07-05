@@ -13,6 +13,7 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: (...args: unknown[]) => invokeM
 vi.mock("@tauri-apps/api/app", () => ({ getVersion: vi.fn().mockResolvedValue("0.0.0") }));
 vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: vi.fn().mockReturnValue({ setTitle: vi.fn() }) }));
 import { getCurrentWindow } from "@tauri-apps/api/window";
+vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn().mockResolvedValue(() => {}) }));
 
 // Compute today's date string at test runtime (not hardcoded) so isSelectedToday works
 function todayDateStr(): string {
@@ -34,6 +35,7 @@ function makeStore() {
     currentDate: today,
     monthEntries: { [today]: [makeEntry({ item: "Existing", duration: 60 })] },
     availableMonths: null,
+    integrityIssues: [],
   });
 }
 
