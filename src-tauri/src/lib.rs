@@ -151,7 +151,6 @@ pub fn run() {
             app.set_menu(menu)?;
 
             let copy_item_for_event = copy_data_path_item.clone();
-            let open_item_for_event = open_data_dir_item.clone();
             let app_data_dir_event = app_data_dir.clone();
 
             app.on_menu_event(move |app_handle, event| {
