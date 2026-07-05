@@ -197,6 +197,7 @@ pub fn run() {
             commands::create_starter_files,
             commands::log_error,
             commands::log_info,
+            commands::recheck_integrity,
             commands::check_watcher_health,
         ])
         .run(tauri::generate_context!())

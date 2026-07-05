@@ -1791,6 +1791,20 @@ pub fn log_info(message: String) {
 }
 
 #[tauri::command]
+pub fn recheck_integrity(root_path: String) -> crate::models::IntegrityStatus {
+    let root = std::path::Path::new(&root_path);
+    let issues = integrity::check_scoped_integrity(root);
+    if !issues.is_empty() {
+        for issue in &issues {
+            integrity::set_compromised(issue.clone());
+        }
+    } else {
+        integrity::reset();
+    }
+    integrity::status()
+}
+
+#[tauri::command]
 pub fn check_watcher_health(app: tauri::AppHandle) -> Result<bool, String> {
     error_log::log_command_enter("check_watcher_health", "");
     let state = app.state::<crate::config::WatcherState>();
