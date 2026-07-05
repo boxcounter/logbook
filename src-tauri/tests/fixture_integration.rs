@@ -72,7 +72,7 @@ fn test_config_dimensions_count() {
     skip_if_no_fixture!();
     let root = fixture_root();
     let config = tauri_app_lib::files::read_dimensions_template(&root).unwrap();
-    assert_eq!(config.dimensions.len(), 6);
+    assert_eq!(config.dimensions.len(), 8);
     let keys: Vec<&str> = config.dimensions.iter().map(|d| d.key.as_str()).collect();
     assert!(keys.contains(&"importance-urgency"));
     assert!(keys.contains(&"business-line"));

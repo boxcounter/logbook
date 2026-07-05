@@ -11,7 +11,7 @@ import RecoveryScreen from "./components/RecoveryScreen.vue";
 import DataVersionScreen from "./components/DataVersionScreen.vue";
 import MonthView from "./components/MonthView.vue";
 import Toast from "./components/base/Toast.vue";
-import type { InitResult, ConfigErrorDetail, ScanWarning, Commitment, CommitmentProgress, MonthDimensions } from "./types";
+import type { InitResult, ConfigErrorDetail, ScanWarning, Commitment, CommitmentProgress, MonthDimensions, DayFile } from "./types";
 import { UNDO_TOAST_KEY, SAVED_TOAST_KEY, FOCUS_REQUEST_KEY } from "./types";
 import { logError, logInfo } from "./utils/errorLog";
 import { applyInitResult } from "./utils/applyInitResult";
