@@ -173,24 +173,26 @@ fn copy_month_config(root: &Path, replay_root: &Path) -> Result<(), Vec<OpLogMis
             if !month_entry.path().is_dir() {
                 continue;
             }
-            let month_conf = month_entry.path().join("commitments.yaml");
-            if month_conf.exists() {
-                let dest_dir = replay_root
-                    .join(&year_name)
-                    .join(month_entry.file_name());
-                std::fs::create_dir_all(&dest_dir).map_err(|e| {
-                    vec![OpLogMismatch {
-                        date: "".to_string(),
-                        description: format!("create replay dir {}: {}", dest_dir.display(), e),
-                    }]
-                })?;
-                std::fs::copy(&month_conf, dest_dir.join("commitments.yaml"))
-                    .map_err(|e| {
+            for config_name in &["commitments.yaml", "dimensions.yaml"] {
+                let month_conf = month_entry.path().join(config_name);
+                if month_conf.exists() {
+                    let dest_dir = replay_root
+                        .join(&year_name)
+                        .join(month_entry.file_name());
+                    std::fs::create_dir_all(&dest_dir).map_err(|e| {
                         vec![OpLogMismatch {
                             date: "".to_string(),
-                            description: format!("copy commitments: {}", e),
+                            description: format!("create replay dir {}: {}", dest_dir.display(), e),
                         }]
                     })?;
+                    std::fs::copy(&month_conf, dest_dir.join(config_name))
+                        .map_err(|e| {
+                            vec![OpLogMismatch {
+                                date: "".to_string(),
+                                description: format!("copy {}: {}", config_name, e),
+                            }]
+                        })?;
+                }
             }
         }
     }
@@ -331,14 +333,14 @@ pub fn verify_op_log(root_path: &str) -> Result<(), Vec<OpLogMismatch>> {
     }
 
     // 3. Compare replay dir with original root
-    let original_files = collect_md_files(root)
+    let original_files = collect_yaml_files(root)
         .map_err(|e| {
             vec![OpLogMismatch {
                 date: "".to_string(),
                 description: format!("Failed to collect original files: {}", e),
             }]
         })?;
-    let replay_files = collect_md_files(&replay_root)
+    let replay_files = collect_yaml_files(&replay_root)
         .map_err(|e| {
             vec![OpLogMismatch {
                 date: "".to_string(),
@@ -452,20 +454,20 @@ fn collect_log_entries(
     Ok(())
 }
 
-/// Collect all .md files (excluding _monthly.md and .logbook/) from a root
-/// directory, returning relative path -> content.
-fn collect_md_files(
+/// Collect all .yaml files (excluding .logbook/) from a root directory,
+/// returning relative path -> content.
+fn collect_yaml_files(
     root: &Path,
 ) -> Result<std::collections::HashMap<String, String>, String> {
     let mut files = std::collections::HashMap::new();
     if !root.exists() {
         return Ok(files);
     }
-    collect_md_files_recursive(root, root, &mut files)?;
+    collect_yaml_files_recursive(root, root, &mut files)?;
     Ok(files)
 }
 
-fn collect_md_files_recursive(
+fn collect_yaml_files_recursive(
     base: &Path,
     dir: &Path,
     files: &mut std::collections::HashMap<String, String>,
@@ -487,8 +489,8 @@ fn collect_md_files_recursive(
             if dir_name == ".logbook" {
                 continue;
             }
-            collect_md_files_recursive(base, &path, files)?;
-        } else if path.extension().map_or(false, |ext| ext == "md") {
+            collect_yaml_files_recursive(base, &path, files)?;
+        } else if path.extension().map_or(false, |ext| ext == "yaml") {
             let rel_path = path
                 .strip_prefix(base)
                 .map_err(|e| format!("strip_prefix: {}", e))?
