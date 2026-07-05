@@ -124,6 +124,8 @@ function onGlobalKeydown(e: KeyboardEvent) {
   }
 }
 
+let unlistenIntegrity: (() => void) | null = null;
+
 onMounted(async () => {
   window.addEventListener("keydown", onGlobalKeydown);
   unlistenIntegrity = await listen<IntegrityStatus>("integrity-changed", (event) => {
@@ -141,8 +143,6 @@ onUnmounted(() => {
   window.removeEventListener("keydown", onGlobalKeydown);
   unlistenIntegrity?.();
 });
-
-let unlistenIntegrity: (() => void) | null = null;
 
 async function recheckIntegrity() {
   try {

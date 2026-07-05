@@ -16,7 +16,7 @@ const store = useStore();
       Or restore from backup and restart the app.
     </p>
     <div class="flex flex-col gap-lg">
-      <div v-for="(issue, i) in store.integrityIssues" :key="i">
+      <div v-for="(issue, i) in store.integrityIssues" :key="issue.path + '\x00' + issue.message">
         <div class="text-[var(--color-danger)] font-semibold text-secondary mb-xs">
           {{ issue.path }}
         </div>
