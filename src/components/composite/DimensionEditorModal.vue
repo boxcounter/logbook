@@ -96,7 +96,8 @@ function removeValue(index: number) {
   selectedDimension.value.values = selectedDimension.value.values.filter((_, i) => i !== index);
 }
 
-function onValueEnter(index: number) {
+function onValueEnter(index: number, e?: KeyboardEvent) {
+  if (e?.isComposing) return;
   if (!selectedDimension.value?.values) return;
   const values = selectedDimension.value.values;
   if (index === values.length - 1 && values[index].trim() === "") return;
@@ -420,11 +421,12 @@ const monthLabel = computed(() =>
                       class="flex items-center gap-sm"
                     >
                       <span class="text-[var(--color-text-disabled)] select-none px-2xs" :class="selectedDimension.deleted ? '' : 'cursor-grab drag-grip-val'">⠿</span>
-                      <input
+                       <input
                         data-test="value-input"
                         :value="val"
                         :disabled="selectedDimension.deleted"
                         @input="updateValue(i, $event)"
+                        @keydown.enter.exact.prevent="onValueEnter(i, $event)"
                         class="flex-1 px-sm py-xs border border-[var(--color-border-form)] rounded-[var(--radius-form)]
                                text-body text-[var(--color-text-primary)]
                                bg-[var(--color-surface)] outline-none focus:border-[var(--color-brand-solid)]
@@ -440,26 +442,12 @@ const monthLabel = computed(() =>
                     </div>
                   </VueDraggable>
 
-                  <!-- New value input (hidden when deleted) -->
-                  <template v-if="!selectedDimension.deleted">
-                    <div class="flex items-center gap-sm mt-sm">
-                      <span class="text-[var(--color-text-disabled)] select-none px-2xs invisible">⠿</span>
-                      <input
-                        v-model="newValue"
-                        placeholder="New value"
-                        class="flex-1 px-sm py-xs border border-dashed border-[var(--color-border-form)] rounded-[var(--radius-form)]
-                               text-body text-[var(--color-text-primary)] placeholder-[var(--color-placeholder)]
-                               bg-[var(--color-surface)] outline-none focus:border-[var(--color-brand-solid)]"
-                        @keydown.enter.exact.prevent="addValue"
-                      />
-                      <button
-                        data-test="add-value"
-                        class="text-secondary font-semibold text-[var(--color-brand-link)] px-sm py-xs cursor-pointer"
-                        @click="addValue"
-                      >+</button>
-                    </div>
-                    <p v-if="newValue.trim()" class="text-micro text-[var(--color-text-muted)] mt-xs">Press Enter or click + to add</p>
-                  </template>
+                  <button
+                    v-if="!selectedDimension.deleted"
+                    data-test="add-value-btn"
+                    class="self-start mt-sm text-secondary font-medium text-[var(--color-brand-link)] cursor-pointer hover:underline"
+                    @click="selectedDimension.values = [...selectedDimension.values, '']"
+                  >+ Add Value</button>
                 </template>
 
                 <!-- Monthly info card -->

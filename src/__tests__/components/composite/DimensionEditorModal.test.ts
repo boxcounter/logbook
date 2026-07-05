@@ -555,13 +555,12 @@ describe("DimensionEditorModal", () => {
     const bizRow = wrapper.findAll('[data-test="dim-row"]')[1];
     await bizRow.trigger("click");
     // First verify add-value area exists
-    expect(wrapper.find('[data-test="add-value"]').exists()).toBe(true);
+    expect(wrapper.find('[data-test="add-value-btn"]').exists()).toBe(true);
     // Delete Biz
     await wrapper.find('[data-test="delete-dim"]').trigger("click");
     await nextTick();
-    // Add-value area and new value input should be gone
-    expect(wrapper.find('[data-test="add-value"]').exists()).toBe(false);
-    expect(wrapper.find('input[placeholder="New value"]').exists()).toBe(false);
+    // Add-value button should be gone
+    expect(wrapper.find('[data-test="add-value-btn"]').exists()).toBe(false);
   });
 
   it("shows Restore button with brand-link color when deleted", async () => {
