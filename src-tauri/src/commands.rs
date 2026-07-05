@@ -311,6 +311,7 @@ pub fn load_root_state(root: &std::path::Path) -> InitResult {
         today,
         commitments,
         scan_warnings,
+        integrity_issues: vec![],
     }
 }
 
