@@ -11,7 +11,7 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("../../../utils/errorLog", () => ({ logError: vi.fn() }));
 
 const MOCK_DIMENSIONS: Dimension[] = [
-  { name: "Goal", key: "goal", source: "commitments:role:goals", values: undefined, required: false, deleted: false },
+  { name: "Goal", key: "goal", source: "commitments:goals", values: undefined, required: false, deleted: false },
   { name: "Biz", key: "biz", source: "static", values: ["Product", "Marketing", "Engineering"], required: true, deleted: false },
   { name: "Importance", key: "importance-urgency", source: "static", values: ["P0", "P1"], required: false, deleted: false },
 ];
@@ -63,7 +63,7 @@ describe("DimensionEditorModal", () => {
 
   it("shows values for selected static dimension", async () => {
     const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
-    // Default selects index 0 (Goal, commitments:role:goals). Click Biz (index 1) for static values.
+    // Default selects index 0 (Goal, commitments:goals). Click Biz (index 1) for static values.
     const bizRow = wrapper.findAll('[data-test="dim-row"]')[1];
     await bizRow.trigger("click");
     const valueInputs = wrapper.findAll('[data-test="value-input"]');
@@ -80,15 +80,15 @@ describe("DimensionEditorModal", () => {
 
   it("shows key and source in readonly mode", () => {
     const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
-    // Default selects index 0 = Goal, key is "goal", source is "commitments:role:goals"
+    // Default selects index 0 = Goal, key is "goal", source is "commitments:goals"
     expect(wrapper.text()).toContain("goal");
-    expect(wrapper.text()).toContain("commitments:role:goals");
+    expect(wrapper.text()).toContain("commitments:goals");
     expect(wrapper.text()).toContain("locked");
   });
 
-  it("shows commitments:role:goals info card", () => {
+  it("shows commitments:goals info card", () => {
     const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
-    // Goal is commitments:role:goals (index 0, selected by default)
+    // Goal is commitments:goals (index 0, selected by default)
     expect(wrapper.text()).toContain("Values are derived from commitment goals");
   });
 
@@ -100,10 +100,10 @@ describe("DimensionEditorModal", () => {
     expect(wrapper.text()).toContain("Values are derived from commitment roles");
   });
 
-  it("does not show values section for commitments:role:goals dimensions", () => {
+  it("does not show values section for commitments:goals dimensions", () => {
     const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
-    // Goal is commitments:role:goals — no values list or "New value" input
-    expect(wrapper.find('input[placeholder="New value"]').exists()).toBe(false);
+    // Goal is commitments:goals — no values list or + Add Value button
+    expect(wrapper.find('[data-test="add-value-btn"]').exists()).toBe(false);
   });
 
   it("toggles required checkbox", async () => {
@@ -112,19 +112,6 @@ describe("DimensionEditorModal", () => {
     expect((checkbox.element as HTMLInputElement).checked).toBe(false);
     await checkbox.setValue(true);
     expect((checkbox.element as HTMLInputElement).checked).toBe(true);
-  });
-
-  it("adds a new value", async () => {
-    const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
-    // Select Biz (index 1) — static with values
-    const bizRow = wrapper.findAll('[data-test="dim-row"]')[1];
-    await bizRow.trigger("click");
-    const newValInput = wrapper.find('input[placeholder="New value"]');
-    await newValInput.setValue("Design");
-    await wrapper.find('[data-test="add-value"]').trigger("click");
-    const valueInputs = wrapper.findAll('[data-test="value-input"]');
-    const values = valueInputs.map((el) => (el.element as HTMLInputElement).value);
-    expect(values).toContain("Design");
   });
 
   it("deletes a value", async () => {
@@ -140,35 +127,58 @@ describe("DimensionEditorModal", () => {
     expect(after.length).toBe(before.length - 1);
   });
 
-  it("clears new value input after adding", async () => {
-    const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
-    const bizRow = wrapper.findAll('[data-test="dim-row"]')[1];
-    await bizRow.trigger("click");
-    const newValInput = wrapper.find('input[placeholder="New value"]');
-    await newValInput.setValue("Design");
-    await wrapper.find('[data-test="add-value"]').trigger("click");
-    await nextTick();
-    const after = wrapper.find('input[placeholder="New value"]');
-    expect((after.element as HTMLInputElement).value).toBe("");
-  });
-
-  it("shows hint when new value input has text", async () => {
+  it("+ Add Value button inserts an empty inline value row", async () => {
     const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
     // Select Biz (index 1) — static with values
     const bizRow = wrapper.findAll('[data-test="dim-row"]')[1];
     await bizRow.trigger("click");
-    const newValInput = wrapper.find('input[placeholder="New value"]');
-    // No hint initially
-    expect(wrapper.text()).not.toContain("Press Enter or click + to add");
-    // Type something
-    await newValInput.setValue("Design");
-    // Hint should appear
-    expect(wrapper.text()).toContain("Press Enter or click + to add");
-    // Commit the value
-    await wrapper.find('[data-test="add-value"]').trigger("click");
+    const before = wrapper.findAll('[data-test="value-input"]').length;
+    await wrapper.find('[data-test="add-value-btn"]').trigger("click");
     await nextTick();
-    // Hint should disappear (newValue cleared by addValue)
-    expect(wrapper.text()).not.toContain("Press Enter or click + to add");
+    const after = wrapper.findAll('[data-test="value-input"]').length;
+    expect(after).toBe(before + 1);
+    // The new row should be empty
+    const inputs = wrapper.findAll('[data-test="value-input"]');
+    const lastVal = (inputs[inputs.length - 1].element as HTMLInputElement).value;
+    expect(lastVal).toBe("");
+  });
+
+  it("Enter on value input inserts new empty row below", async () => {
+    const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
+    // Select Biz (index 1) — static with values: ["Product", "Marketing", "Engineering"]
+    const bizRow = wrapper.findAll('[data-test="dim-row"]')[1];
+    await bizRow.trigger("click");
+    const before = wrapper.findAll('[data-test="value-input"]').length;
+    // Press Enter on first value input ("Product")
+    const firstInput = wrapper.findAll('[data-test="value-input"]')[0];
+    await firstInput.trigger("keydown.enter");
+    await nextTick();
+    const after = wrapper.findAll('[data-test="value-input"]').length;
+    expect(after).toBe(before + 1);
+    // The inserted row should be empty and positioned after index 0
+    const inputs = wrapper.findAll('[data-test="value-input"]');
+    expect((inputs[1].element as HTMLInputElement).value).toBe("");
+    // Original "Product" still at index 0, "Marketing" shifted to index 2
+    expect((inputs[0].element as HTMLInputElement).value).toBe("Product");
+    expect((inputs[2].element as HTMLInputElement).value).toBe("Marketing");
+  });
+
+  it("Enter on last empty value is a no-op", async () => {
+    const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
+    // Select Biz (index 1) — static with values
+    const bizRow = wrapper.findAll('[data-test="dim-row"]')[1];
+    await bizRow.trigger("click");
+    // Add an empty value row first
+    await wrapper.find('[data-test="add-value-btn"]').trigger("click");
+    await nextTick();
+    const before = wrapper.findAll('[data-test="value-input"]').length;
+    // Press Enter on the last (empty) input
+    const inputs = wrapper.findAll('[data-test="value-input"]');
+    const lastInput = inputs[inputs.length - 1];
+    await lastInput.trigger("keydown.enter");
+    await nextTick();
+    const after = wrapper.findAll('[data-test="value-input"]').length;
+    expect(after).toBe(before); // No new row inserted
   });
 
   it("toggles delete dimension", async () => {
@@ -209,6 +219,23 @@ describe("DimensionEditorModal", () => {
       ]),
     }));
     expect(wrapper.emitted("saved")).toBeTruthy();
+  });
+
+  it("filters empty values when saving", async () => {
+    const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
+    // Select Biz (index 1) — static with values
+    const bizRow = wrapper.findAll('[data-test="dim-row"]')[1];
+    await bizRow.trigger("click");
+    // Push an empty value to the array (simulating inline editing leaving an empty row)
+    await wrapper.find('[data-test="add-value-btn"]').trigger("click");
+    await nextTick();
+    await wrapper.find('[data-test="save"]').trigger("click");
+    await nextTick();
+
+    const callArgs = (invoke as any).mock.calls.find((c: any[]) => c[0] === "save_dimensions")[1];
+    const bizDim = callArgs.dimensions.find((d: any) => d.key === "biz");
+    expect(bizDim.values).not.toContain("");
+    expect(bizDim.values).toEqual(["Product", "Marketing", "Engineering"]);
   });
 
   it("shows discard confirmation when dirty and Cancel is clicked", async () => {
@@ -416,7 +443,7 @@ describe("DimensionEditorModal", () => {
   it("shows special message for duplicate of a soft-deleted key", async () => {
     const dimsWithDeleted: Dimension[] = [
       { name: "Old", key: "old-dim", source: "static", values: [], required: false, deleted: true },
-      { name: "Goal", key: "goal", source: "commitments:role:goals", values: undefined, required: false, deleted: false },
+      { name: "Goal", key: "goal", source: "commitments:goals", values: undefined, required: false, deleted: false },
     ];
     const wrapper = mountModal({ open: true, dimensions: dimsWithDeleted });
     await wrapper.find('[data-test="add-dim-btn"]').trigger("click");
@@ -427,14 +454,14 @@ describe("DimensionEditorModal", () => {
     expect(wrapper.find('[data-test="add-dim-error"]').text()).toContain("Restore it or choose a different key");
   });
 
-  it("prevents creating a second commitments:role:goals source dimension", async () => {
-    const wrapper = mountModal(); // Goal (index 0) is commitments:role:goals
+  it("prevents creating a second commitments:goals source dimension", async () => {
+    const wrapper = mountModal(); // Goal (index 0) is commitments:goals
     await wrapper.find('[data-test="add-dim-btn"]').trigger("click");
     await wrapper.find('[data-test="add-dim-name"]').setValue("Second Monthly");
     await wrapper.find('[data-test="add-dim-key"]').setValue("monthly2");
-    await wrapper.find('[data-test="add-dim-source"]').setValue("commitments:role:goals");
+    await wrapper.find('[data-test="add-dim-source"]').setValue("commitments:goals");
     await wrapper.find('[data-test="add-dim-create"]').trigger("click");
-    expect(wrapper.find('[data-test="add-dim-error"]').text()).toContain("Only one commitments:role:goals source dimension allowed");
+    expect(wrapper.find('[data-test="add-dim-error"]').text()).toContain("Only one commitments:goals source dimension allowed");
   });
 
   it("resets form after successful create", async () => {
@@ -528,13 +555,12 @@ describe("DimensionEditorModal", () => {
     const bizRow = wrapper.findAll('[data-test="dim-row"]')[1];
     await bizRow.trigger("click");
     // First verify add-value area exists
-    expect(wrapper.find('[data-test="add-value"]').exists()).toBe(true);
+    expect(wrapper.find('[data-test="add-value-btn"]').exists()).toBe(true);
     // Delete Biz
     await wrapper.find('[data-test="delete-dim"]').trigger("click");
     await nextTick();
-    // Add-value area and new value input should be gone
-    expect(wrapper.find('[data-test="add-value"]').exists()).toBe(false);
-    expect(wrapper.find('input[placeholder="New value"]').exists()).toBe(false);
+    // Add-value button should be gone
+    expect(wrapper.find('[data-test="add-value-btn"]').exists()).toBe(false);
   });
 
   it("shows Restore button with brand-link color when deleted", async () => {
