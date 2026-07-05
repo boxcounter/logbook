@@ -58,6 +58,7 @@ function maybeRollover() {
 let unlistenCopyResult: (() => void) | null = null;
 let unlistenDimensions: (() => void) | null = null;
 let unlistenCommitments: (() => void) | null = null;
+let unlistenDayFileChanged: (() => void) | null = null;
 let unlistenFocus: (() => void) | null = null;
 
 onMounted(async () => {
@@ -83,11 +84,11 @@ onMounted(async () => {
       // Reload dimensions for the currently viewed month only — not initApp()
       const { year, month } = yearMonthFromDate(store.currentDate);
       try {
-        const result = await invoke("get_month_dimensions", {
+        const result = await invoke<MonthDimensions>("get_month_dimensions", {
           rootPath: store.rootPath,
           year,
           month,
-        }) as MonthDimensions;
+        });
         if (yearMonthFromDate(store.currentDate).month !== month) return;
         store.dimensions = result.dimensions;
         store.usingDefaultDimensions = result.usingDefaultDimensions;
@@ -103,10 +104,10 @@ onMounted(async () => {
       const { year, month } = yearMonthFromDate(store.currentDate);
       try {
         // Reload both commitments AND dimensions (monthly file contains both)
-        const dimsResult = await invoke("get_month_dimensions", {
+        const dimsResult = await invoke<MonthDimensions>("get_month_dimensions", {
           rootPath: store.rootPath, year, month,
-        }) as MonthDimensions;
-        const commitments = await invoke("get_commitments", { rootPath: store.rootPath, year, month }) as Commitment[];
+        });
+        const commitments = await invoke<Commitment[]>("get_commitments", { rootPath: store.rootPath, year, month });
         store.commitmentProgress = await invoke<CommitmentProgress[]>("get_commitment_progress", { rootPath: store.rootPath, year, month });
         // Guard against stale writes: if the user navigated away while loading, discard.
         const cur = yearMonthFromDate(store.currentDate);
@@ -118,6 +119,20 @@ onMounted(async () => {
         logError("App.commitmentsChanged", e);
       }
     });
+
+    // Reload a day file that was edited externally (detected by file watcher).
+    unlistenDayFileChanged = await listen<{ date: string; day_file: DayFile }>(
+      "day-file-changed",
+      (event) => {
+        if (store.status !== "ready") return;
+        const { date, day_file } = event.payload;
+        store.monthEntries[date] = day_file.entries;
+        store.dayNotes[date] = day_file.note;
+        if (store.currentDate === date) {
+          store.today = day_file;
+        }
+      },
+    );
 
     unlistenFocus = await getCurrentWindow().onFocusChanged(({ payload: focused }) => {
       if (!focused) return;
@@ -159,6 +174,7 @@ onUnmounted(() => {
   unlistenCopyResult?.();
   unlistenDimensions?.();
   unlistenCommitments?.();
+  unlistenDayFileChanged?.();
   unlistenFocus?.();
   if (undoTimer) clearTimeout(undoTimer);
   if (savedToastTimer) clearTimeout(savedToastTimer);

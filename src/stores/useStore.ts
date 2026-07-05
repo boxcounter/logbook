@@ -8,6 +8,11 @@ export interface AvailableMonth {
   month: number;
 }
 
+// Reactive store shared via provide/inject. Multiple composables write to
+// store.today, store.monthEntries, store.commitments, etc. Writes are
+// sequential user actions — no concurrent access. Concurrent watcher-triggered
+// reloads and user edits are guarded by ad-hoc currentDate checks at call sites.
+// A unified write mediator would add ceremony for a single-user desktop app.
 export interface AppStore {
   status: AppStatus;
   rootPath: string;
@@ -21,6 +26,7 @@ export interface AppStore {
   commitmentProgress: CommitmentProgress[];
   currentDate: string;
   monthEntries: Record<string, Entry[]>;
+  dayNotes: Record<string, string | null>;
   availableMonths: AvailableMonth[] | null; // null = not yet loaded
   integrityIssues: IntegrityIssue[];
 }
@@ -43,6 +49,7 @@ export function createStore(): AppStore {
     commitmentProgress: [],
     currentDate: dateStr,
     monthEntries: {},
+    dayNotes: {},
     availableMonths: null,
     integrityIssues: [],
   });

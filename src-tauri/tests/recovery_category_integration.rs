@@ -103,3 +103,19 @@ fn reveal_target_opens_root_when_template_absent() {
     assert_eq!(path, root);
     fs::remove_dir_all(&root).unwrap();
 }
+
+#[test]
+fn test_template_migration_renames_old_file() {
+    let root = temp_root();
+    fs::create_dir_all(&root).unwrap();
+
+    fs::write(root.join("template.yaml"), VALID_CONFIG).unwrap();
+    assert!(root.join("template.yaml").exists());
+
+    let _result = tauri_app_lib::commands::load_root_state(&root);
+
+    assert!(!root.join("template.yaml").exists());
+    assert!(root.join("dimensions.template.yaml").exists());
+
+    fs::remove_dir_all(&root).unwrap();
+}

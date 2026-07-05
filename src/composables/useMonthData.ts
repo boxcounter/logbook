@@ -1,8 +1,12 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { AppStore, AvailableMonth } from "../stores/useStore";
-import type { Entry, DayFile, Commitment, CommitmentProgress, MonthDimensions } from "../types";
+import type { DayFile, Commitment, CommitmentProgress, MonthDimensions } from "../types";
 import { logError } from "../utils/errorLog";
 import { yearMonthFromDate } from "../utils/dates";
+
+function isConfigError(msg: string): boolean {
+  return /dimensions|commitments|\.yaml|corrupt|not configured|parse/i.test(msg);
+}
 
 export function useMonthData(store: AppStore, guardUnsaved: () => boolean) {
   async function loadMonth(year: number, month: number, defaultDay?: number) {
@@ -20,22 +24,27 @@ export function useMonthData(store: AppStore, guardUnsaved: () => boolean) {
     store.currentDate = dateStr;
 
     try {
-      store.monthEntries = await invoke<Record<string, Entry[]>>("get_month_entries", { rootPath: store.rootPath, year, month });
+      const monthDays = await invoke<Record<string, DayFile>>("get_month_entries", { rootPath: store.rootPath, year, month });
+      store.monthEntries = {};
+      store.dayNotes = {};
+      for (const [d, df] of Object.entries(monthDays)) {
+        store.monthEntries[d] = df.entries;
+        store.dayNotes[d] = df.note;
+      }
     } catch (e) {
       logError("useMonthData.loadMonth", e);
       store.monthEntries = {};
+      store.dayNotes = {};
       const msg = String(e);
-      if (msg.includes("dimensions")) {
+      if (isConfigError(msg)) {
         store.configErrors = [{ kind: "ConfigError", message: msg }];
         store.configCategory = "in_place";
-        return;
       }
     }
     await loadCommitmentProgress(year, month);
     await loadCommitments(year, month);
     await loadMonthDimensions(year, month);
-    store.today = { note: null, entries: store.monthEntries[store.currentDate] ?? [] };
-    await loadDayNote(store.currentDate);
+    store.today = { note: store.dayNotes[store.currentDate] ?? null, entries: store.monthEntries[store.currentDate] ?? [] };
   }
 
   async function loadCommitmentProgress(year: number, month: number) {
@@ -45,7 +54,7 @@ export function useMonthData(store: AppStore, guardUnsaved: () => boolean) {
       logError("useMonthData.loadCommitmentProgress", e);
       store.commitmentProgress = [];
       const msg = String(e);
-      if (msg.includes("dimensions")) {
+      if (isConfigError(msg)) {
         store.configErrors = [{ kind: "ConfigError", message: msg }];
         store.configCategory = "in_place";
       }
@@ -68,7 +77,7 @@ export function useMonthData(store: AppStore, guardUnsaved: () => boolean) {
     } catch (e) {
       logError("useMonthData.loadMonthDimensions", e);
       const msg = String(e);
-      if (msg.includes("dimensions")) {
+      if (isConfigError(msg)) {
         store.configErrors = [{ kind: "ConfigError", message: msg }];
         store.configCategory = "in_place";
       }
@@ -83,18 +92,10 @@ export function useMonthData(store: AppStore, guardUnsaved: () => boolean) {
     );
   }
 
-  async function loadDayNote(dateStr: string) {
-    try {
-      const df = await invoke<DayFile>("get_entries", { rootPath: store.rootPath, date: dateStr });
-      if (store.today) store.today.note = df.note;
-    } catch (e) { logError("useMonthData.loadDayNote", e); }
-  }
-
   async function handleSelectDay(dateStr: string) {
     if (!guardUnsaved()) return;
     store.currentDate = dateStr;
-    store.today = { note: null, entries: store.monthEntries[dateStr] ?? [] };
-    await loadDayNote(dateStr);
+    store.today = { note: store.dayNotes[dateStr] ?? null, entries: store.monthEntries[dateStr] ?? [] };
   }
 
   async function handleNavigate({ year, month }: { year: number; month: number }) {
@@ -115,7 +116,6 @@ export function useMonthData(store: AppStore, guardUnsaved: () => boolean) {
     loadCommitments,
     loadMonthDimensions,
     onCommitmentsSaved,
-    loadDayNote,
     handleSelectDay,
     handleNavigate,
     handleRequestMonths,

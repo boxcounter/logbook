@@ -11,8 +11,18 @@ use crate::models::ScanWarning;
 /// - Non-`.yaml`, non-`.tmp` files: silently skipped.
 /// - Directories that cannot be read are reported as warnings.
 pub fn scan_data_dir(root: &Path) -> Vec<ScanWarning> {
+    let start = std::time::Instant::now();
     let mut warnings = Vec::new();
     scan_dir(root, root, &mut warnings);
+    crate::error_log::log_info(
+        "scan",
+        &format!(
+            "scanned {}: {} warnings in {:?}",
+            root.display(),
+            warnings.len(),
+            start.elapsed(),
+        ),
+    );
     warnings
 }
 

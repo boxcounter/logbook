@@ -170,6 +170,59 @@ fn test_set_commitments_goal_rename_syncs_entries() {
 }
 
 #[test]
+fn test_set_commitments_role_rename_syncs_entries() {
+    let root = setup("role_rename_sync");
+
+    // Add entries with the old role name
+    let mut dims = BTreeMap::new();
+    dims.insert("role".to_string(), "Developer".to_string());
+    dims.insert("goal".to_string(), "Feature A".to_string());
+
+    tauri_app_lib::files::append_new_entry(
+        &root,
+        "2026-06-01",
+        &CreateEntryInput {
+            item: "Coding".into(),
+            duration: "60m".into(),
+            dimensions: dims.clone(),
+        },
+    )
+    .unwrap();
+
+    tauri_app_lib::files::append_new_entry(
+        &root,
+        "2026-06-02",
+        &CreateEntryInput {
+            item: "More coding".into(),
+            duration: "30m".into(),
+            dimensions: dims,
+        },
+    )
+    .unwrap();
+
+    // Rename "Developer" → "Engineering" (same goals → role rename)
+    let new = make_commitments(vec![
+        ("Engineering", 40, vec!["Feature A", "Code review"]),
+        ("VP", 10, vec!["Strategy"]),
+    ]);
+
+    let result =
+        tauri_app_lib::commands::set_commitments(root.to_string_lossy().into_owned(), 2026, 6, new)
+            .unwrap();
+
+    assert_eq!(result[0].role, "Engineering");
+
+    // Verify entries were updated
+    let day1 = tauri_app_lib::files::read_day_file(&root, "2026-06-01").unwrap();
+    assert_eq!(day1.entries[0].dimensions.get("role").unwrap(), "Engineering");
+
+    let day2 = tauri_app_lib::files::read_day_file(&root, "2026-06-02").unwrap();
+    assert_eq!(day2.entries[0].dimensions.get("role").unwrap(), "Engineering");
+
+    teardown(&root);
+}
+
+#[test]
 fn test_set_commitments_delete_goal_rejected_when_entries_exist() {
     let root = setup("del_reject");
 

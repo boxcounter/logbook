@@ -10,12 +10,22 @@ use clap::{Parser, Subcommand};
 use dimensions::{DimensionsCommands, handle_dimensions};
 use root_path::resolve_root_path;
 
-use crate::single_instance::InstanceLock;
+use crate::single_instance::{InstanceLock, InstanceLockError};
 
 /// Where the CLI writes logbook.log. Honours `LOGBOOK_LOG_DIR` (used by tests to
 /// avoid polluting the real product log), else the shared GUI app-data dir.
 fn log_dir() -> Option<std::path::PathBuf> {
     if let Ok(dir) = std::env::var("LOGBOOK_LOG_DIR") {
+        return Some(std::path::PathBuf::from(dir));
+    }
+    root_path::app_data_dir()
+}
+
+/// InstanceLock directory. Always the shared GUI app-data dir, regardless of
+/// LOGBOOK_LOG_DIR — the lock must protect the same data directory the GUI uses.
+/// Overridable via LOGBOOK_LOCK_DIR for test isolation.
+fn lock_dir() -> Option<std::path::PathBuf> {
+    if let Ok(dir) = std::env::var("LOGBOOK_LOCK_DIR") {
         return Some(std::path::PathBuf::from(dir));
     }
     root_path::app_data_dir()
@@ -111,16 +121,25 @@ pub fn run() {
 
     // Prevent concurrent writes: if the GUI is running, refuse CLI writes to
     // avoid cross-process read-modify-write races that would silently lose data.
-    let _lock = if let Some(lock_dir) = log_dir() {
+    let _lock = if let Some(lock_dir) = lock_dir() {
         match InstanceLock::try_acquire(&lock_dir) {
             Ok(guard) => Some(guard),
-            Err(pid) => {
-                eprintln!(
-                    "Error: Logbook GUI is already running (PID {}).\n\
-                     Close the GUI before using CLI commands, or use LOGBOOK_LOG_DIR\n\
-                     to point to a separate data directory for CLI-only use.",
-                    pid
-                );
+            Err(e) => {
+                match e {
+                    InstanceLockError::AlreadyRunning(pid) => {
+                        eprintln!(
+                            "Error: Logbook GUI is already running (PID {}).\n\
+                             Close the GUI before using CLI write commands.",
+                            pid
+                        );
+                    }
+                    InstanceLockError::Io(io_err) => {
+                        eprintln!(
+                            "Error: Failed to acquire instance lock: {}. Check permissions on {}.",
+                            io_err, lock_dir.display()
+                        );
+                    }
+                }
                 std::process::exit(1);
             }
         }

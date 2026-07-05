@@ -60,16 +60,23 @@ pub fn run() {
                 Ok(lock) => {
                     app.manage(lock);
                 }
-                Err(pid) => {
-                    error_log::log_info(
-                        "single_instance",
-                        &format!(
-                            "Another instance is already running (PID {}). Exiting.",
-                            pid
-                        ),
-                    );
-                    show_already_running_dialog(&app.package_info().name);
-                    std::process::exit(0);
+                Err(e) => {
+                    match &e {
+                        single_instance::InstanceLockError::AlreadyRunning(pid) => {
+                            error_log::log_info(
+                                "single_instance",
+                                &format!("Another instance is already running (PID {}). Exiting.", pid),
+                            );
+                            show_already_running_dialog(&app.package_info().name);
+                            std::process::exit(0);
+                        }
+                        single_instance::InstanceLockError::Io(io_err) => {
+                            error_log::log_error(
+                                "single_instance",
+                                &format!("Failed to acquire instance lock: {}", io_err),
+                            );
+                        }
+                    }
                 }
             }
 

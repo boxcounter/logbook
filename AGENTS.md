@@ -41,7 +41,7 @@ App.vue
 // base/ 基础组件：
 //   Toast.vue
 // composite/ 复合组件：
-//   CommitmentsModal.vue, DimensionEditorModal.vue, GoalRow.vue, RoleCard.vue
+//   CommitmentsModal.vue, DimensionEditorModal.vue
 ```
 
 ### 状态管理

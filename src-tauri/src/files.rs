@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, LazyLock, Mutex};
+use std::time::{Duration, Instant};
 
 /// Per-file mutexes for in-process mutual exclusion. Keys accumulate over the
 /// lifetime of the process (one entry per distinct day file accessed). Growth
@@ -10,6 +11,32 @@ use std::sync::{Arc, LazyLock, Mutex};
 /// (<1 MiB/year for a heavy user); a periodic sweep is not needed.
 static FILE_LOCKS: LazyLock<Mutex<HashMap<PathBuf, Arc<Mutex<()>>>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
+
+/// Day file paths recently written by the app itself. Used by the file watcher
+/// to suppress reload events for its own writes (avoid redundant frontend
+/// reloads when the app just updated the data).
+static RECENTLY_APP_WRITTEN: LazyLock<Mutex<HashMap<PathBuf, Instant>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+/// Mark a day file path as recently written by the app. The watcher will
+/// skip events for this path for a short cooldown window.
+pub fn mark_file_written_by_app(path: &Path) {
+    if let Ok(mut map) = RECENTLY_APP_WRITTEN.lock() {
+        map.insert(path.to_path_buf(), Instant::now());
+        map.retain(|_, t| t.elapsed() < Duration::from_secs(5));
+    }
+}
+
+/// Returns true if the file was written by the app within the cooldown window.
+pub fn was_recently_written_by_app(path: &Path) -> bool {
+    RECENTLY_APP_WRITTEN
+        .lock()
+        .map(|mut map| {
+            map.retain(|_, t| t.elapsed() < Duration::from_secs(5));
+            map.contains_key(path)
+        })
+        .unwrap_or(false)
+}
 
 fn with_file_lock<T, F: FnOnce() -> Result<T, String>>(path: &Path, f: F) -> Result<T, String> {
     let lock = {
@@ -136,6 +163,7 @@ pub fn write_day_file(root: &Path, date: &str, day_file: &DayFile) -> Result<(),
     let tmp_path = path.with_extension("tmp");
     fs::write(&tmp_path, &yaml_body).map_err(|e| format!("Failed to write temp file: {}", e))?;
     fs::rename(&tmp_path, &path).map_err(|e| format!("Failed to rename temp file: {}", e))?;
+    mark_file_written_by_app(&path);
     Ok(())
 }
 

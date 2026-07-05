@@ -40,17 +40,34 @@ fn setup_day_file(tmp: &Path, date: &str, body: &str) {
     fs::write(dir.join(format!("{}.yaml", date)), body.as_bytes()).unwrap();
 }
 
+use std::sync::atomic::{AtomicU32, Ordering};
+
+static TEST_COUNTER: AtomicU32 = AtomicU32::new(0);
+
+fn test_log_dir() -> std::path::PathBuf {
+    let n = TEST_COUNTER.fetch_add(1, Ordering::SeqCst);
+    std::env::temp_dir().join(format!("logbook_cli_test_{}_{}", std::process::id(), n))
+}
+
 fn run(args: &[&str]) -> std::process::Output {
+    let log_dir = test_log_dir();
+    let _ = std::fs::create_dir_all(&log_dir);
     Command::new(cli_binary())
         .args(args)
+        .env("LOGBOOK_LOG_DIR", &log_dir)
+        .env("LOGBOOK_LOCK_DIR", &log_dir)
         .output()
         .expect("Failed to execute CLI binary")
 }
 
 fn run_with_stdin(args: &[&str], stdin: &str) -> std::process::Output {
     use std::process::Stdio;
+    let log_dir = test_log_dir();
+    let _ = std::fs::create_dir_all(&log_dir);
     let mut child = Command::new(cli_binary())
         .args(args)
+        .env("LOGBOOK_LOG_DIR", &log_dir)
+        .env("LOGBOOK_LOCK_DIR", &log_dir)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -65,12 +82,14 @@ fn run_with_stdin(args: &[&str], stdin: &str) -> std::process::Output {
     child.wait_with_output().expect("Failed to wait on CLI binary")
 }
 
-/// Run with LOGBOOK_LOG_DIR pointed at a temp dir so the test exercises real
-/// logging without writing to the developer's actual ~/Library product log.
+/// Run with LOGBOOK_LOG_DIR and LOGBOOK_LOCK_DIR pointed at a temp dir so the
+/// test exercises real logging and lock isolation without touching the
+/// developer's actual product dirs.
 fn run_with_log_dir(args: &[&str], log_dir: &Path) -> std::process::Output {
     Command::new(cli_binary())
         .args(args)
         .env("LOGBOOK_LOG_DIR", log_dir)
+        .env("LOGBOOK_LOCK_DIR", log_dir)
         .output()
         .expect("Failed to execute CLI binary")
 }
@@ -632,6 +651,28 @@ fn test_dimensions_set_rejects_empty_value_string() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("ValuesEmpty"), "stderr: {}", stderr);
+
+    let _ = fs::remove_dir_all(&tmp);
+}
+
+#[test]
+fn test_migrate_converts_md_to_yaml() {
+    let tmp = std::env::temp_dir().join("logbook_cli_test_migrate_md2yaml");
+    let _ = fs::remove_dir_all(&tmp);
+    setup_fixture(&tmp);
+
+    let day_dir = tmp.join("2026/06");
+    fs::create_dir_all(&day_dir).unwrap();
+    fs::write(
+        day_dir.join("2026-06-20.md"),
+        "note: migrate test\nentries:\n  - id: m1\n    item: Migrated\n    duration: 10\n    dimensions: {}\n",
+    )
+    .unwrap();
+
+    let output = run(&["--root-path", tmp.to_str().unwrap(), "migrate"]);
+    assert!(output.status.success());
+    assert!(!day_dir.join("2026-06-20.md").exists());
+    assert!(day_dir.join("2026-06-20.yaml").exists());
 
     let _ = fs::remove_dir_all(&tmp);
 }

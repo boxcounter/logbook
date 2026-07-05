@@ -34,6 +34,7 @@ function makeStore() {
     today: { note: null, entries: [makeEntry({ item: "Existing", duration: 60 })] },
     currentDate: today,
     monthEntries: { [today]: [makeEntry({ item: "Existing", duration: 60 })] },
+    dayNotes: {},
     availableMonths: null,
     integrityIssues: [],
   });
@@ -220,8 +221,8 @@ describe("MonthView", () => {
 
     invokeMock.mockImplementation(async (cmd: string) => {
       if (cmd === "get_month_entries") {
-        return { "2026-06-15": [makeEntry({ item: "Old task", duration: 30 })] };
-      }
+          return { "2026-06-15": { note: null, entries: [makeEntry({ item: "Old task", duration: 30 })] } };
+        }
       if (cmd === "get_commitment_progress") return [];
       if (cmd === "get_commitments") return [];
       if (cmd === "get_month_dimensions") return { dimensions: [], usingDefaultDimensions: true };
@@ -296,7 +297,7 @@ describe("MonthView delete entry", () => {
       if (cmd === "delete_entry") return null;
       if (cmd === "get_commitment_progress") return [];
       if (cmd === "get_commitments") return [];
-      if (cmd === "get_month_entries") return { [seedDate]: [makeEntry({ id: DEL_ID, item: "Doomed", duration: 60 })] };
+      if (cmd === "get_month_entries") return { [seedDate]: { note: null, entries: [makeEntry({ id: DEL_ID, item: "Doomed", duration: 60 })] } };
       return { note: null, entries: [] };
     });
     const store = makeStore();

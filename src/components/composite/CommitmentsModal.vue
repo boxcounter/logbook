@@ -1,4 +1,7 @@
 <script setup lang="ts">
+// TODO(#40): CommitmentsModal and DimensionEditorModal share ~150 lines of modal
+// skeleton (Teleport, overlay, discard confirmation, save/cancel footer, isDirty
+// via JSON.stringify, keyboard esc). Extract a BaseModal or useModal composable.
 import { ref, computed, watch, nextTick } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { VueDraggable } from "vue-draggable-plus";

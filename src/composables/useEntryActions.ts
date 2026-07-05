@@ -12,8 +12,8 @@ interface ComposerRef {
 }
 
 export function useEntryActions(store: AppStore, inputRef: Ref<ComposerRef | null>) {
-  const triggerUndoToast = inject(UNDO_TOAST_KEY, () => {});
-  const triggerSavedToast = inject(SAVED_TOAST_KEY, () => {});
+  const triggerUndoToast = inject(UNDO_TOAST_KEY, (_undoFn: () => void) => {});
+  const triggerSavedToast = inject(SAVED_TOAST_KEY, (_msg: string) => {});
 
   const justAddedId = ref<string | null>(null);
   let highlightTimer: ReturnType<typeof setTimeout> | null = null;
@@ -132,24 +132,30 @@ export function useEntryActions(store: AppStore, inputRef: Ref<ComposerRef | nul
           date,
           entryId,
         });
-        store.today = df;
+        if (store.currentDate === date) {
+          store.today = df;
+        }
         store.monthEntries[date] = df.entries;
         await refreshProgress(date);
       } catch (e) {
         logError("useEntryActions.handleDeleteEntry", e);
-        const curEntries = store.today?.entries;
-        if (curEntries && curEntries.findIndex((e) => e.id === entryId) === -1) {
-          curEntries.splice(idx, 0, removed);
+        if (store.currentDate === date) {
+          const curEntries = store.today?.entries;
+          if (curEntries && curEntries.findIndex((e) => e.id === entryId) === -1) {
+            curEntries.splice(idx, 0, removed);
+          }
         }
       }
     }, UNDO_DELETE_DELAY);
     triggerUndoToast(() => {
       cancelled = true;
       if (pendingDeleteTimer) clearTimeout(pendingDeleteTimer);
-      const curEntries = store.today?.entries;
-      if (curEntries && curEntries.findIndex((e) => e.id === entryId) === -1) {
-        curEntries.splice(idx, 0, removed);
-        store.monthEntries[date] = [...curEntries];
+      if (store.currentDate === date) {
+        const curEntries = store.today?.entries;
+        if (curEntries && curEntries.findIndex((e) => e.id === entryId) === -1) {
+          curEntries.splice(idx, 0, removed);
+          store.monthEntries[date] = [...curEntries];
+        }
       }
     });
   }

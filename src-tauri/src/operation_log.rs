@@ -106,6 +106,10 @@ pub fn append(root_path: &str, op: Operation) -> Result<(), String> {
     };
 
     let log_line = LogLine {
+        // NOTE: Uses system clock (chrono::Local). NTP adjustments or manual
+        // clock changes can reorder log entries within a day. This does not
+        // affect data integrity — the log is an append-only audit trail, and
+        // verify_op_log sorts by timestamp before replay.
         ts: chrono::Local::now()
             .format("%Y-%m-%dT%H:%M:%S%:z")
             .to_string(),
@@ -221,6 +225,18 @@ pub fn verify_op_log(root_path: &str) -> Result<(), Vec<OpLogMismatch>> {
 
     if log_entries.is_empty() {
         return Ok(());
+    }
+
+    // Build a map of date → whether any log entry has a "before" snapshot.
+    // Used to annotate mismatches: if the last operation was logged with a
+    // before-state, a content mismatch is likely crash residue (log written
+    // but file write didn't complete) rather than tampering.
+    let mut has_before: std::collections::HashSet<String> = std::collections::HashSet::new();
+    for (_ts, log_line) in &log_entries {
+        let date = log_line["date"].as_str().unwrap_or("");
+        if !log_line["before"].is_null() {
+            has_before.insert(date.to_string());
+        }
     }
 
     // 2. Replay to temp directory
@@ -376,12 +392,20 @@ pub fn verify_op_log(root_path: &str) -> Result<(), Vec<OpLogMismatch>> {
                 },
             );
             if orig_content.trim() != replay_content.trim() {
+                let mut desc = format!(
+                    "Content mismatch: original and replay differ for {}",
+                    rel_path
+                );
+                let date = rel_path.trim_end_matches(".yaml");
+                if has_before.contains(date) {
+                    desc.push_str(
+                        " (last operation logged a before-state — this may be crash residue",
+                    );
+                    desc.push_str(" rather than tampering)");
+                }
                 mismatches.push(OpLogMismatch {
                     date: rel_path.clone(),
-                    description: format!(
-                        "Content mismatch: original and replay differ for {}",
-                        rel_path
-                    ),
+                    description: desc,
                 });
             }
         }

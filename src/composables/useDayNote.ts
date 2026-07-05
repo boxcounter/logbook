@@ -38,6 +38,7 @@ export function useDayNote(store: AppStore) {
     const text = noteRef.value?.textContent || "";
     try {
       await invoke("set_day_note", { rootPath: store.rootPath, date: store.currentDate, note: text });
+      store.dayNotes[store.currentDate] = text;
     } catch (e) {
       logError("useDayNote.saveNote", e);
     }

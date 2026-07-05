@@ -1,4 +1,6 @@
 <script setup lang="ts">
+// TODO(#40): DimensionEditorModal and CommitmentsModal share ~150 lines of modal
+// skeleton. Extract a BaseModal or useModal composable.
 import { ref, computed, watch, nextTick } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { VueDraggable } from "vue-draggable-plus";

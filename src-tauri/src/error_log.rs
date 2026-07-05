@@ -154,4 +154,19 @@ mod tests {
         assert!(content.contains("error message"));
         let _ = fs::remove_dir_all(&tmp);
     }
+
+    #[test]
+    fn test_log_rotation_keeps_appending_below_threshold() {
+        let tmp = std::env::temp_dir().join("logbook_log_rotation");
+        let _ = fs::remove_dir_all(&tmp);
+        fs::create_dir_all(&tmp).unwrap();
+        init(&tmp);
+        for i in 0..100 {
+            log_info("rot", &format!("entry {i}"));
+            log_error("rot", &format!("err {i}"));
+        }
+        assert!(tmp.join("logbook.log").exists());
+        assert!(!tmp.join("logbook.log.1").exists(), "no rotation below 10 MB");
+        let _ = fs::remove_dir_all(&tmp);
+    }
 }

@@ -6,13 +6,22 @@ pub struct InstanceLock {
     path: PathBuf,
 }
 
+/// Errors that can occur when acquiring the instance lock.
+pub enum InstanceLockError {
+    /// Another instance is running with this PID.
+    AlreadyRunning(u32),
+    /// Cannot read/write lock file (permission, disk full, etc.).
+    Io(std::io::Error),
+}
+
 impl InstanceLock {
     /// Try to acquire the single-instance lock.
     ///
     /// Writes the current PID to `{lock_dir}/instance.pid`. If the file already
-    /// exists and its PID belongs to a live process, returns `Err(pid)`.
+    /// exists and its PID belongs to a live process, returns
+    /// `Err(InstanceLockError::AlreadyRunning(pid))`.
     /// Otherwise removes the stale file and creates a fresh one.
-    pub fn try_acquire(lock_dir: &Path) -> Result<Self, u32> {
+    pub fn try_acquire(lock_dir: &Path) -> Result<Self, InstanceLockError> {
         let lock_path = lock_dir.join("instance.pid");
 
         if let Some(parent) = lock_path.parent() {
@@ -22,7 +31,7 @@ impl InstanceLock {
         if let Ok(content) = fs::read_to_string(&lock_path) {
             if let Ok(pid) = content.trim().parse::<u32>() {
                 if pid != std::process::id() && is_process_alive(pid) {
-                    return Err(pid);
+                    return Err(InstanceLockError::AlreadyRunning(pid));
                 }
                 let _ = fs::remove_file(&lock_path);
             }
@@ -31,7 +40,7 @@ impl InstanceLock {
         fs::write(&lock_path, format!("{}\n", std::process::id())).map_err(|e| {
             crate::error_log::log_error("instance_lock",
                 &format!("Failed to write lock file {}: {}", lock_path.display(), e));
-            0u32
+            InstanceLockError::Io(e)
         })?;
 
         Ok(InstanceLock { path: lock_path })

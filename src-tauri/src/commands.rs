@@ -38,6 +38,8 @@ fn read_day_file_safe(root: &std::path::Path, date: &str) -> Result<DayFile, Str
 
 
 /// Parse a duration string to minutes.
+/// NOTE: Kept in sync with TS `parseDurationFromText` in src/utils/format.ts.
+/// Any change to the regex, unit handling, or rounding must be mirrored on the TS side.
 /// Handles: "90", "1.5h", "30m", "1h 30m", "准备会议（15m），面聊（45m）"
 pub fn parse_duration(input: &str) -> Result<u32, String> {
     let input = input.trim();
@@ -166,6 +168,15 @@ fn validate_cross_dimension_constraints(
                     ));
                 }
             }
+        }
+    } else if let Some(g) = goal {
+        // Goal present without a role: if commitments exist, the goal must be
+        // declared under at least one role — otherwise it's an unknown goal.
+        if !role_to_goals.is_empty() && !role_to_goals.values().any(|goals| goals.contains(g)) {
+            return Err(format!(
+                "Goal '{}' is not declared in any role in commitments",
+                g
+            ));
         }
     }
     Ok(())
@@ -316,6 +327,16 @@ pub fn load_root_state(root: &std::path::Path) -> InitResult {
         }
     };
 
+    // Run repair sweep on startup to recover from crashes during set_commitments
+    // pipeline (where commitments.yaml was written but day files have stale
+    // role/goal values). Best-effort — failures are logged but never block init.
+    if !commitments.is_empty() {
+        let repair_errors = repair_entry_dimensions(root, now.year(), now.month());
+        for err in &repair_errors {
+            error_log::log_error("load_root_state:repair", err);
+        }
+    }
+
     let today_date = format!("{}-{:02}-{:02}", now.year(), now.month(), now.day());
     let today = match read_day_file_safe(root, &today_date) {
         Ok(df) => df,
@@ -331,12 +352,20 @@ pub fn load_root_state(root: &std::path::Path) -> InitResult {
     let using_default_dimensions = files::read_dimensions_file(root, now.year(), now.month())
         .unwrap_or_else(|e| {
             error_log::log_error("load_root_state:dimensions", &format!("read failed: {e}"));
+            all_errors.push(ConfigErrorDetail {
+                kind: "DimensionsFileCorrupt".to_string(),
+                message: format!("Failed to read dimensions for {}-{:02}: {}", now.year(), now.month(), e),
+            });
             Default::default()
         })
         .is_empty();
     let dimensions = files::resolve_month_dimensions(root, now.year(), now.month())
         .unwrap_or_else(|e| {
             error_log::log_error("load_root_state:dimensions", &format!("resolve failed: {e}"));
+            all_errors.push(ConfigErrorDetail {
+                kind: "DimensionsResolveFailed".to_string(),
+                message: format!("Failed to resolve dimensions for {}-{:02}: {}", now.year(), now.month(), e),
+            });
             Default::default()
         });
 
@@ -488,13 +517,13 @@ pub fn set_root_path(app: AppHandle, path: String) -> Result<InitResult, String>
     Ok(result)
 }
 
-/// Batch-read all day files for a month. Returns entries keyed by YYYY-MM-DD date.
+/// Batch-read all day files for a month. Returns full DayFile (entries + note) keyed by YYYY-MM-DD date.
 #[tauri::command]
 pub fn get_month_entries(
     root_path: String,
     year: i32,
     month: u32,
-) -> Result<std::collections::BTreeMap<String, Vec<crate::models::Entry>>, String> {
+) -> Result<std::collections::BTreeMap<String, crate::models::DayFile>, String> {
     error_log::log_command_enter("get_month_entries", &format!("{}-{:02}", year, month));
     let root = std::path::Path::new(&root_path);
     let month_dir = root.join(year.to_string()).join(format!("{:02}", month));
@@ -504,7 +533,7 @@ pub fn get_month_entries(
         return Ok(std::collections::BTreeMap::new());
     }
 
-    let mut result: std::collections::BTreeMap<String, Vec<crate::models::Entry>> =
+    let mut result: std::collections::BTreeMap<String, crate::models::DayFile> =
         std::collections::BTreeMap::new();
 
     let entries = std::fs::read_dir(&month_dir)
@@ -531,14 +560,14 @@ pub fn get_month_entries(
         match crate::files::read_day_file(root, date) {
             Ok(day_file) => {
                 total += day_file.entries.len() as u32;
-                result.insert(date.to_string(), day_file.entries);
+                result.insert(date.to_string(), day_file);
             }
             Err(e) => {
                 error_log::log_error(
                     "get_month_entries",
                     &format!("Failed to read {}: {:?}", date, e),
                 );
-                result.insert(date.to_string(), vec![]);
+                result.insert(date.to_string(), crate::models::DayFile { note: None, entries: vec![] });
             }
         }
     }
@@ -925,13 +954,13 @@ pub fn get_commitment_progress(
     let root = std::path::Path::new(&root_path);
 
     // 1. Read commitments.yaml
-    let commitments = crate::files::read_commitments_file(root, year, month).unwrap_or_else(|e| {
+    let commitments = crate::files::read_commitments_file(root, year, month).map_err(|e| {
         error_log::log_error(
             "get_commitment_progress",
             &format!("Failed to read commitments.yaml for {}-{:02}: {:?}", year, month, e),
         );
-        vec![]
-    });
+        format!("Failed to read commitments.yaml for {}-{:02}: {}", year, month, e)
+    })?;
 
     // 2. Build maps
     let (goal_to_role, role_to_goals) = build_commitment_maps(&commitments);
@@ -954,14 +983,14 @@ pub fn get_commitment_progress(
         Ok(k) => k,
         Err(e) => {
             error_log::log_error("get_commitment_progress", &format!("goal key missing: {e}"));
-            return Ok(vec![]);
+            return Err(format!("goal dimension key not configured: {e}"));
         }
     };
     let role_key = match role_dim_key(root, year, month) {
         Ok(k) => k,
         Err(e) => {
             error_log::log_error("get_commitment_progress", &format!("role key missing: {e}"));
-            return Ok(vec![]);
+            return Err(format!("role dimension key not configured: {e}"));
         }
     };
     let month_dir = root.join(year.to_string()).join(format!("{:02}", month));
@@ -1040,6 +1069,97 @@ pub fn get_commitment_progress(
     }
 
     Ok(roles)
+}
+
+/// Repair sweep: clear role and goal dimension values in day files that don't
+/// match any current commitments. Handles crash recovery (where commitments.yaml
+/// was updated but day files still have stale names) and manual file edits.
+///
+/// Returns write errors if any day file updates failed.
+pub fn repair_entry_dimensions(root: &std::path::Path, year: i32, month: u32) -> Vec<String> {
+    let mut write_errors: Vec<String> = Vec::new();
+
+    let commitments = match crate::files::read_commitments_file(root, year, month) {
+        Ok(c) => c,
+        Err(e) => {
+            error_log::log_error("repair_entry_dimensions",
+                &format!("read_commitments_file failed, skipping repair: {}", e));
+            return write_errors;
+        }
+    };
+    if commitments.is_empty() {
+        return write_errors;
+    }
+
+    let role_key = match role_dim_key(root, year, month) {
+        Ok(k) => k,
+        Err(e) => {
+            error_log::log_error("repair_entry_dimensions",
+                &format!("role_dim_key failed, skipping repair: {}", e));
+            return write_errors;
+        }
+    };
+    let goal_key = goal_dim_key(root, year, month).unwrap_or_else(|e| {
+        error_log::log_error("repair_entry_dimensions",
+            &format!("goal_dim_key failed, skipping goal repair: {}", e));
+        String::new()
+    });
+
+    let valid_roles: std::collections::BTreeSet<&String> = commitments.iter().map(|c| &c.role).collect();
+    let valid_goals: std::collections::BTreeSet<&str> = commitments
+        .iter()
+        .flat_map(|c| c.goals.iter().map(|g| g.as_str()))
+        .collect();
+
+    let month_dir = root.join(year.to_string()).join(format!("{:02}", month));
+    if let Ok(entries) = std::fs::read_dir(&month_dir) {
+        for entry in entries {
+            let entry = match entry {
+                Ok(e) => e,
+                Err(e) => {
+                    error_log::log_error("repair_entry_dimensions",
+                        &format!("read_dir entry error in {}: {}", month_dir.display(), e));
+                    continue;
+                },
+            };
+            let path = entry.path();
+            let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+            if !file_name.ends_with(".yaml") {
+                continue;
+            }
+            if let Ok(mut day_file) = crate::files::read_day_file(root, file_name.trim_end_matches(".yaml")) {
+                let mut cleaned = 0u32;
+                for e in &mut day_file.entries {
+                    if let Some(role_val) = e.dimensions.get(&role_key) {
+                        if !valid_roles.contains(role_val) {
+                            e.dimensions.remove(&role_key);
+                            cleaned += 1;
+                        }
+                    }
+                    if !goal_key.is_empty() {
+                        if let Some(goal_val) = e.dimensions.get(&goal_key) {
+                            if !valid_goals.contains(goal_val.as_str()) {
+                                e.dimensions.remove(&goal_key);
+                                cleaned += 1;
+                            }
+                        }
+                    }
+                }
+                if cleaned > 0 {
+                    error_log::log_info("repair_entry_dimensions",
+                        &format!("cleared {} unknown value(s) in {}", cleaned, file_name));
+                    if let Err(e) = crate::files::write_day_file(root, file_name.trim_end_matches(".yaml"), &day_file) {
+                        write_errors.push(format!("repair {}: {}", file_name, e));
+                    }
+                }
+            }
+        }
+    } else {
+        error_log::log_error("repair_entry_dimensions",
+            &format!("failed to read month directory: {}", month_dir.display()));
+    }
+
+    write_errors
 }
 
 #[tauri::command]
@@ -1130,10 +1250,10 @@ pub fn set_commitments(
                 };
                 let path = entry.path();
                 let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-                if !file_name.ends_with(".md") {
+                if !file_name.ends_with(".yaml") {
                     continue;
                 }
-                if let Ok(mut day_file) = crate::files::read_day_file(root, file_name.trim_end_matches(".md")) {
+                if let Ok(mut day_file) = crate::files::read_day_file(root, file_name.trim_end_matches(".yaml")) {
                     let mut changed = false;
                     for e in &mut day_file.entries {
                         if e.dimensions.get(&role_key).map(|r| r == old_name).unwrap_or(false) {
@@ -1142,7 +1262,7 @@ pub fn set_commitments(
                         }
                     }
                     if changed {
-                        if let Err(e) = crate::files::write_day_file(root, file_name.trim_end_matches(".md"), &day_file) {
+                        if let Err(e) = crate::files::write_day_file(root, file_name.trim_end_matches(".yaml"), &day_file) {
                             write_errors.push(format!("role rename {}: {}", file_name, e));
                         }
                     }
@@ -1172,10 +1292,10 @@ pub fn set_commitments(
                 };
                 let path = entry.path();
                 let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-                if !file_name.ends_with(".md") {
+                if !file_name.ends_with(".yaml") {
                     continue;
                 }
-                if let Ok(mut day_file) = crate::files::read_day_file(root, file_name.trim_end_matches(".md")) {
+                if let Ok(mut day_file) = crate::files::read_day_file(root, file_name.trim_end_matches(".yaml")) {
                     let mut changed = false;
                     for e in &mut day_file.entries {
                         if e.dimensions.get(&role_key).map(|r| r == *role_name).unwrap_or(false) {
@@ -1184,7 +1304,7 @@ pub fn set_commitments(
                         }
                     }
                     if changed {
-                        if let Err(e) = crate::files::write_day_file(root, file_name.trim_end_matches(".md"), &day_file) {
+                        if let Err(e) = crate::files::write_day_file(root, file_name.trim_end_matches(".yaml"), &day_file) {
                             write_errors.push(format!("role cleanup {}: {}", file_name, e));
                         }
                     }
@@ -1200,63 +1320,8 @@ pub fn set_commitments(
     //     any current commitments role/goal. This handles crash recovery (where
     //     commitments.yaml was updated but day files still have old names)
     //     and defence against manual file edits.
-    {
-        let valid_roles: std::collections::BTreeSet<&String> = commitments.iter().map(|c| &c.role).collect();
-        let valid_goals: std::collections::BTreeSet<&str> = commitments
-            .iter()
-            .flat_map(|c| c.goals.iter().map(|g| g.as_str()))
-            .collect();
-        let goal_key = goal_dim_key(root, year, month).unwrap_or_else(|e| {
-            error_log::log_error("set_commitments:repair_sweep",
-                &format!("goal_dim_key failed, skipping goal repair: {}", e));
-            String::new()
-        });
-        if let Ok(entries) = std::fs::read_dir(&month_dir) {
-            for entry in entries {
-                let entry = match entry {
-                    Ok(e) => e,
-                    Err(e) => {
-                        error_log::log_error("set_commitments:repair_sweep",
-                            &format!("read_dir entry error in {}: {}", month_dir.display(), e));
-                        continue;
-                    },
-                };
-                let path = entry.path();
-                let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-                if !file_name.ends_with(".yaml") {
-                    continue;
-                }
-                if let Ok(mut day_file) = crate::files::read_day_file(root, file_name.trim_end_matches(".yaml")) {
-                    let mut cleaned = 0u32;
-                    for e in &mut day_file.entries {
-                        if let Some(role_val) = e.dimensions.get(&role_key) {
-                            if !valid_roles.contains(role_val) {
-                                e.dimensions.remove(&role_key);
-                                cleaned += 1;
-                            }
-                        }
-                        if !goal_key.is_empty() {
-                            if let Some(goal_val) = e.dimensions.get(&goal_key) {
-                                if !valid_goals.contains(goal_val.as_str()) {
-                                    e.dimensions.remove(&goal_key);
-                                    cleaned += 1;
-                                }
-                            }
-                        }
-                    }
-                    if cleaned > 0 {
-                        error_log::log_info("set_commitments:repair_sweep",
-                            &format!("cleared {} unknown value(s) in {}", cleaned, file_name));
-                        if let Err(e) = crate::files::write_day_file(root, file_name.trim_end_matches(".yaml"), &day_file) {
-                            write_errors.push(format!("repair sweep {}: {}", file_name, e));
-                        }
-                    }
-                }
-            }
-        } else {
-            error_log::log_error("set_commitments:repair_sweep",
-                &format!("failed to read month directory: {}", month_dir.display()));
-        }
+    for err_msg in repair_entry_dimensions(root, year, month) {
+        write_errors.push(err_msg);
     }
 
     if !write_errors.is_empty() {
@@ -1644,7 +1709,7 @@ pub fn get_available_months(root_path: String) -> Result<Vec<AvailableMonth>, St
             };
 
             // Check if this month directory contains at least one .yaml file
-            let has_md = match std::fs::read_dir(month_entry.path()) {
+            let has_yaml = match std::fs::read_dir(month_entry.path()) {
                 Ok(entries) => {
                     let mut found = false;
                     for e in entries {
@@ -1675,7 +1740,7 @@ pub fn get_available_months(root_path: String) -> Result<Vec<AvailableMonth>, St
                 }
             };
 
-            if has_md {
+            if has_yaml {
                 months.push(AvailableMonth { year, month });
             }
         }

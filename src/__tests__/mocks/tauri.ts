@@ -32,6 +32,8 @@ const defaultInvoke = async (cmd: string, _args?: unknown) => {
       return { status: "NeedsSetup" };
     case "get_entries":
       return { note: null, entries: [] } as unknown;
+    case "get_month_entries":
+      return {} as unknown;
     case "append_entry":
       return { id: "00000000-0000-0000-0000-000000000000", item: "", duration: 0, dimensions: {} } as unknown;
     case "update_entry":

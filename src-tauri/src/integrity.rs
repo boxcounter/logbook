@@ -257,7 +257,6 @@ pub fn check_scoped_integrity(root: &Path) -> Vec<IntegrityIssue> {
                 Ok(()) => {}
                 Err(issue) => {
                     issues.push(issue);
-                    return issues;
                 }
             }
         }

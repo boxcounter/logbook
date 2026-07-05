@@ -18,7 +18,9 @@ export function formatDurationCompact(minutes: number): string {
   return `${display}h`;
 }
 
-/** Duration pattern: number + required unit (h or m). Plain numbers are not durations. */
+/** Duration pattern: number + required unit (h or m). Plain numbers are not durations.
+ *  NOTE: Kept in sync with Rust `parse_duration` in src-tauri/src/commands.rs.
+ *  Any change to regex, unit handling, or rounding must be mirrored on the Rust side. */
 const DURATION_RE = /(\d+(?:\.\d+)?)\s*(h|m)/gi;
 
 /** Parse duration from text. Accumulates as float, rounds once at end (matches Rust). */

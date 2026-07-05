@@ -1,6 +1,7 @@
 use crate::files;
 use crate::models::{Commitment, ConfigErrorDetail, Dimension};
 use notify::{Config as NotifyConfig, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
+use serde_json::json;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -42,12 +43,16 @@ fn is_valid_key(key: &str) -> bool {
 /// of the file that actually changed, not the current wall-clock month.
 fn extract_year_month(path: &std::path::Path) -> Option<(i32, u32)> {
     let mut comps = path.components().rev();
-    comps.next()?; // dimensions.yaml or commitments.yaml
+    let _file = comps.next()?;
     let month: u32 = comps.next()?.as_os_str().to_str()?.parse().ok()?;
     let year: i32 = comps.next()?.as_os_str().to_str()?.parse().ok()?;
     if (1..=12).contains(&month) {
         Some((year, month))
     } else {
+        crate::error_log::log_error(
+            "file_watcher",
+            &format!("extract_year_month: bad month {} in path {}", month, path.display()),
+        );
         None
     }
 }
@@ -229,7 +234,7 @@ struct WatcherHandle {
 }
 
 /// Pure decision: do we need to (re)start the watcher for `requested`?
-pub fn needs_restart(current: Option<&std::path::Path>, requested: &std::path::Path) -> bool {
+pub(crate) fn needs_restart(current: Option<&std::path::Path>, requested: &std::path::Path) -> bool {
     current != Some(requested)
 }
 
@@ -335,7 +340,12 @@ fn spawn_watcher(
                                         crate::integrity::set_compromised(issue.clone());
                                     }
                                 }
-                                let _ = app_handle.emit("integrity-changed", &crate::integrity::status());
+                                if let Err(e) = app_handle.emit("integrity-changed", &crate::integrity::status()) {
+                                    crate::error_log::log_error(
+                                        "file_watcher",
+                                        &format!("emit integrity-changed failed: {}", e),
+                                    );
+                                }
                             }
                         }
                         Err(e) => {
@@ -389,7 +399,12 @@ fn spawn_watcher(
                                         crate::integrity::set_compromised(issue.clone());
                                     }
                                 }
-                                let _ = app_handle.emit("integrity-changed", &crate::integrity::status());
+                                if let Err(e) = app_handle.emit("integrity-changed", &crate::integrity::status()) {
+                                    crate::error_log::log_error(
+                                        "file_watcher",
+                                        &format!("emit integrity-changed failed: {}", e),
+                                    );
+                                }
                             }
                         }
                         Err(e) => {
@@ -454,7 +469,12 @@ fn spawn_watcher(
                                         crate::integrity::set_compromised(issue.clone());
                                     }
                                 }
-                                let _ = app_handle.emit("integrity-changed", &crate::integrity::status());
+                                if let Err(e) = app_handle.emit("integrity-changed", &crate::integrity::status()) {
+                                    crate::error_log::log_error(
+                                        "file_watcher",
+                                        &format!("emit integrity-changed failed: {}", e),
+                                    );
+                                }
                             }
                         }
                         Err(e) => {
@@ -470,6 +490,40 @@ fn spawn_watcher(
                                     &format!("emit commitments-changed failed: {}", e2),
                                 );
                             }
+                        }
+                    }
+                } else if file_name.ends_with(".yaml")
+                    && file_name != "dimensions.yaml"
+                    && file_name != "dimensions.template.yaml"
+                    && file_name != "commitments.yaml"
+                {
+                    let skip = path
+                        .canonicalize()
+                        .map(|p| crate::files::was_recently_written_by_app(&p))
+                        .unwrap_or(false);
+                    if skip {
+                        continue;
+                    }
+                    let (year, month) = match extract_year_month(path) {
+                        Some(ym) => ym,
+                        None => continue,
+                    };
+                    if let Ok(day_file) =
+                        crate::files::read_day_file(&watch_root, file_name.trim_end_matches(".yaml"))
+                    {
+                        if let Err(e) = app_handle.emit(
+                            "day-file-changed",
+                            &json!({
+                                "date": file_name.trim_end_matches(".yaml"),
+                                "year": year,
+                                "month": month,
+                                "day_file": day_file,
+                            }),
+                        ) {
+                            crate::error_log::log_error(
+                                "file_watcher",
+                                &format!("emit day-file-changed failed: {}", e),
+                            );
                         }
                     }
                 }
