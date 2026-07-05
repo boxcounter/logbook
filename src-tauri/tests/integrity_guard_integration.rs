@@ -160,4 +160,128 @@ mod tests {
 
         assert!(integrity::check().is_ok());
     }
+
+    #[test]
+    fn startup_scan_detects_invalid_uuid() {
+        let root = temp_root();
+        setup_fixture(&root);
+
+        use chrono::{Datelike, Local};
+        let now = Local::now();
+        let month_dir = root
+            .join(format!("{}", now.year()))
+            .join(format!("{:02}", now.month()));
+        let bad_date = format!(
+            "{}-{:02}-{:02}",
+            now.year(),
+            now.month(),
+            if now.day() > 1 { now.day() - 1 } else { 1 }
+        );
+        let bad_entry = "---\nentries:\n  - id: not-a-uuid\n    item: bad\n    duration: 30\n---\n";
+        fs::write(month_dir.join(format!("{}.md", bad_date)), bad_entry).unwrap();
+
+        let issues = integrity::check_scoped_integrity(&root);
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].kind, "InvalidUuid");
+
+        cleanup(&root);
+    }
+
+    #[test]
+    fn startup_scan_detects_unknown_dimension_key() {
+        let root = temp_root();
+        setup_fixture(&root);
+
+        use chrono::{Datelike, Local};
+        let now = Local::now();
+        let month_dir = root
+            .join(format!("{}", now.year()))
+            .join(format!("{:02}", now.month()));
+        let bad_date = format!(
+            "{}-{:02}-{:02}",
+            now.year(),
+            now.month(),
+            if now.day() > 1 { now.day() - 1 } else { 1 }
+        );
+        let bad_entry = format!(
+            "---\nentries:\n  - id: {}\n    item: bad\n    duration: 30\n    dimensions:\n      biz: A\n      unknown_key: X\n---\n",
+            uuid::Uuid::new_v4()
+        );
+        fs::write(month_dir.join(format!("{}.md", bad_date)), bad_entry).unwrap();
+
+        let issues = integrity::check_scoped_integrity(&root);
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].kind, "UnknownDimensionKey");
+
+        cleanup(&root);
+    }
+
+    #[test]
+    fn startup_scan_detects_empty_required_dimension() {
+        let root = temp_root();
+        setup_fixture(&root);
+
+        use chrono::{Datelike, Local};
+        let now = Local::now();
+        let month_dir = root
+            .join(format!("{}", now.year()))
+            .join(format!("{:02}", now.month()));
+        let bad_date = format!(
+            "{}-{:02}-{:02}",
+            now.year(),
+            now.month(),
+            if now.day() > 1 { now.day() - 1 } else { 1 }
+        );
+        let bad_entry = format!(
+            "---\nentries:\n  - id: {}\n    item: bad\n    duration: 30\n    dimensions:\n      biz: '   '\n---\n",
+            uuid::Uuid::new_v4()
+        );
+        fs::write(month_dir.join(format!("{}.md", bad_date)), bad_entry).unwrap();
+
+        let issues = integrity::check_scoped_integrity(&root);
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].kind, "EmptyRequiredDimension");
+
+        cleanup(&root);
+    }
+
+    #[test]
+    fn startup_scan_detects_jsonl_parse_error() {
+        let root = temp_root();
+        setup_fixture(&root);
+
+        use chrono::{Datelike, Local};
+        let now = Local::now();
+        let op_root = root.join(".logbook").join("operations");
+        let op_dir = op_root
+            .join(format!("{}", now.year()))
+            .join(format!("{:02}", now.month()));
+        fs::create_dir_all(&op_dir).unwrap();
+
+        // day that is today-1 (or day 1 if today is 1), write a valid .md file
+        // and a corrupt .jsonl — the YAML check passes, then JSONL fails
+        let bad_date = format!(
+            "{}-{:02}-{:02}",
+            now.year(),
+            now.month(),
+            if now.day() > 1 { now.day() - 1 } else { 1 }
+        );
+        let month_dir = root
+            .join(format!("{}", now.year()))
+            .join(format!("{:02}", now.month()));
+        let valid_entry = format!(
+            "---\nentries:\n  - id: {}\n    item: test\n    duration: 30\n    dimensions:\n      biz: A\n---\n",
+            uuid::Uuid::new_v4()
+        );
+        fs::write(month_dir.join(format!("{}.md", bad_date)), valid_entry).unwrap();
+
+        // Write invalid JSON (no closing brace) as a JSONL line
+        fs::write(op_dir.join(format!("{}.jsonl", bad_date)), "{\"ts\":\"x\",\n").unwrap();
+
+        let issues = integrity::check_scoped_integrity(&root);
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].kind, "JsonlParseError");
+
+        cleanup(&root);
+    }
 }

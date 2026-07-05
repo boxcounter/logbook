@@ -996,6 +996,18 @@ pub fn set_commitments(
     integrity::check()?;
     let role_key = role_dim_key(root, year, month)?;
 
+    // Pre-write integrity check: validate the existing commitments file is readable
+    if let Err(e) = files::read_commitments_file(root, year, month) {
+        integrity::set_compromised(IntegrityIssue {
+            path: format!("{}/{}/commitments.yaml", year, format!("{:02}", month)),
+            message: e,
+            kind: "CommitmentsFileError".into(),
+        });
+        return Err(format!(
+            "Write denied: target commitments file integrity check failed"
+        ));
+    }
+
     // 1. Validate
     crate::config::validate_commitments(&commitments)?;
 
