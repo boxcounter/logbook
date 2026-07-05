@@ -317,6 +317,13 @@ fn spawn_watcher(
                                     &format!("emit dimensions-changed failed: {}", e),
                                 );
                             }
+                            if errors.is_empty() {
+                                let issues = crate::integrity::check_scoped_integrity(&watch_root);
+                                if issues.is_empty() {
+                                    crate::integrity::reset();
+                                    let _ = app_handle.emit("integrity-changed", &crate::integrity::status());
+                                }
+                            }
                         }
                         Err(e) => {
                             if let Err(e2) = app_handle.emit(
@@ -359,6 +366,13 @@ fn spawn_watcher(
                                     "file_watcher",
                                     &format!("emit dimensions-changed failed: {}", e),
                                 );
+                            }
+                            if errors.is_empty() {
+                                let issues = crate::integrity::check_scoped_integrity(&watch_root);
+                                if issues.is_empty() {
+                                    crate::integrity::reset();
+                                    let _ = app_handle.emit("integrity-changed", &crate::integrity::status());
+                                }
                             }
                         }
                         Err(e) => {
@@ -413,6 +427,13 @@ fn spawn_watcher(
                                     "file_watcher",
                                     &format!("emit commitments-changed failed: {}", e),
                                 );
+                            }
+                            if errors.is_empty() {
+                                let issues = crate::integrity::check_scoped_integrity(&watch_root);
+                                if issues.is_empty() {
+                                    crate::integrity::reset();
+                                    let _ = app_handle.emit("integrity-changed", &crate::integrity::status());
+                                }
                             }
                         }
                         Err(e) => {
