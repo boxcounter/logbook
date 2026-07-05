@@ -127,6 +127,60 @@ describe("DimensionEditorModal", () => {
     expect(after.length).toBe(before.length - 1);
   });
 
+  it("+ Add Value button inserts an empty inline value row", async () => {
+    const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
+    // Select Biz (index 1) — static with values
+    const bizRow = wrapper.findAll('[data-test="dim-row"]')[1];
+    await bizRow.trigger("click");
+    const before = wrapper.findAll('[data-test="value-input"]').length;
+    await wrapper.find('[data-test="add-value-btn"]').trigger("click");
+    await nextTick();
+    const after = wrapper.findAll('[data-test="value-input"]').length;
+    expect(after).toBe(before + 1);
+    // The new row should be empty
+    const inputs = wrapper.findAll('[data-test="value-input"]');
+    const lastVal = (inputs[inputs.length - 1].element as HTMLInputElement).value;
+    expect(lastVal).toBe("");
+  });
+
+  it("Enter on value input inserts new empty row below", async () => {
+    const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
+    // Select Biz (index 1) — static with values: ["Product", "Marketing", "Engineering"]
+    const bizRow = wrapper.findAll('[data-test="dim-row"]')[1];
+    await bizRow.trigger("click");
+    const before = wrapper.findAll('[data-test="value-input"]').length;
+    // Press Enter on first value input ("Product")
+    const firstInput = wrapper.findAll('[data-test="value-input"]')[0];
+    await firstInput.trigger("keydown.enter");
+    await nextTick();
+    const after = wrapper.findAll('[data-test="value-input"]').length;
+    expect(after).toBe(before + 1);
+    // The inserted row should be empty and positioned after index 0
+    const inputs = wrapper.findAll('[data-test="value-input"]');
+    expect((inputs[1].element as HTMLInputElement).value).toBe("");
+    // Original "Product" still at index 0, "Marketing" shifted to index 2
+    expect((inputs[0].element as HTMLInputElement).value).toBe("Product");
+    expect((inputs[2].element as HTMLInputElement).value).toBe("Marketing");
+  });
+
+  it("Enter on last empty value is a no-op", async () => {
+    const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
+    // Select Biz (index 1) — static with values
+    const bizRow = wrapper.findAll('[data-test="dim-row"]')[1];
+    await bizRow.trigger("click");
+    // Add an empty value row first
+    await wrapper.find('[data-test="add-value-btn"]').trigger("click");
+    await nextTick();
+    const before = wrapper.findAll('[data-test="value-input"]').length;
+    // Press Enter on the last (empty) input
+    const inputs = wrapper.findAll('[data-test="value-input"]');
+    const lastInput = inputs[inputs.length - 1];
+    await lastInput.trigger("keydown.enter");
+    await nextTick();
+    const after = wrapper.findAll('[data-test="value-input"]').length;
+    expect(after).toBe(before); // No new row inserted
+  });
+
   it("toggles delete dimension", async () => {
     const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
     let btn = wrapper.find('[data-test="delete-dim"]');
@@ -165,6 +219,23 @@ describe("DimensionEditorModal", () => {
       ]),
     }));
     expect(wrapper.emitted("saved")).toBeTruthy();
+  });
+
+  it("filters empty values when saving", async () => {
+    const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
+    // Select Biz (index 1) — static with values
+    const bizRow = wrapper.findAll('[data-test="dim-row"]')[1];
+    await bizRow.trigger("click");
+    // Push an empty value to the array (simulating inline editing leaving an empty row)
+    await wrapper.find('[data-test="add-value-btn"]').trigger("click");
+    await nextTick();
+    await wrapper.find('[data-test="save"]').trigger("click");
+    await nextTick();
+
+    const callArgs = (invoke as any).mock.calls.find((c: any[]) => c[0] === "save_dimensions")[1];
+    const bizDim = callArgs.dimensions.find((d: any) => d.key === "biz");
+    expect(bizDim.values).not.toContain("");
+    expect(bizDim.values).toEqual(["Product", "Marketing", "Engineering"]);
   });
 
   it("shows discard confirmation when dirty and Cancel is clicked", async () => {
