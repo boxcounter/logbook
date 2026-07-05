@@ -360,6 +360,13 @@ describe("CommitmentsModal — validation", () => {
     expect(invoke).not.toHaveBeenCalled();
     expect(w.text()).toContain("At least one role is required");
   });
+
+  it("error message uses data-test='save-error'", async () => {
+    const w = mountModal();
+    await w.find("[data-test='role-name']").setValue("");
+    await w.find("[data-test='save']").trigger("click");
+    expect(w.find("[data-test='save-error']").exists()).toBe(true);
+  });
 });
 
 describe("CommitmentsModal — keyboard", () => {
@@ -389,6 +396,41 @@ describe("CommitmentsModal — keyboard", () => {
     await w.findAll("[data-test='goal-name']")[0].trigger("keydown", { key: "Enter", metaKey: true });
     expect(w.findAll("[data-test='goal-name']").length).toBe(before); // .enter.exact: no insert
     expect(invoke).toHaveBeenCalledWith("set_commitments", expect.anything()); // bubbled to overlay → save
+  });
+
+  it("ArrowDown on left panel row moves to next role", async () => {
+    const w = mountModal({
+      commitments: [
+        makeCommitment({ role: "Developer", allocation: 40, goals: [] }),
+        makeCommitment({ role: "Advisor", allocation: 5, goals: [] }),
+      ],
+      progress: [],
+    });
+    expect(w.find("[data-test='role-row-selected']").text()).toContain("Developer");
+    await w.find("[data-test='role-row-selected']").trigger("keydown", { key: "ArrowDown" });
+    expect(w.find("[data-test='role-row-selected']").text()).toContain("Advisor");
+  });
+
+  it("ArrowUp on left panel row wraps to last role", async () => {
+    const w = mountModal({
+      commitments: [
+        makeCommitment({ role: "Developer", allocation: 40, goals: [] }),
+        makeCommitment({ role: "Advisor", allocation: 5, goals: [] }),
+      ],
+      progress: [],
+    });
+    expect(w.find("[data-test='role-row-selected']").text()).toContain("Developer");
+    await w.find("[data-test='role-row-selected']").trigger("keydown", { key: "ArrowUp" });
+    expect(w.find("[data-test='role-row-selected']").text()).toContain("Advisor");
+  });
+
+  it("Arrow keys do nothing when only one role", async () => {
+    const w = mountModal({
+      commitments: [makeCommitment({ role: "Developer", allocation: 40, goals: [] })],
+      progress: [],
+    });
+    await w.find("[data-test='role-row-selected']").trigger("keydown", { key: "ArrowDown" });
+    expect(w.find("[data-test='role-row-selected']").text()).toContain("Developer");
   });
 });
 
@@ -444,5 +486,48 @@ describe("CommitmentsModal — close & discard", () => {
     await w.find("[data-test='overlay']").trigger("click");
     expect(w.emitted("close")).toBeFalsy();
     expect(w.find("[data-test='discard-confirm']").exists()).toBe(true);
+  });
+});
+
+describe("CommitmentsModal — empty state", () => {
+  it("shows empty message in right panel when no roles", async () => {
+    const w = mountModal({
+      commitments: [makeCommitment({ role: "Solo", allocation: 40, goals: [] })],
+      progress: [makeCommitmentProgress({ role: "Solo", allocation_minutes: 2400, goal_spent_minutes: 0, general_spent_minutes: 0, goals: [] })],
+    });
+    await w.find("[data-test='role-delete']").trigger("click");
+    await w.find("[data-test='role-delete-confirm']").trigger("click");
+    expect(w.text()).toContain("No roles yet");
+  });
+});
+
+describe("CommitmentsModal — role switching", () => {
+  it("preserves unsaved goal text when switching between roles", async () => {
+    const w = mountModal({
+      commitments: [
+        makeCommitment({ role: "Developer", allocation: 40, goals: ["Code review"] }),
+        makeCommitment({ role: "Advisor", allocation: 5, goals: ["Office hours"] }),
+      ],
+      progress: [],
+    });
+    await w.findAll("[data-test='goal-name']")[0].setValue("Updated goal");
+    // Developer is selected by default → Advisor is the only role-row
+    await w.findAll("[data-test='role-row']")[0].trigger("click");
+    // Developer is now role-row, select it back
+    await w.findAll("[data-test='role-row']")[0].trigger("click");
+    expect((w.findAll("[data-test='goal-name']")[0].element as HTMLInputElement).value).toBe("Updated goal");
+  });
+
+  it("switching roles does not trigger save", async () => {
+    const w = mountModal({
+      commitments: [
+        makeCommitment({ role: "Developer", allocation: 40, goals: ["Code review"] }),
+        makeCommitment({ role: "Advisor", allocation: 5, goals: ["Office hours"] }),
+      ],
+      progress: [],
+    });
+    // Developer is selected by default → Advisor is role-row index 0
+    await w.findAll("[data-test='role-row']")[0].trigger("click");
+    expect(invoke).not.toHaveBeenCalled();
   });
 });
