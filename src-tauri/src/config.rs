@@ -321,8 +321,12 @@ fn spawn_watcher(
                                 let issues = crate::integrity::check_scoped_integrity(&watch_root);
                                 if issues.is_empty() {
                                     crate::integrity::reset();
-                                    let _ = app_handle.emit("integrity-changed", &crate::integrity::status());
+                                } else {
+                                    for issue in &issues {
+                                        crate::integrity::set_compromised(issue.clone());
+                                    }
                                 }
+                                let _ = app_handle.emit("integrity-changed", &crate::integrity::status());
                             }
                         }
                         Err(e) => {
@@ -371,8 +375,12 @@ fn spawn_watcher(
                                 let issues = crate::integrity::check_scoped_integrity(&watch_root);
                                 if issues.is_empty() {
                                     crate::integrity::reset();
-                                    let _ = app_handle.emit("integrity-changed", &crate::integrity::status());
+                                } else {
+                                    for issue in &issues {
+                                        crate::integrity::set_compromised(issue.clone());
+                                    }
                                 }
+                                let _ = app_handle.emit("integrity-changed", &crate::integrity::status());
                             }
                         }
                         Err(e) => {
@@ -432,8 +440,12 @@ fn spawn_watcher(
                                 let issues = crate::integrity::check_scoped_integrity(&watch_root);
                                 if issues.is_empty() {
                                     crate::integrity::reset();
-                                    let _ = app_handle.emit("integrity-changed", &crate::integrity::status());
+                                } else {
+                                    for issue in &issues {
+                                        crate::integrity::set_compromised(issue.clone());
+                                    }
                                 }
+                                let _ = app_handle.emit("integrity-changed", &crate::integrity::status());
                             }
                         }
                         Err(e) => {

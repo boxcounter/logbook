@@ -665,6 +665,15 @@ pub fn delete_entry(root_path: String, date: String, entry_id: String) -> Result
     // Deleting an entry does not customize the month's dimensions, so it must not
     // trigger instantiation (would freeze the month to the current template).
 
+    // Pre-write integrity check on the target day file BEFORE reading it
+    if let Err(issue) = integrity::check_day_file_integrity(root, &date) {
+        integrity::set_compromised(issue.clone());
+        return Err(format!(
+            "Write denied: target file integrity check failed: {} — {}",
+            issue.path, issue.message
+        ));
+    }
+
     // Read before snapshot
     let day_file = files::read_day_file(root, &date)?;
     let before = day_file
@@ -673,15 +682,6 @@ pub fn delete_entry(root_path: String, date: String, entry_id: String) -> Result
         .find(|e| e.id == entry_id)
         .cloned()
         .ok_or_else(|| format!("Entry {} not found", entry_id))?;
-
-    // Pre-write integrity check on the target day file
-    if let Err(issue) = integrity::check_day_file_integrity(root, &date) {
-        integrity::set_compromised(issue.clone());
-        return Err(format!(
-            "Write denied: target file integrity check failed: {} — {}",
-            issue.path, issue.message
-        ));
-    }
 
     // Log before mutation
     operation_log::append(
@@ -709,11 +709,7 @@ pub fn set_day_note(root_path: String, date: String, note: String) -> Result<Day
     // A day note does not customize the month's dimensions, so it must not
     // trigger instantiation (would freeze the month to the current template).
 
-    // Read before snapshot
-    let day_file = files::read_day_file(root, &date)?;
-    let before = day_file.note.clone();
-
-    // Pre-write integrity check on the target day file
+    // Pre-write integrity check on the target day file BEFORE reading it
     if let Err(issue) = integrity::check_day_file_integrity(root, &date) {
         integrity::set_compromised(issue.clone());
         return Err(format!(
@@ -721,6 +717,10 @@ pub fn set_day_note(root_path: String, date: String, note: String) -> Result<Day
             issue.path, issue.message
         ));
     }
+
+    // Read before snapshot
+    let day_file = files::read_day_file(root, &date)?;
+    let before = day_file.note.clone();
 
     // Log before mutation
     operation_log::append(
@@ -1834,13 +1834,12 @@ pub fn log_info(message: String) {
 #[tauri::command]
 pub fn recheck_integrity(root_path: String) -> crate::models::IntegrityStatus {
     let root = std::path::Path::new(&root_path);
+    integrity::reset();
     let issues = integrity::check_scoped_integrity(root);
     if !issues.is_empty() {
         for issue in &issues {
             integrity::set_compromised(issue.clone());
         }
-    } else {
-        integrity::reset();
     }
     integrity::status()
 }
