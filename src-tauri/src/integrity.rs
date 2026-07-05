@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use crate::models::{IntegrityIssue, IntegrityStatus};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{LazyLock, Mutex};
@@ -54,8 +56,6 @@ pub fn status() -> IntegrityStatus {
     }
 }
 
-use std::path::Path;
-
 pub fn check_day_file_integrity(root: &Path, date: &str) -> Result<(), IntegrityIssue> {
     use crate::files;
 
@@ -88,7 +88,16 @@ pub fn check_day_file_integrity(root: &Path, date: &str) -> Result<(), Integrity
         kind: "DateParseError".into(),
     })?;
 
-    let dims = crate::files::read_dimensions_file(root, year, month).unwrap_or_default();
+    let dims = match crate::files::read_dimensions_file(root, year, month) {
+        Ok(d) => d,
+        Err(e) => {
+            return Err(IntegrityIssue {
+                path: rel_path,
+                message: format!("Cannot read monthly dimensions.yaml: {}", e),
+                kind: "DimensionsFileError".into(),
+            });
+        }
+    };
 
     for entry in &day_file.entries {
         if entry.duration == 0 {
@@ -102,7 +111,7 @@ pub fn check_day_file_integrity(root: &Path, date: &str) -> Result<(), Integrity
         if !is_valid_uuid_v4(&entry.id) {
             return Err(IntegrityIssue {
                 path: rel_path,
-                message: format!("Entry {} has invalid UUID: {}", entry.id, entry.id),
+                message: format!("Entry {} has invalid UUID", entry.id),
                 kind: "InvalidUuid".into(),
             });
         }
@@ -202,7 +211,17 @@ pub fn check_scoped_integrity(root: &Path) -> Vec<IntegrityIssue> {
     let mut issues = Vec::new();
 
     for offset in 0..=3 {
-        let target = today - chrono::Duration::days(offset * 30);
+        let target = if offset == 0 {
+            today
+        } else {
+            let mut y = today.year();
+            let mut m = today.month() as i32 - offset as i32;
+            while m <= 0 {
+                m += 12;
+                y -= 1;
+            }
+            chrono::NaiveDate::from_ymd_opt(y, m as u32, 1).unwrap_or(today)
+        };
         let year = target.year();
         let month = target.month();
 
