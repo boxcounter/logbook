@@ -166,8 +166,9 @@ describe("MonthView", () => {
   it("prev-day from DayHeader moves currentDate back one day", async () => {
     const store = makeStore();
     const wrapper = mountView(store);
+    await flushPromises(); // wait for onMounted loadMonth
     wrapper.findComponent({ name: "DayHeader" }).vm.$emit("prev-day");
-    await wrapper.vm.$nextTick();
+    await flushPromises(); // wait for shiftDay's loadMonth
     expect(store.currentDate).toBe(addDays(todayDateStr(), -1));
   });
 
@@ -187,9 +188,10 @@ describe("MonthView", () => {
 
   it("⌘[ moves back one day", async () => {
     const store = makeStore();
-    const wrapper = mountView(store);
+    mountView(store);
+    await flushPromises(); // wait for onMounted loadMonth
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "[", metaKey: true }));
-    await wrapper.vm.$nextTick();
+    await flushPromises(); // wait for shiftDay's loadMonth
     expect(store.currentDate).toBe(addDays(todayDateStr(), -1));
   });
 
