@@ -9,7 +9,11 @@ pub mod scan;
 pub mod single_instance;
 mod window_state;
 
+use std::io::Write;
 use std::path::PathBuf;
+use std::process::{Command, Stdio};
+use std::thread;
+use std::time::Duration;
 use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
@@ -98,10 +102,21 @@ pub fn run() {
                 .id("install-cli")
                 .build(app)?;
 
+            let copy_data_path_item = MenuItemBuilder::new("Copy User Data Path")
+                .id("copy-data-path")
+                .build(app)?;
+
+            let open_data_dir_item = MenuItemBuilder::new("Open User Data Directory")
+                .id("open-data-dir")
+                .build(app)?;
+
             let app_menu = SubmenuBuilder::new(app, "Logbook")
                 .about(Some(Default::default()))
                 .separator()
                 .item(&install_cli_item)
+                .separator()
+                .item(&copy_data_path_item)
+                .item(&open_data_dir_item)
                 .separator()
                 .services()
                 .separator()
@@ -135,31 +150,107 @@ pub fn run() {
 
             app.set_menu(menu)?;
 
-            app.on_menu_event(|app_handle, event| {
-                if event.id().0 == "install-cli" {
-                    crate::error_log::log_command_enter("install_cli", "menu");
-                    let resource_dir = app_handle.path().resource_dir().ok();
-                    match crate::cli::install::install_cli(resource_dir) {
-                        Ok(msg) => {
-                            crate::error_log::log_command_exit("install_cli", true, "");
-                            let _ = app_handle
-                                .dialog()
-                                .message(msg)
-                                .title("Logbook")
-                                .kind(tauri_plugin_dialog::MessageDialogKind::Info)
-                                .show(|_| {});
-                        }
-                        Err(e) => {
-                            crate::error_log::log_error("install_cli", &e);
-                            crate::error_log::log_command_exit("install_cli", false, &e);
-                            let _ = app_handle
-                                .dialog()
-                                .message(e)
-                                .title("Logbook — Install CLI Failed")
-                                .kind(tauri_plugin_dialog::MessageDialogKind::Error)
-                                .show(|_| {});
+            let copy_item_for_event = copy_data_path_item.clone();
+            let open_item_for_event = open_data_dir_item.clone();
+            let app_data_dir_event = app_data_dir.clone();
+
+            app.on_menu_event(move |app_handle, event| {
+                match event.id().0.as_str() {
+                    "install-cli" => {
+                        crate::error_log::log_command_enter("install_cli", "menu");
+                        let resource_dir = app_handle.path().resource_dir().ok();
+                        match crate::cli::install::install_cli(resource_dir) {
+                            Ok(msg) => {
+                                crate::error_log::log_command_exit("install_cli", true, "");
+                                let _ = app_handle
+                                    .dialog()
+                                    .message(msg)
+                                    .title("Logbook")
+                                    .kind(tauri_plugin_dialog::MessageDialogKind::Info)
+                                    .show(|_| {});
+                            }
+                            Err(e) => {
+                                crate::error_log::log_error("install_cli", &e);
+                                crate::error_log::log_command_exit("install_cli", false, &e);
+                                let _ = app_handle
+                                    .dialog()
+                                    .message(e)
+                                    .title("Logbook — Install CLI Failed")
+                                    .kind(tauri_plugin_dialog::MessageDialogKind::Error)
+                                    .show(|_| {});
+                            }
                         }
                     }
+                    "copy-data-path" => {
+                        let path = crate::files::read_root_path(&app_data_dir_event);
+                        match path {
+                            Some(p) => {
+                                let path_str = p.to_string_lossy().to_string();
+                                match Command::new("pbcopy")
+                                    .stdin(Stdio::piped())
+                                    .spawn()
+                                {
+                                    Ok(mut child) => {
+                                        if child.stdin.as_mut().unwrap().write_all(path_str.as_bytes()).is_ok() {
+                                            let _ = copy_item_for_event.set_text("Copied!");
+                                        } else {
+                                            crate::error_log::log_error(
+                                                "copy-data-path",
+                                                "pbcopy write failed",
+                                            );
+                                            let _ = copy_item_for_event.set_text("Copy failed");
+                                        }
+                                        let _ = child.wait();
+                                    }
+                                    Err(e) => {
+                                        crate::error_log::log_error(
+                                            "copy-data-path",
+                                            &format!("pbcopy spawn failed: {}", e),
+                                        );
+                                        let _ = copy_item_for_event.set_text("Copy failed");
+                                    }
+                                }
+                                let item = copy_item_for_event.clone();
+                                thread::spawn(move || {
+                                    thread::sleep(Duration::from_millis(1500));
+                                    let _ = item.set_text("Copy User Data Path");
+                                });
+                            }
+                            None => {
+                                let _ = app_handle
+                                    .dialog()
+                                    .message("No data directory configured.")
+                                    .title("Logbook")
+                                    .kind(tauri_plugin_dialog::MessageDialogKind::Error)
+                                    .show(|_| {});
+                            }
+                        }
+                    }
+                    "open-data-dir" => {
+                        let path = crate::files::read_root_path(&app_data_dir_event);
+                        match path {
+                            Some(p) => {
+                                match Command::new("open").arg(&p).spawn() {
+                                    Ok(_) => {}
+                                    Err(e) => {
+                                        crate::error_log::log_error(
+                                            "open-data-dir",
+                                            &format!("open failed: {}", e),
+                                        );
+                                    }
+                                }
+                            }
+                            None => {
+                                let _ = app_handle
+                                    .dialog()
+                                    .message("No data directory configured.")
+                                    .title("Logbook")
+                                    .kind(tauri_plugin_dialog::MessageDialogKind::Error)
+                                    .show(|_| {});
+                            }
+                        }
+                    }
+                    _ => {}
                 }
             });
             // ────────────────────────────────────────────────────
