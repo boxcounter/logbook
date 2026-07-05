@@ -559,20 +559,22 @@ pub fn append_entry(root_path: String, date: String, entry: CreateEntryInput) ->
     let root = std::path::Path::new(&root_path);
     integrity::check()?;
     validate_date_format(&date)?;
-    let duration = parse_duration(&entry.duration)?;
     let (year, month) = files::year_month_from_date(&date)?;
     files::create_dimensions_if_missing(root, year, month)?;
     let dims = files::resolve_month_dimensions(root, year, month)?;
-    validate_required_dimensions(&dims, &entry.dimensions)?;
-
-    // Cross-dimension validation
-    {
-        let commitments = crate::files::read_commitments_file(root, year, month).unwrap_or_default();
-        let goal_key = goal_dim_key(root, year, month)?;
-        let role_key = role_dim_key(root, year, month)?;
-        let (_, role_to_goals) = build_commitment_maps(&commitments);
-        validate_cross_dimension_constraints(&entry.dimensions, &role_key, &goal_key, &role_to_goals)?;
-    }
+    let commitments = crate::files::read_commitments_file(root, year, month).unwrap_or_default();
+    let goal_key = goal_dim_key(root, year, month)?;
+    let role_key = role_dim_key(root, year, month)?;
+    let (_, role_to_goals) = build_commitment_maps(&commitments);
+    let duration = validate_entry_input(
+        &entry.item,
+        &entry.duration,
+        &entry.dimensions,
+        &dims,
+        &role_key,
+        &goal_key,
+        &role_to_goals,
+    )?;
 
     // Pre-write integrity check on the target day file
     if let Err(issue) = integrity::check_day_file_integrity(root, &date) {
