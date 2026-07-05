@@ -34,7 +34,7 @@ describe("DimensionPopover", () => {
     expect(wrapper.text()).toContain("PM");
   });
 
-  it("shows commitments:goals goal options for a commitments:goals source dimension", async () => {
+  it("shows commitments:role:goals goal options for a commitments:role:goals source dimension", async () => {
     const wrapper = mountPop();
     await wrapper.findAll("[data-test='dim-item']")[1].trigger("click"); // Goal
     expect(wrapper.text()).toContain("Bug fixes");

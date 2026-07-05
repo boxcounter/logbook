@@ -63,7 +63,7 @@ describe("DimensionEditorModal", () => {
 
   it("shows values for selected static dimension", async () => {
     const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
-    // Default selects index 0 (Goal, commitments:goals). Click Biz (index 1) for static values.
+    // Default selects index 0 (Goal, commitments:role:goals). Click Biz (index 1) for static values.
     const bizRow = wrapper.findAll('[data-test="dim-row"]')[1];
     await bizRow.trigger("click");
     const valueInputs = wrapper.findAll('[data-test="value-input"]');
@@ -86,9 +86,9 @@ describe("DimensionEditorModal", () => {
     expect(wrapper.text()).toContain("locked");
   });
 
-  it("shows commitments:goals info card", () => {
+  it("shows commitments:role:goals info card", () => {
     const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
-    // Goal is commitments:goals (index 0, selected by default)
+    // Goal is commitments:role:goals (index 0, selected by default)
     expect(wrapper.text()).toContain("Values are derived from commitment goals");
   });
 
@@ -100,9 +100,9 @@ describe("DimensionEditorModal", () => {
     expect(wrapper.text()).toContain("Values are derived from commitment roles");
   });
 
-  it("does not show values section for commitments:goals dimensions", () => {
+  it("does not show values section for commitments:role:goals dimensions", () => {
     const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
-    // Goal is commitments:goals — no values list or "New value" input
+    // Goal is commitments:role:goals — no values list or "New value" input
     expect(wrapper.find('input[placeholder="New value"]').exists()).toBe(false);
   });
 
@@ -428,7 +428,7 @@ describe("DimensionEditorModal", () => {
   });
 
   it("prevents creating a second commitments:role:goals source dimension", async () => {
-    const wrapper = mountModal(); // Goal (index 0) is commitments:goals
+    const wrapper = mountModal(); // Goal (index 0) is commitments:role:goals
     await wrapper.find('[data-test="add-dim-btn"]').trigger("click");
     await wrapper.find('[data-test="add-dim-name"]').setValue("Second Monthly");
     await wrapper.find('[data-test="add-dim-key"]').setValue("monthly2");
