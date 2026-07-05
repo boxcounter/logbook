@@ -68,7 +68,9 @@ describe("CommitmentsModal — base", () => {
   it("adds a role on + Add Role", async () => {
     const w = mountModal();
     await w.find("[data-test='add-role']").trigger("click");
-    expect(w.findAll("[data-test='role-name']").length).toBe(2);
+    // In two-column layout, only the selected role's `role-name` renders.
+    // Count left-panel rows (role-row + role-row-selected) instead.
+    expect(w.findAll("[data-test='role-row'],[data-test='role-row-selected']").length).toBe(2);
   });
 
   it("Save calls set_commitments with trimmed commitments and emits saved+close", async () => {
@@ -187,7 +189,7 @@ describe("CommitmentsModal — summary, progress & over-commit", () => {
     for (let i = 0; i < 6; i++) await dec.trigger("click"); // 40→10
     expect((w.find("[data-test='bar-fill']").element as HTMLElement).style.width).toBe("100%");
     expect(w.find("[data-test='role-spent']").text()).toContain("over by");
-    expect(w.find("[data-test='bar-fill']").classes().join(" ")).toContain("color-warning");
+    expect(w.find("[data-test='bar-fill']").classes().join(" ")).toContain("bg-[var(--color-warning)]");
   });
 });
 
@@ -225,11 +227,15 @@ describe("CommitmentsModal — delete constraints", () => {
         makeCommitmentProgress({ role: "Advisor", goal_spent_minutes: 0, general_spent_minutes: 0, allocation_minutes: 300, goals: [{ name: "Office hours", spent_minutes: 0}] }),
       ],
     });
-    const advisorDel = w.findAll("[data-test='role-delete']")[1];
+    // Two-column: only the selected role's delete button renders.
+    // Developer is selected by default; select Advisor in the left panel first.
+    await w.findAll("[data-test='role-row']")[0].trigger("click");
+    const advisorDel = w.find("[data-test='role-delete']");
     expect((advisorDel.element as HTMLButtonElement).disabled).toBe(false);
     await advisorDel.trigger("click");
     await w.find("[data-test='role-delete-confirm']").trigger("click");
-    expect(w.findAll("[data-test='role-name']").length).toBe(1);
+    // After removing Advisor, count roles in the left panel.
+    expect(w.findAll("[data-test='role-row'],[data-test='role-row-selected']").length).toBe(1);
   });
 
   it("Cancel in the role-delete confirm dismisses without removing", async () => {
@@ -243,9 +249,11 @@ describe("CommitmentsModal — delete constraints", () => {
         makeCommitmentProgress({ role: "Advisor", goal_spent_minutes: 0, general_spent_minutes: 0, allocation_minutes: 300, goals: [{ name: "Office hours", spent_minutes: 0}] }),
       ],
     });
-    await w.findAll("[data-test='role-delete']")[1].trigger("click"); // Advisor → confirm
+    // Select Advisor in the left panel, then trigger its delete
+    await w.findAll("[data-test='role-row']")[0].trigger("click"); // Advisor
+    await w.find("[data-test='role-delete']").trigger("click");
     await w.find("[data-test='role-delete-cancel']").trigger("click");
-    expect(w.findAll("[data-test='role-name']").length).toBe(2); // nothing removed
+    expect(w.findAll("[data-test='role-row'],[data-test='role-row-selected']").length).toBe(2); // nothing removed
     expect(w.find("[data-test='role-delete-confirm']").exists()).toBe(false); // confirm dismissed
   });
 
@@ -318,10 +326,12 @@ describe("CommitmentsModal — validation", () => {
       progress: [],
     });
     await w.find("[data-test='save']").trigger("click");
+    // Two-column: only the selected role's (Developer's) goals render.
+    // The "Shared" goal appears once, and must be red-bordered.
     const dupGoalInputs = w.findAll("[data-test='goal-name']")
       .filter(i => (i.element as HTMLInputElement).value === "Shared");
-    expect(dupGoalInputs.length).toBe(2);
-    expect(dupGoalInputs.every(i => i.classes().includes("border-[var(--color-danger)]"))).toBe(true);
+    expect(dupGoalInputs.length).toBe(1);
+    expect(dupGoalInputs[0].classes()).toContain("border-[var(--color-danger)]");
   });
 
   it("clears the error and saves after the user fixes an invalid field", async () => {
