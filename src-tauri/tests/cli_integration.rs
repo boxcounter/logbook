@@ -632,7 +632,7 @@ fn test_dimensions_set_rejects_empty_value_string() {
     ], input);
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("ValuesEmpty") || stderr.contains("empty"), "stderr: {}", stderr);
+    assert!(stderr.contains("ValuesEmpty"), "stderr: {}", stderr);
 
     let _ = fs::remove_dir_all(&tmp);
 }

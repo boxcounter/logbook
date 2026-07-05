@@ -171,6 +171,24 @@ fn validate_cross_dimension_constraints(
     Ok(())
 }
 
+/// Validate that all dimension keys in the entry are declared in the
+/// dimension config. Deleted dimensions are still considered known keys.
+fn check_unknown_dimension_keys(
+    dimension_config: &[Dimension],
+    dimensions: &BTreeMap<String, String>,
+) -> Result<(), String> {
+    let known_keys: std::collections::HashSet<&str> = dimension_config
+        .iter()
+        .map(|d| d.key.as_str())
+        .collect();
+    for key in dimensions.keys() {
+        if !known_keys.contains(key.as_str()) {
+            return Err(format!("Unknown dimension key '{}'", key));
+        }
+    }
+    Ok(())
+}
+
 /// Unified pre-write validation for entry input (append + update paths).
 /// Returns parsed duration (u32 minutes) on success.
 pub fn validate_entry_input(
@@ -188,15 +206,7 @@ pub fn validate_entry_input(
 
     let duration = parse_duration(duration_str)?;
 
-    let known_keys: std::collections::HashSet<&str> = dimension_config
-        .iter()
-        .map(|d| d.key.as_str())
-        .collect();
-    for key in dimensions.keys() {
-        if !known_keys.contains(key.as_str()) {
-            return Err(format!("Unknown dimension key '{}'", key));
-        }
-    }
+    check_unknown_dimension_keys(dimension_config, dimensions)?;
 
     validate_required_dimensions(dimension_config, dimensions)?;
 
@@ -559,6 +569,15 @@ pub fn append_entry(root_path: String, date: String, entry: CreateEntryInput) ->
     let root = std::path::Path::new(&root_path);
     integrity::check()?;
     validate_date_format(&date)?;
+
+    // Fast-fail: validate item and duration before touching the filesystem.
+    // validate_entry_input below will re-check these (cheap), but early
+    // rejection prevents unnecessary setup I/O on obviously bad input.
+    if entry.item.trim().is_empty() {
+        return Err("Entry item cannot be empty".to_string());
+    }
+    parse_duration(&entry.duration)?;
+
     let (year, month) = files::year_month_from_date(&date)?;
     files::create_dimensions_if_missing(root, year, month)?;
     let dims = files::resolve_month_dimensions(root, year, month)?;
@@ -638,15 +657,7 @@ pub fn update_entry(
     }
     if let Some(ref dims) = update.dimensions {
         let effective = files::resolve_month_dimensions(root, year, month)?;
-        let known_keys: std::collections::HashSet<&str> = effective
-            .iter()
-            .map(|d| d.key.as_str())
-            .collect();
-        for key in dims.keys() {
-            if !known_keys.contains(key.as_str()) {
-                return Err(format!("Unknown dimension key '{}'", key));
-            }
-        }
+        check_unknown_dimension_keys(&effective, dims)?;
         validate_required_dimensions(&effective, dims)?;
         {
             let commitments = crate::files::read_commitments_file(root, year, month).unwrap_or_default();
