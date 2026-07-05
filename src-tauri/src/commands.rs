@@ -521,10 +521,10 @@ pub fn get_month_entries(
         };
         let path = entry.path();
         let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-        if file_name == "_monthly.md" || !file_name.ends_with(".md") {
+        if !file_name.ends_with(".yaml") {
             continue;
         }
-        let date = file_name.trim_end_matches(".md");
+        let date = file_name.trim_end_matches(".yaml");
         if validate_date_format(date).is_err() {
             continue;
         }
@@ -978,10 +978,10 @@ pub fn get_commitment_progress(
                 };
                 let path = entry.path();
                 let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-                if !file_name.ends_with(".md") {
+                if !file_name.ends_with(".yaml") {
                     continue;
                 }
-                match crate::files::read_day_file(root, file_name.trim_end_matches(".md")) {
+                match crate::files::read_day_file(root, file_name.trim_end_matches(".yaml")) {
                     Ok(day_file) => {
                         for e in &day_file.entries {
                             let role = e.dimensions.get(&role_key);
@@ -1223,10 +1223,10 @@ pub fn set_commitments(
                 };
                 let path = entry.path();
                 let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-                if file_name == "_monthly.md" || !file_name.ends_with(".md") {
+                if !file_name.ends_with(".yaml") {
                     continue;
                 }
-                if let Ok(mut day_file) = crate::files::read_day_file(root, file_name.trim_end_matches(".md")) {
+                if let Ok(mut day_file) = crate::files::read_day_file(root, file_name.trim_end_matches(".yaml")) {
                     let mut cleaned = 0u32;
                     for e in &mut day_file.entries {
                         if let Some(role_val) = e.dimensions.get(&role_key) {
@@ -1247,7 +1247,7 @@ pub fn set_commitments(
                     if cleaned > 0 {
                         error_log::log_info("set_commitments:repair_sweep",
                             &format!("cleared {} unknown value(s) in {}", cleaned, file_name));
-                        if let Err(e) = crate::files::write_day_file(root, file_name.trim_end_matches(".md"), &day_file) {
+                        if let Err(e) = crate::files::write_day_file(root, file_name.trim_end_matches(".yaml"), &day_file) {
                             write_errors.push(format!("repair sweep {}: {}", file_name, e));
                         }
                     }
@@ -1311,10 +1311,10 @@ fn batch_count_entries_for_goals(
         };
         let path = entry.path();
         let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-        if file_name == "_monthly.md" || !file_name.ends_with(".md") {
+        if !file_name.ends_with(".yaml") {
             continue;
         }
-        let date = file_name.trim_end_matches(".md");
+        let date = file_name.trim_end_matches(".yaml");
         if let Ok(day_file) = files::read_day_file(root, date) {
             for e in &day_file.entries {
                 if let Some(g) = e.dimensions.get(&goal_key) {
@@ -1363,10 +1363,10 @@ fn batch_rename_goals_in_entries(
         };
         let path = entry.path();
         let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-        if file_name == "_monthly.md" || !file_name.ends_with(".md") {
+        if !file_name.ends_with(".yaml") {
             continue;
         }
-        let date = file_name.trim_end_matches(".md");
+        let date = file_name.trim_end_matches(".yaml");
         if validate_date_format(date).is_err() {
             continue;
         }
@@ -1429,10 +1429,10 @@ fn cleanup_deleted_goals_in_entries(
         };
         let path = entry.path();
         let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-        if file_name == "_monthly.md" || !file_name.ends_with(".md") {
+        if !file_name.ends_with(".yaml") {
             continue;
         }
-        let date = file_name.trim_end_matches(".md");
+        let date = file_name.trim_end_matches(".yaml");
         let mut day_file = match files::read_day_file(root, date) {
             Ok(df) => df,
             Err(_) => continue,
@@ -1643,7 +1643,7 @@ pub fn get_available_months(root_path: String) -> Result<Vec<AvailableMonth>, St
                 _ => continue,
             };
 
-            // Check if this month directory contains at least one .md file
+            // Check if this month directory contains at least one .yaml file
             let has_md = match std::fs::read_dir(month_entry.path()) {
                 Ok(entries) => {
                     let mut found = false;
@@ -1651,7 +1651,7 @@ pub fn get_available_months(root_path: String) -> Result<Vec<AvailableMonth>, St
                         match e {
                             Ok(entry) => {
                                 let name_str = entry.file_name().to_string_lossy().into_owned();
-                                if name_str.ends_with(".md") {
+                                if name_str.ends_with(".yaml") {
                                     found = true;
                                     break;
                                 }
@@ -1697,7 +1697,7 @@ struct RevealTarget {
 }
 
 /// Decide what to reveal for `date`:
-/// - day file `root/YYYY/MM/YYYY-MM-DD.md` exists → select that file
+/// - day file `root/YYYY/MM/YYYY-MM-DD.yaml` exists → select that file
 /// - else the month dir `root/YYYY/MM/` exists    → open that dir
 /// - else                                         → open the data root
 fn resolve_reveal_target(root: &std::path::Path, date: &str) -> Result<RevealTarget, String> {
@@ -2134,14 +2134,14 @@ mod tests {
 
         // Create day file with entries matching goals
         fs::write(
-            monthly_dir.join("2026-06-01.md"),
-            "---\nentries:\n  - id: e1\n    item: Code\n    duration: 60\n    dimensions:\n      goal: Ship it\n  - id: e2\n    item: PR\n    duration: 30\n    dimensions:\n      goal: Review\n---\n",
+            monthly_dir.join("2026-06-01.yaml"),
+            "entries:\n  - id: e1\n    item: Code\n    duration: 60\n    dimensions:\n      goal: Ship it\n  - id: e2\n    item: PR\n    duration: 30\n    dimensions:\n      goal: Review\n",
         )
         .unwrap();
 
         fs::write(
-            monthly_dir.join("2026-06-02.md"),
-            "---\nentries:\n  - id: e3\n    item: Plan\n    duration: 45\n    dimensions:\n      goal: Planning\n---\n",
+            monthly_dir.join("2026-06-02.yaml"),
+            "entries:\n  - id: e3\n    item: Plan\n    duration: 45\n    dimensions:\n      goal: Planning\n",
         )
         .unwrap();
 
@@ -2189,8 +2189,8 @@ mod tests {
 
         // Entry with a goal NOT in any commitment
         fs::write(
-            monthly_dir.join("2026-06-01.md"),
-            "---\nentries:\n  - id: e1\n    item: Unknown task\n    duration: 60\n    dimensions:\n      goal: Not a goal\n---\n",
+            monthly_dir.join("2026-06-01.yaml"),
+            "entries:\n  - id: e1\n    item: Unknown task\n    duration: 60\n    dimensions:\n      goal: Not a goal\n",
         )
         .unwrap();
 
@@ -2253,42 +2253,12 @@ mod tests {
         std::fs::write(month_dir.join("dimensions.yaml"), "[]\n").unwrap();
 
         // Day 1: entry with role=Dev, goal=Ship X -> Ok, goal segment
-        let day1 = r#"---
-entries:
-  - id: e1
-    item: Code feature
-    duration: 120
-    dimensions:
-      role: Dev
-      goal: Ship X
-  - id: e2
-    item: Standup
-    duration: 30
-    dimensions:
-      role: Dev
-  - id: e3
-    item: Email
-    duration: 15
-    dimensions: {}
----"#;
-        std::fs::write(month_dir.join("2026-07-01.md"), day1).unwrap();
+        let day1 = "entries:\n  - id: e1\n    item: Code feature\n    duration: 120\n    dimensions:\n      role: Dev\n      goal: Ship X\n  - id: e2\n    item: Standup\n    duration: 30\n    dimensions:\n      role: Dev\n  - id: e3\n    item: Email\n    duration: 15\n    dimensions: {}\n";
+        std::fs::write(month_dir.join("2026-07-01.yaml"), day1).unwrap();
 
         // Day 2: entry via goal fallback (no role dim) + mismatch case
-        let day2 = r#"---
-entries:
-  - id: e4
-    item: Roadmap planning
-    duration: 60
-    dimensions:
-      goal: Roadmap
-  - id: e5
-    item: Mismatch case
-    duration: 45
-    dimensions:
-      role: Dev
-      goal: Roadmap
----"#;
-        std::fs::write(month_dir.join("2026-07-02.md"), day2).unwrap();
+        let day2 = "entries:\n  - id: e4\n    item: Roadmap planning\n    duration: 60\n    dimensions:\n      goal: Roadmap\n  - id: e5\n    item: Mismatch case\n    duration: 45\n    dimensions:\n      role: Dev\n      goal: Roadmap\n";
+        std::fs::write(month_dir.join("2026-07-02.yaml"), day2).unwrap();
 
         let result = get_commitment_progress(
             tmp.to_string_lossy().to_string(),
