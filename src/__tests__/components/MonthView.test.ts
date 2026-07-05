@@ -191,7 +191,7 @@ describe("MonthView", () => {
     const store = makeStore();
     mountView(store);
     await flushPromises(); // wait for onMounted loadMonth
-    window.dispatchEvent(new KeyboardEvent("keydown", { key: "[", metaKey: true }));
+    window.dispatchEvent(new KeyboardEvent("keydown", { code: "BracketLeft", metaKey: true }));
     await flushPromises(); // wait for shiftDay's loadMonth
     expect(store.currentDate).toBe(addDays(todayDateStr(), -1));
   });
@@ -200,7 +200,34 @@ describe("MonthView", () => {
     const store = makeStore();
     const wrapper = mountView(store);
     const expectedMonth = todayDateStr().slice(0, 7); // current YYYY-MM
-    window.dispatchEvent(new KeyboardEvent("keydown", { key: "[", metaKey: true, shiftKey: true }));
+    window.dispatchEvent(new KeyboardEvent("keydown", { code: "BracketLeft", metaKey: true, shiftKey: true }));
+    await wrapper.vm.$nextTick();
+    expect(store.currentDate.slice(0, 7)).not.toBe(expectedMonth);
+  });
+
+  it("⌘⇧[ moves back one month (real browser key = '{')", async () => {
+    const store = makeStore();
+    const wrapper = mountView(store);
+    const expectedMonth = todayDateStr().slice(0, 7);
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "{", code: "BracketLeft", metaKey: true, shiftKey: true }));
+    await wrapper.vm.$nextTick();
+    expect(store.currentDate.slice(0, 7)).not.toBe(expectedMonth);
+  });
+
+  it("⌘⇧] moves forward one month", async () => {
+    const store = makeStore();
+    const wrapper = mountView(store);
+    const expectedMonth = todayDateStr().slice(0, 7);
+    window.dispatchEvent(new KeyboardEvent("keydown", { code: "BracketRight", metaKey: true, shiftKey: true }));
+    await wrapper.vm.$nextTick();
+    expect(store.currentDate.slice(0, 7)).not.toBe(expectedMonth);
+  });
+
+  it("⌘⇧] moves forward one month (real browser key = '}')", async () => {
+    const store = makeStore();
+    const wrapper = mountView(store);
+    const expectedMonth = todayDateStr().slice(0, 7);
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "}", code: "BracketRight", metaKey: true, shiftKey: true }));
     await wrapper.vm.$nextTick();
     expect(store.currentDate.slice(0, 7)).not.toBe(expectedMonth);
   });

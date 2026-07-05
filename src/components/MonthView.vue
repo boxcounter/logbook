@@ -107,10 +107,10 @@ async function goToToday() {
 }
 function onGlobalKeydown(e: KeyboardEvent) {
   if (!(e.metaKey || e.ctrlKey)) return;
-  if (e.key === "[") {
+  if (e.code === "BracketLeft") {
     e.preventDefault();
     e.shiftKey ? shiftMonth(-1) : shiftDay(-1);
-  } else if (e.key === "]") {
+  } else if (e.code === "BracketRight") {
     e.preventDefault();
     e.shiftKey ? shiftMonth(1) : shiftDay(1);
   } else if (e.key === "t" || e.key === "T") {
