@@ -9,7 +9,7 @@ enableAutoUnmount(afterEach);
 
 const dimensions = [
   makeDimension({ name: "Category", key: "category", source: "static", values: ["Engineering", "PM"], required: true }),
-  makeDimension({ name: "Goal", key: "goal", source: "commitments:goals", required: true }),
+  makeDimension({ name: "Goal", key: "goal", source: "commitments:role:goals", required: true }),
   makeDimension({ name: "Business Line", key: "business-line", source: "static", values: ["Slax"], required: false }),
 ];
 const commitments = [makeCommitment({ goals: ["Bug fixes", "Code review"] })];
@@ -34,7 +34,7 @@ describe("DimensionPopover", () => {
     expect(wrapper.text()).toContain("PM");
   });
 
-  it("shows commitments:goals goal options for a commitments:goals source dimension", async () => {
+  it("shows commitments:role:goals goal options for a commitments:role:goals source dimension", async () => {
     const wrapper = mountPop();
     await wrapper.findAll("[data-test='dim-item']")[1].trigger("click"); // Goal
     expect(wrapper.text()).toContain("Bug fixes");

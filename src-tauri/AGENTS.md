@@ -47,7 +47,7 @@ src/
 - 文件写入：先写 `.tmp` 再 rename（原子写入）
 - Frontmatter 解析：手动定位 `---` 边界 + `yaml_serde::from_str`
 - 维度集合按月存放：`dimensions.template.yaml`（全局默认，旧 `config.yaml`、`template.yaml` 已弃用）→ 每月首次写入时 `create_dimensions_if_missing` 快照进该月 `dimensions.yaml`；`resolve_month_dimensions` 取 `dimensions.yaml` 否则 `dimensions.template.yaml`（缺文件容错返回空）。改 template 不回溯影响已实例化的月份；纯读不实例化
-- Goal 维度 `source: "commitments:goals"`，值列表来自 `commitments.yaml` 的 commitments goals 并集，不在 template/维度块的 values 里
+- Goal 维度 `source: "commitments:role:goals"`，值列表来自 `commitments.yaml` 的 commitments goals 并集，不在 template/维度块的 values 里
 - Commitments 经 `set_commitments` 命令写入（校验 + goal/role 改名批量更新 entry + 原子写 `commitments.yaml`）；外部直接编辑 `commitments.yaml` 仍由 `notify` watcher 重新读取
 - `root_path` 由前端持有，每次 command 调用时传入；Rust 端通过 `root_path.txt` 持久化选择
 - **禁止硬编码 fallback**：`goal_dim_key` / `role_dim_key` 等配置解析函数失败时，要么用 `?` 传播错误（拒绝执行），要么跳过该操作并写入 `ConfigErrorDetail` 推送前端。不得 fallback 到 `"goal"`、`"role"` 等字面量——与用户实际配置不一致会导致静默语义错误

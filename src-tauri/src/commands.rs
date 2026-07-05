@@ -782,7 +782,7 @@ pub fn get_month_dimensions(
 }
 
 /// The dimension key used to tag a commitment goal for this month. Finds the
-/// dimension with source=="commitments:goals".
+/// dimension with source=="commitments:role:goals".
 fn goal_dim_key(root: &std::path::Path, year: i32, month: u32) -> Result<String, String> {
     let from_monthly = files::read_dimensions_file(root, year, month)
         .map(|d| !d.is_empty())
@@ -794,13 +794,13 @@ fn goal_dim_key(root: &std::path::Path, year: i32, month: u32) -> Result<String,
     };
     files::resolve_month_dimensions(root, year, month)?
         .into_iter()
-        .find(|d| d.source == "commitments:goals")
+        .find(|d| d.source == "commitments:role:goals")
         .map(|d| d.key)
         .ok_or_else(|| {
             let body = concat!(
                 "  - name: Goal\n",
                 "    key: goal\n",
-                "    source: commitments:goals",
+                "    source: commitments:role:goals",
             );
             format!("{file} is missing a Goal dimension.\nAdd this to the `dimensions:` list:\n{body}")
         })
@@ -1752,7 +1752,7 @@ pub fn create_starter_files(path: String) -> Result<(), String> {
             &template_path,
             concat!(
                 "dimensions:\n",
-                "  - name: Goal\n    key: goal\n    source: commitments:goals\n",
+                "  - name: Goal\n    key: goal\n    source: commitments:role:goals\n",
                 "  - name: Role\n    key: role\n    source: commitments:role\n",
             ),
         ) {
@@ -1971,7 +1971,7 @@ mod tests {
                 Dimension {
                     name: "Goal".into(),
                     key: "goal".into(),
-                    source: "commitments:goals".into(),
+                    source: "commitments:role:goals".into(),
                     values: None,
                     required: required_keys.contains(&"goal"),
                     deleted: false,
@@ -2029,7 +2029,7 @@ mod tests {
         fs::create_dir_all(&monthly_dir).unwrap();
         fs::write(
             tmp.join("dimensions.template.yaml"),
-            "dimensions:\n  - name: Goal\n    key: goal\n    source: commitments:goals\n  - name: Role\n    key: role\n    source: commitments:role\n",
+            "dimensions:\n  - name: Goal\n    key: goal\n    source: commitments:role:goals\n  - name: Role\n    key: role\n    source: commitments:role\n",
         )
         .unwrap();
         fs::write(
@@ -2062,7 +2062,7 @@ mod tests {
         fs::create_dir_all(&monthly_dir).unwrap();
         fs::write(
             tmp.join("dimensions.template.yaml"),
-            "dimensions:\n  - name: Goal\n    key: goal\n    source: commitments:goals\n  - name: Role\n    key: role\n    source: commitments:role\n",
+            "dimensions:\n  - name: Goal\n    key: goal\n    source: commitments:role:goals\n  - name: Role\n    key: role\n    source: commitments:role\n",
         )
         .unwrap();
         fs::write(
@@ -2117,7 +2117,7 @@ mod tests {
         fs::create_dir_all(&monthly_dir).unwrap();
         fs::write(
             tmp.join("dimensions.template.yaml"),
-            "dimensions:\n  - name: Goal\n    key: goal\n    source: commitments:goals\n  - name: Role\n    key: role\n    source: commitments:role\n",
+            "dimensions:\n  - name: Goal\n    key: goal\n    source: commitments:role:goals\n  - name: Role\n    key: role\n    source: commitments:role\n",
         )
         .unwrap();
         fs::write(
@@ -2148,7 +2148,7 @@ mod tests {
         std::fs::create_dir_all(&tmp).unwrap();
         std::fs::write(
             tmp.join("dimensions.template.yaml"),
-            "dimensions:\n  - name: Goal\n    key: goal\n    source: commitments:goals\n  - name: Role\n    key: role\n    source: commitments:role\n",
+            "dimensions:\n  - name: Goal\n    key: goal\n    source: commitments:role:goals\n  - name: Role\n    key: role\n    source: commitments:role\n",
         )
         .unwrap();
 
@@ -2169,7 +2169,7 @@ mod tests {
         let template = r#"dimensions:
   - name: Goal
     key: goal
-    source: commitments:goals
+    source: commitments:role:goals
   - name: Role
     key: role
     source: commitments:role

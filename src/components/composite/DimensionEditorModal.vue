@@ -30,7 +30,7 @@ const templateSaved = ref(false);
 const showAddForm = ref(false);
 const newDimName = ref("");
 const newDimKey = ref("");
-const newDimSource = ref<"static" | "commitments:goals" | "commitments:role">("static");
+const newDimSource = ref<"static" | "commitments:role:goals" | "commitments:role">("static");
 const addFormError = ref("");
 
 // Show deleted
@@ -130,8 +130,8 @@ function validateNewDim(): string | null {
   if (duplicate?.deleted) return `Key '${key}' already exists (deleted). Restore it or choose a different key.`;
   if (duplicate) return `Key '${key}' already exists.`;
 
-  if (newDimSource.value === "commitments:goals" && draft.value.some(d => d.source === "commitments:goals" && !d.deleted)) {
-    return "Only one commitments:goals source dimension allowed";
+  if (newDimSource.value === "commitments:role:goals" && draft.value.some(d => d.source === "commitments:role:goals" && !d.deleted)) {
+    return "Only one commitments:role:goals source dimension allowed";
   }
 
   if (newDimSource.value === "commitments:role" && draft.value.some(d => d.source === "commitments:role" && !d.deleted)) {
@@ -313,7 +313,7 @@ const monthLabel = computed(() =>
                          outline-none focus:border-[var(--color-brand-solid)]"
                 >
                   <option value="static">Static</option>
-                  <option value="commitments:goals">Commitments: Goals</option>
+                  <option value="commitments:role:goals">Commitments: Role Goals</option>
                   <option value="commitments:role">Commitments: Role</option>
                 </select>
                 <div
@@ -459,7 +459,7 @@ const monthLabel = computed(() =>
                 </template>
 
                 <!-- Monthly info card -->
-                <template v-if="selectedDimension.source === 'commitments:goals'">
+                <template v-if="selectedDimension.source === 'commitments:role:goals'">
                   <div class="border border-[var(--color-border-form)] rounded-[var(--radius-form-lg)] bg-[var(--color-surface-muted)] p-md">
                     <p class="text-secondary text-[var(--color-text-muted)]">Values are derived from commitment goals.</p>
                   </div>

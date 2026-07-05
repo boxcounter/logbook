@@ -50,7 +50,7 @@ const goalOptions = computed(() => {
 });
 
 const goalKey = computed(() => {
-  const monthly = props.dimensions.find(d => d.source === "commitments:goals");
+  const monthly = props.dimensions.find(d => d.source === "commitments:role:goals");
   return monthly?.key ?? null;
 });
 
@@ -79,7 +79,7 @@ const activeValues = computed(() => {
     return roles;
   }
 
-  // Goal dimension: values from commitments:goals source
+  // Goal dimension: values from commitments:role:goals source
   if (selectedDimKey.value === goalKey.value) {
     let goals = goalOptions.value;
     // Cross-filter: if role is already selected, only show goals under that role
@@ -94,7 +94,7 @@ const activeValues = computed(() => {
   // Other dimensions: values from template
   const d = props.dimensions.find(d => d.key === selectedDimKey.value);
   if (!d) return [];
-  if (d.source === "commitments:goals") return goalOptions.value;
+  if (d.source === "commitments:role:goals") return goalOptions.value;
   return d.values ?? [];
 });
 

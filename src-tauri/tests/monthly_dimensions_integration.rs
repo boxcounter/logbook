@@ -16,7 +16,7 @@ fn write_template(root: &PathBuf, body: &str) {
 }
 
 const TPL: &str =
-    "dimensions:\n  - name: Biz\n    key: biz\n    source: static\n    values: [产品, 市场]\n  - name: Goal\n    key: goal\n    source: commitments:goals\n  - name: Role\n    key: role\n    source: commitments:role\n";
+    "dimensions:\n  - name: Biz\n    key: biz\n    source: static\n    values: [产品, 市场]\n  - name: Goal\n    key: goal\n    source: commitments:role:goals\n  - name: Role\n    key: role\n    source: commitments:role\n";
 
 // 1. Pure read of a fresh month returns template dims, no file written.
 #[test]
@@ -72,7 +72,7 @@ fn first_append_snapshots_template() {
 
     // Change the template; the month keeps its snapshot.
     write_template(&root,
-        "dimensions:\n  - name: Other\n    key: other\n    source: static\n    values: [x]\n  - name: Goal\n    key: goal\n    source: commitments:goals\n  - name: Role\n    key: role\n    source: commitments:role\n",
+        "dimensions:\n  - name: Other\n    key: other\n    source: static\n    values: [x]\n  - name: Goal\n    key: goal\n    source: commitments:role:goals\n  - name: Role\n    key: role\n    source: commitments:role\n",
     );
     let resolved = files::resolve_month_dimensions(&root, 2026, 7).unwrap();
     assert_eq!(resolved.len(), 3, "snapshot must not follow template changes");
