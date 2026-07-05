@@ -109,6 +109,15 @@ pub fn validate_dimensions(dimensions: &[Dimension]) -> Vec<ConfigErrorDetail> {
                         dim.name, dim.key
                     ),
                 }),
+                Some(vals) if vals.iter().any(|v| v.trim().is_empty()) => {
+                    errors.push(ConfigErrorDetail {
+                        kind: "ValuesEmpty".to_string(),
+                        message: format!(
+                            "Dimension '{}' (key: {}): values list contains an empty or whitespace-only entry",
+                            dim.name, dim.key
+                        ),
+                    });
+                }
                 _ => {}
             },
             "commitments:role:goals" => {
@@ -555,6 +564,40 @@ mod tests {
                 key: "cat".into(),
                 source: "static".into(),
                 values: Some(vec![]),
+                required: false,
+                deleted: false,
+            }],
+        };
+        let errors = validate_dimensions(&config.dimensions);
+        assert_eq!(errors.len(), 1);
+        assert_eq!(errors[0].kind, "ValuesEmpty");
+    }
+
+    #[test]
+    fn test_validate_dimensions_empty_value_string() {
+        let config = Template {
+            dimensions: vec![Dimension {
+                name: "Cat".into(),
+                key: "cat".into(),
+                source: "static".into(),
+                values: Some(vec!["ok".into(), "".into()]),
+                required: false,
+                deleted: false,
+            }],
+        };
+        let errors = validate_dimensions(&config.dimensions);
+        assert_eq!(errors.len(), 1);
+        assert_eq!(errors[0].kind, "ValuesEmpty");
+    }
+
+    #[test]
+    fn test_validate_dimensions_whitespace_only_value_string() {
+        let config = Template {
+            dimensions: vec![Dimension {
+                name: "Cat".into(),
+                key: "cat".into(),
+                source: "static".into(),
+                values: Some(vec!["   ".into()]),
                 required: false,
                 deleted: false,
             }],
