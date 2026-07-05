@@ -51,4 +51,5 @@ src/
 - Commitments 经 `set_commitments` 命令写入（校验 + goal/role 改名批量更新 entry + 原子写 `commitments.yaml`）；外部直接编辑 `commitments.yaml` 仍由 `notify` watcher 重新读取
 - `root_path` 由前端持有，每次 command 调用时传入；Rust 端通过 `root_path.txt` 持久化选择
 - **禁止硬编码 fallback**：`goal_dim_key` / `role_dim_key` 等配置解析函数失败时，要么用 `?` 传播错误（拒绝执行），要么跳过该操作并写入 `ConfigErrorDetail` 推送前端。不得 fallback 到 `"goal"`、`"role"` 等字面量——与用户实际配置不一致会导致静默语义错误
+- **后端是数据合法性检查的唯一权威源**：不得依赖前端或 CLI 的校验来保证数据完整性。所有写入路径（`commands.rs` 的 Tauri 命令、CLI 的各 `set`/`add` 命令）必须在落盘前自行完成完整校验，不假设调用方已做过合法过滤。新增写入命令时按此原则审查：写前校验链是否覆盖了所有无效输入路径。
 - **Phase checkpoint**：每完成一个独立 phase 停下来确认，不要连续推进多个 phase 不征求同意（规则见根目录 CLAUDE.md）
