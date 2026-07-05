@@ -90,7 +90,7 @@ pub struct UpdateEntryInput {
 
 /// Current data format version. The main app never bumps this — only a
 /// format-changing PR does. A separate migration tool bumps version.txt on disk.
-pub const CURRENT_DATA_VERSION: u32 = 1;
+pub const CURRENT_DATA_VERSION: u32 = 2;
 
 // --- Init result ---
 
