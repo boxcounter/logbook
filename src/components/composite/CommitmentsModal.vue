@@ -147,6 +147,7 @@ function selectRole(index: number) { selectedIndex.value = index; confirmingDele
 function navigateRole(delta: 1 | -1) {
   if (draft.value.length <= 1) return;
   selectedIndex.value = (selectedIndex.value + delta + draft.value.length) % draft.value.length;
+  confirmingDelete.value = false;
 }
 
 function removeRole(r: RoleRowModel) {
