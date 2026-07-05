@@ -102,7 +102,7 @@ describe("DimensionEditorModal", () => {
 
   it("does not show values section for commitments:goals dimensions", () => {
     const wrapper = mountModal({ open: true, dimensions: MOCK_DIMENSIONS });
-    // Goal is commitments:goals — no values list or "New value" input
+    // Goal is commitments:goals — no values list or + Add Value button
     expect(wrapper.find('[data-test="add-value-btn"]').exists()).toBe(false);
   });
 
