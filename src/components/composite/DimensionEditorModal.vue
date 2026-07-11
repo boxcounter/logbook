@@ -146,7 +146,9 @@ function validateNewDim(): string | null {
   return null;
 }
 
-function createDimension() {
+function createDimension(e?: KeyboardEvent) {
+  if (e?.isComposing) return;
+  e?.preventDefault();
   const err = validateNewDim();
   if (err) {
     addFormError.value = err;
@@ -305,7 +307,7 @@ const monthLabel = computed(() =>
                   class="w-full px-sm py-xs border border-[var(--color-border-form)] rounded-[var(--radius-form)]
                          text-body text-[var(--color-text-primary)] bg-[var(--color-surface)]
                          outline-none focus:border-[var(--color-brand-solid)] placeholder-[var(--color-placeholder)]"
-                  @keydown.enter.prevent="createDimension"
+                  @keydown.enter="createDimension($event)"
                 />
                 <input
                   v-model="newDimKey"
@@ -314,7 +316,7 @@ const monthLabel = computed(() =>
                   class="w-full px-sm py-xs border border-[var(--color-border-form)] rounded-[var(--radius-form)]
                          text-body text-[var(--color-text-primary)] bg-[var(--color-surface)]
                          outline-none focus:border-[var(--color-brand-solid)] placeholder-[var(--color-placeholder)]"
-                  @keydown.enter.prevent="createDimension"
+                  @keydown.enter="createDimension($event)"
                 />
                 <select
                   v-model="newDimSource"
