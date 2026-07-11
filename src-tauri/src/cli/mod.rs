@@ -137,9 +137,13 @@ pub fn run() {
     let cli = Cli::parse();
     crate::error_log::log_info("cli", &format!("invoked: {:?}", std::env::args().collect::<Vec<_>>()));
 
-    // Prevent concurrent writes: if the GUI is running, refuse CLI writes to
-    // avoid cross-process read-modify-write races that would silently lose data.
-    let _lock = if let Some(lock_dir) = lock_dir() {
+    // Prevent concurrent writes: if the GUI is running, refuse CLI write
+    // commands to avoid cross-process read-modify-write races that would
+    // silently lose data. Read-only commands skip the lock so they can run
+    // alongside the GUI.
+    let _lock = if cli.command.is_read_only() {
+        None
+    } else if let Some(lock_dir) = lock_dir() {
         match InstanceLock::try_acquire(&lock_dir) {
             Ok(guard) => Some(guard),
             Err(e) => {
