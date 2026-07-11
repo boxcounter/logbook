@@ -639,6 +639,37 @@ describe("DimensionEditorModal", () => {
     expect(grips[0].classes()).toContain("drag-grip-val");
   });
 
+  it("does NOT create a dimension when Enter is pressed during IME composition on the add-dim-name input", async () => {
+    const wrapper = mountModal();
+    const initialRows = wrapper.findAll('[data-test="dim-row"]').length;
+    await wrapper.find('[data-test="add-dim-btn"]').trigger("click");
+    await wrapper.find('[data-test="add-dim-name"]').setValue("New Dim");
+    await wrapper.find('[data-test="add-dim-key"]').setValue("new-dim");
+    // Simulate the Enter that selects an IME candidate word — isComposing is true.
+    wrapper.find('[data-test="add-dim-name"]').element.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true, isComposing: true }),
+    );
+    await nextTick();
+    expect(wrapper.findAll('[data-test="dim-row"]')).toHaveLength(initialRows);
+    // Form should still be open — createDimension was not called
+    expect(wrapper.find('[data-test="add-dim-form"]').exists()).toBe(true);
+  });
+
+  it("does NOT create a dimension when Enter is pressed during IME composition on the add-dim-key input", async () => {
+    const wrapper = mountModal();
+    const initialRows = wrapper.findAll('[data-test="dim-row"]').length;
+    await wrapper.find('[data-test="add-dim-btn"]').trigger("click");
+    await wrapper.find('[data-test="add-dim-name"]').setValue("New Dim");
+    await wrapper.find('[data-test="add-dim-key"]').setValue("new-dim");
+    // Simulate the Enter that selects an IME candidate word — isComposing is true.
+    wrapper.find('[data-test="add-dim-key"]').element.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true, isComposing: true }),
+    );
+    await nextTick();
+    expect(wrapper.findAll('[data-test="dim-row"]')).toHaveLength(initialRows);
+    expect(wrapper.find('[data-test="add-dim-form"]').exists()).toBe(true);
+  });
+
   it("values grip lacks drag-grip-val class when dimension is deleted", async () => {
     const wrapper = mountModal();
     // Select Biz (index 1) — static with values
