@@ -31,6 +31,19 @@ function firstUnfilledIndex(justFilled?: string): number {
   return idx === -1 ? 0 : idx;
 }
 
+// Whether a dimension has any value the user could pick. Mirrors the value
+// sources in `activeValues` (role from commitments, goals from commitments,
+// static from d.values) — used only for auto-close judgement, not rendering.
+function hasFillableValues(d: Dimension): boolean {
+  if (d.source === "commitments:role") {
+    return props.commitments.length > 0;
+  }
+  if (d.source === "commitments:role:goals") {
+    return goalOptions.value.length > 0;
+  }
+  return (d.values ?? []).length > 0;
+}
+
 function listLength(): number {
   if (stage.value === "dim") {
     return visibleDims.value.length + (!hasRoleDimension.value && props.commitments.length > 0 ? 1 : 0);
@@ -131,10 +144,10 @@ function selectVal(value: string) {
   if (!selectedDimKey.value) return;
   const justFilledKey = selectedDimKey.value;
   emit("select", justFilledKey, value);
-  const allFilled = props.dimensions
-    .filter(d => d.required)
-    .every(d => d.key === justFilledKey || props.dimValues[d.key]);
-  if (allFilled) {
+  const allFillableFilled = visibleDims.value
+    .filter(d => d.key !== justFilledKey && !props.dimValues[d.key])
+    .every(d => !hasFillableValues(d));
+  if (allFillableFilled) {
     emit("close");
   } else {
     stage.value = "dim";
