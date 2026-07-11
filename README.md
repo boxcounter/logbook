@@ -13,6 +13,15 @@ pnpm install
 pnpm tauri dev
 ```
 
+## CLI
+
+Logbook ships with `logbook-cli`, a command-line tool for reading and
+writing time data outside the GUI. Install it via the app menu:
+**Logbook → Install Command Line Tool…**
+
+An [Agent Skill](./skill/logbook-cli/) is available for AI agents
+(ZCode, Claude Code, etc.) to operate your time data correctly.
+
 ## Documents
 
 - [CLAUDE.md](./CLAUDE.md) — Project conventions, command dictionary, frontend architecture, data flow
