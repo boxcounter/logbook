@@ -6,6 +6,7 @@ import { resolveDelta } from "../../utils/format";
 import DimensionPopover from "../DimensionPopover.vue";
 import { dimensionHues, dimTokenChipStyle } from "../../utils/dimensionColor";
 import { useClickOutside } from "../../composables/useClickOutside";
+import { isIMEEvent } from "../../utils/ime";
 
 const props = defineProps<{
   entry: Entry;
@@ -49,7 +50,7 @@ function onEsc() {
 // Enter normally saves; while confirming it means "keep editing".
 // Guard against IME composition (e.g. Chinese pinyin candidate selection).
 function onEnter(e: KeyboardEvent) {
-  if (e.isComposing) return;
+  if (isIMEEvent(e)) return;
   e.preventDefault();
   if (confirming.value) { confirming.value = false; return; }
   save();

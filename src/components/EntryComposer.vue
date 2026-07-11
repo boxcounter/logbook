@@ -7,6 +7,7 @@ import { FOCUS_REQUEST_KEY } from "../types";
 import { useStore } from "../stores/useStore";
 import { parseDurationFromText, stripDurations, formatDuration } from "../utils/format";
 import { dimensionHues, dimTokenChipStyle } from "../utils/dimensionColor";
+import { isIMEEvent } from "../utils/ime";
 import DimensionPopover from "./DimensionPopover.vue";
 
 const props = defineProps<{
@@ -89,7 +90,7 @@ function onKeydown(e: KeyboardEvent) {
   // defensive fallback in case that listener ever isn't attached.
   if (e.key === "Enter") {
     // Guard against IME composition (e.g. Chinese pinyin candidate selection).
-    if (e.isComposing) return;
+    if (isIMEEvent(e)) return;
     e.preventDefault();
     if (popoverOpen.value) closePopover();
     handleSubmit();

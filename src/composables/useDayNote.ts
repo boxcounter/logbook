@@ -2,6 +2,7 @@ import { ref, watch } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import type { AppStore } from "../stores/useStore";
 import { logError } from "../utils/errorLog";
+import { isIMEEvent } from "../utils/ime";
 
 export function useDayNote(store: AppStore) {
   const noteRef = ref<HTMLDivElement>();
@@ -58,7 +59,7 @@ export function useDayNote(store: AppStore) {
   }
 
   function onNoteEnter(e: KeyboardEvent) {
-    if (e.isComposing) return;
+    if (isIMEEvent(e)) return;
     e.preventDefault();
     noteRef.value?.blur();
   }
