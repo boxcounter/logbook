@@ -104,6 +104,24 @@ pub enum EntryAction {
         #[arg(long)]
         date: String,
     },
+    /// Update an entry (read JSON from stdin)
+    Update {
+        /// Date in YYYY-MM-DD format
+        #[arg(long)]
+        date: String,
+        /// Entry ID to update
+        #[arg(long)]
+        entry_id: String,
+    },
+    /// Delete an entry
+    Delete {
+        /// Date in YYYY-MM-DD format
+        #[arg(long)]
+        date: String,
+        /// Entry ID to delete
+        #[arg(long)]
+        entry_id: String,
+    },
 }
 
 impl Commands {
@@ -199,6 +217,12 @@ pub fn run() {
             EntryAction::Add { date } => {
                 entries::add(&root, &date, cli.json);
             }
+            EntryAction::Update { date, entry_id } => {
+                entries::update(&root, &date, &entry_id, cli.json);
+            }
+            EntryAction::Delete { date, entry_id } => {
+                entries::delete(&root, &date, &entry_id, cli.json);
+            }
         },
         Commands::Dimensions(cmd) => {
             if let Err(e) = handle_dimensions(cmd, &root) {
@@ -270,5 +294,19 @@ mod tests {
         })
         .is_read_only());
         assert!(!Commands::Migrate.is_read_only());
+        assert!(!Commands::Entries {
+            action: EntryAction::Update {
+                date: "2026-07-11".to_string(),
+                entry_id: "test-id".to_string(),
+            },
+        }
+        .is_read_only());
+        assert!(!Commands::Entries {
+            action: EntryAction::Delete {
+                date: "2026-07-11".to_string(),
+                entry_id: "test-id".to_string(),
+            },
+        }
+        .is_read_only());
     }
 }

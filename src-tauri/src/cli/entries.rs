@@ -105,3 +105,13 @@ fn format_entries_human(day_file: &crate::models::DayFile, date: &str) -> String
     out.push_str(&format!("  ---\n  Total: {}m ({:.1}h)\n", total, total as f64 / 60.0));
     out
 }
+
+pub fn update(root: &Path, date: &str, entry_id: &str, json: bool) {
+    let _ = (root, date, entry_id, json);
+    todo!("implement in Task 2");
+}
+
+pub fn delete(root: &Path, date: &str, entry_id: &str, json: bool) {
+    let _ = (root, date, entry_id, json);
+    todo!("implement in Task 3");
+}
