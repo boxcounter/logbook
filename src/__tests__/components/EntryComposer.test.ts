@@ -273,4 +273,17 @@ describe("EntryComposer", () => {
     expect(tokens.length).toBe(1);
     expect(tokens[0].text()).toContain("v");
   });
+
+  it("does NOT submit when Enter is pressed during IME composition (e.g. Chinese pinyin)", async () => {
+    const wrapper = mountInput();
+    await setDims(wrapper, { category: "Engineering", goal: "Bug fixes" });
+    const input = wrapper.find("input");
+    await input.setValue("Code review 1h");
+    // Simulate the Enter that selects an IME candidate word — isComposing is true.
+    input.element.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true, isComposing: true }),
+    );
+    await wrapper.vm.$nextTick();
+    expect(wrapper.emitted("submit")).toBeFalsy();
+  });
 });

@@ -88,6 +88,8 @@ function onKeydown(e: KeyboardEvent) {
   // this handler only runs with the popover closed. The closePopover() guard is a
   // defensive fallback in case that listener ever isn't attached.
   if (e.key === "Enter") {
+    // Guard against IME composition (e.g. Chinese pinyin candidate selection).
+    if (e.isComposing) return;
     e.preventDefault();
     if (popoverOpen.value) closePopover();
     handleSubmit();
