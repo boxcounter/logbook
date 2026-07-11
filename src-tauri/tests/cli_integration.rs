@@ -743,3 +743,83 @@ fn test_entries_update_bad_json() {
 
     let _ = fs::remove_dir_all(&tmp);
 }
+
+#[test]
+fn test_entries_delete_removes_entry() {
+    let tmp = std::env::temp_dir().join("logbook_cli_test_entries_delete");
+    let _ = fs::remove_dir_all(&tmp);
+    setup_fixture(&tmp);
+    // delete_entry does not instantiate the month; create dimensions.yaml so the
+    // pre-write integrity check has the goal dimension key available.
+    let dim_dir = tmp.join("2026").join("06");
+    fs::create_dir_all(&dim_dir).unwrap();
+    fs::write(
+        dim_dir.join("dimensions.yaml"),
+        "- name: Goal\n  key: goal\n  source: commitments:role:goals\n",
+    )
+    .unwrap();
+    // Integrity check requires UUID v4 entry ids (brief's "e1"/"e2" would be rejected).
+    let keep_id = "b505d5b7-4475-42f3-bafe-55e7df2cec0c";
+    let delete_id = "a505d5b7-4475-42f3-bafe-55e7df2cec0c";
+    setup_day_file(
+        &tmp,
+        "2026-06-15",
+        &format!(
+            "entries:\n  - id: {del}\n    item: Delete me\n    duration: 30\n    dimensions:\n      goal: Review\n  - id: {keep}\n    item: Keep me\n    duration: 20\n    dimensions:\n      goal: Review",
+            del = delete_id,
+            keep = keep_id
+        ),
+    );
+
+    // Delete delete_id (JSON output)
+    let output = run(&[
+        "--root-path", tmp.to_str().unwrap(),
+        "--json",
+        "entries", "delete", "--date", "2026-06-15", "--entry-id", delete_id,
+    ]);
+    assert!(output.status.success(), "stderr: {}", String::from_utf8_lossy(&output.stderr));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("\"ok\": true"), "stdout: {}", stdout);
+    assert!(stdout.contains(delete_id), "stdout should echo entry_id: {}", stdout);
+    assert!(stdout.contains("2026-06-15"), "stdout should echo date: {}", stdout);
+
+    // Verify the deleted entry is gone and the other remains via entries list
+    let output = run(&[
+        "--root-path", tmp.to_str().unwrap(),
+        "--json",
+        "entries", "list", "--date", "2026-06-15",
+    ]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(!stdout.contains("Delete me"), "deleted entry still present: {}", stdout);
+    assert!(stdout.contains("Keep me"), "remaining entry missing: {}", stdout);
+
+    let _ = fs::remove_dir_all(&tmp);
+}
+
+#[test]
+fn test_entries_delete_human_output() {
+    let tmp = std::env::temp_dir().join("logbook_cli_test_entries_delete_human");
+    let _ = fs::remove_dir_all(&tmp);
+    setup_fixture(&tmp);
+    let entry_id = "c505d5b7-4475-42f3-bafe-55e7df2cec0c";
+    setup_day_file(
+        &tmp,
+        "2026-06-15",
+        &format!(
+            "entries:\n  - id: {id}\n    item: Temp\n    duration: 10\n    dimensions: {{}}",
+            id = entry_id
+        ),
+    );
+
+    let output = run(&[
+        "--root-path", tmp.to_str().unwrap(),
+        "entries", "delete", "--date", "2026-06-15", "--entry-id", entry_id,
+    ]);
+    assert!(output.status.success(), "stderr: {}", String::from_utf8_lossy(&output.stderr));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains(&format!("Deleted: {}", entry_id)), "stdout: {}", stdout);
+    assert!(stdout.contains("2026-06-15"), "stdout: {}", stdout);
+
+    let _ = fs::remove_dir_all(&tmp);
+}

@@ -176,6 +176,30 @@ pub fn update(root: &Path, date: &str, entry_id: &str, json: bool) {
 }
 
 pub fn delete(root: &Path, date: &str, entry_id: &str, json: bool) {
-    let _ = (root, date, entry_id, json);
-    todo!("implement in Task 3");
+    if let Err(e) = crate::integrity::check() {
+        output::print_error(&e);
+        std::process::exit(1);
+    }
+
+    // The backend returns the remaining DayFile, but the deleted entry no longer
+    // exists — we only emit a confirmation, not entry data.
+    crate::commands::delete_entry(
+        root.to_string_lossy().into_owned(),
+        date.to_string(),
+        entry_id.to_string(),
+    )
+    .unwrap_or_else(|e| {
+        output::print_error(&e);
+        std::process::exit(1);
+    });
+
+    if json {
+        let confirmation = serde_json::json!({"ok": true, "date": date, "entry_id": entry_id});
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&confirmation).expect("Failed to serialize confirmation")
+        );
+    } else {
+        println!("Deleted: {} from {}", entry_id, date);
+    }
 }
