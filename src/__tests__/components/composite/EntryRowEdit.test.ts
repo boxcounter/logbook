@@ -338,4 +338,15 @@ describe("EntryRowEdit", () => {
     const prompt = wrapper.find("[data-test='missing-required']");
     expect(prompt.classes()).toContain("text-[var(--color-warning)]");
   });
+
+  it("does NOT save when Enter is pressed during IME composition (e.g. Chinese pinyin)", async () => {
+    const wrapper = mountEdit();
+    // Simulate the Enter that selects an IME candidate word — isComposing is true.
+    const input = wrapper.find("input");
+    input.element.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true, isComposing: true }),
+    );
+    await wrapper.vm.$nextTick();
+    expect(wrapper.emitted("save")).toBeFalsy();
+  });
 });

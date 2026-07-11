@@ -47,7 +47,10 @@ function onEsc() {
 }
 
 // Enter normally saves; while confirming it means "keep editing".
-function onEnter() {
+// Guard against IME composition (e.g. Chinese pinyin candidate selection).
+function onEnter(e: KeyboardEvent) {
+  if (e.isComposing) return;
+  e.preventDefault();
   if (confirming.value) { confirming.value = false; return; }
   save();
 }
@@ -168,7 +171,7 @@ function save() {
         ref="itemInputEl"
         v-model="item"
         class="flex-1 text-body font-medium text-[var(--color-text-primary)] border-none outline-none bg-transparent py-2xs"
-        @keydown.enter.prevent="onEnter"
+        @keydown.enter="onEnter"
         @input="confirming = false"
       />
       <input
@@ -177,7 +180,7 @@ function save() {
         class="mono w-[56px] text-right text-secondary text-[var(--color-text-primary)]
                border border-[var(--color-border-form)] rounded-[var(--radius-form)] px-sm py-2xs
                outline-none focus:border-[var(--color-brand-solid)]"
-        @keydown.enter.prevent="onEnter"
+        @keydown.enter="onEnter"
         @input="confirming = false"
       />
       <span class="text-secondary text-[var(--color-text-secondary)]">min</span>
