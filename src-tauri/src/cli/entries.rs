@@ -126,7 +126,7 @@ pub fn update(root: &Path, date: &str, entry_id: &str, json: bool) {
         serde_json::from_str(&input).unwrap_or_else(|e| {
             output::print_error(&format!(
                 "Failed to parse input as UpdateEntryInput JSON.\n\
-                 Expected: {{\"item\":\"...\",\"duration\":\"...\",\"dimensions\":{{...}}}}\n\
+                 Expected: {{\"item?\":\"...\",\"duration?\":\"...\",\"dimensions?\":{{...}}}} (all fields optional)\n\
                  Error: {}",
                 e
             ));
