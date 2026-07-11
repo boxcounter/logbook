@@ -106,6 +106,24 @@ pub enum EntryAction {
     },
 }
 
+impl Commands {
+    /// Whether this command only reads data and never writes.
+    ///
+    /// Read-only commands skip the instance lock so they can run while the
+    /// GUI is open. Write commands acquire the lock to prevent cross-process
+    /// read-modify-write races that would silently lose data.
+    fn is_read_only(&self) -> bool {
+        match self {
+            Self::Commitments { action } => {
+                matches!(action, CommitmentAction::List { .. } | CommitmentAction::Progress { .. })
+            }
+            Self::Entries { action } => matches!(action, EntryAction::List { .. }),
+            Self::Dimensions(cmd) => matches!(cmd, DimensionsCommands::List { .. }),
+            Self::Migrate => false,
+        }
+    }
+}
+
 pub fn run() {
     // Diagnostics: a panic backtrace lands on disk, and the shared command
     // functions' log_command_enter/exit calls become live (they no-op until
@@ -119,9 +137,13 @@ pub fn run() {
     let cli = Cli::parse();
     crate::error_log::log_info("cli", &format!("invoked: {:?}", std::env::args().collect::<Vec<_>>()));
 
-    // Prevent concurrent writes: if the GUI is running, refuse CLI writes to
-    // avoid cross-process read-modify-write races that would silently lose data.
-    let _lock = if let Some(lock_dir) = lock_dir() {
+    // Prevent concurrent writes: if the GUI is running, refuse CLI write
+    // commands to avoid cross-process read-modify-write races that would
+    // silently lose data. Read-only commands skip the lock so they can run
+    // alongside the GUI.
+    let _lock = if cli.command.is_read_only() {
+        None
+    } else if let Some(lock_dir) = lock_dir() {
         match InstanceLock::try_acquire(&lock_dir) {
             Ok(guard) => Some(guard),
             Err(e) => {
@@ -190,5 +212,63 @@ pub fn run() {
                 std::process::exit(1);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_read_only_commands() {
+        // 只读命令 → true
+        assert!(Commands::Commitments {
+            action: CommitmentAction::List { year: 2026, month: 7 },
+        }
+        .is_read_only());
+        assert!(Commands::Commitments {
+            action: CommitmentAction::Progress { year: 2026, month: 7 },
+        }
+        .is_read_only());
+        assert!(Commands::Entries {
+            action: EntryAction::List { date: "2026-07-11".to_string() },
+        }
+        .is_read_only());
+        assert!(Commands::Dimensions(DimensionsCommands::List {
+            year: Some(2026),
+            month: Some(7),
+            template: false,
+            json: false,
+        })
+        .is_read_only());
+        // dimensions list --template 也只读
+        assert!(Commands::Dimensions(DimensionsCommands::List {
+            year: None,
+            month: None,
+            template: true,
+            json: false,
+        })
+        .is_read_only());
+    }
+
+    #[test]
+    fn test_write_commands() {
+        // 写命令 → false
+        assert!(!Commands::Commitments {
+            action: CommitmentAction::Set { year: 2026, month: 7 },
+        }
+        .is_read_only());
+        assert!(!Commands::Entries {
+            action: EntryAction::Add { date: "2026-07-11".to_string() },
+        }
+        .is_read_only());
+        assert!(!Commands::Dimensions(DimensionsCommands::Set {
+            year: Some(2026),
+            month: Some(7),
+            template: false,
+            json: false,
+        })
+        .is_read_only());
+        assert!(!Commands::Migrate.is_read_only());
     }
 }
