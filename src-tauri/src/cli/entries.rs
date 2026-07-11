@@ -107,8 +107,72 @@ fn format_entries_human(day_file: &crate::models::DayFile, date: &str) -> String
 }
 
 pub fn update(root: &Path, date: &str, entry_id: &str, json: bool) {
-    let _ = (root, date, entry_id, json);
-    todo!("implement in Task 2");
+    if let Err(e) = crate::integrity::check() {
+        output::print_error(&e);
+        std::process::exit(1);
+    }
+
+    use std::io::Read;
+
+    let mut input = String::new();
+    std::io::stdin()
+        .read_to_string(&mut input)
+        .unwrap_or_else(|e| {
+            output::print_error(&format!("Failed to read stdin: {}", e));
+            std::process::exit(1);
+        });
+
+    let update_input: crate::models::UpdateEntryInput =
+        serde_json::from_str(&input).unwrap_or_else(|e| {
+            output::print_error(&format!(
+                "Failed to parse input as UpdateEntryInput JSON.\n\
+                 Expected: {{\"item\":\"...\",\"duration\":\"...\",\"dimensions\":{{...}}}}\n\
+                 Error: {}",
+                e
+            ));
+            std::process::exit(1);
+        });
+
+    let day_file = crate::commands::update_entry(
+        root.to_string_lossy().into_owned(),
+        date.to_string(),
+        entry_id.to_string(),
+        update_input,
+    )
+    .unwrap_or_else(|e| {
+        output::print_error(&e);
+        std::process::exit(1);
+    });
+
+    // Extract the single updated entry from the returned DayFile.
+    // update_entry succeeds only if the entry exists, so find() cannot fail.
+    let entry = day_file
+        .entries
+        .iter()
+        .find(|e| e.id == entry_id)
+        .unwrap_or_else(|| {
+            output::print_error("Updated entry not found in result");
+            std::process::exit(1);
+        });
+
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(entry).expect("Failed to serialize entry")
+        );
+    } else {
+        let dims: Vec<String> = entry
+            .dimensions
+            .iter()
+            .map(|(k, v)| format!("{}={}", k, v))
+            .collect();
+        println!(
+            "Updated: \"{}\" | {}m | {}",
+            entry.item,
+            entry.duration,
+            dims.join(", ")
+        );
+    }
 }
 
 pub fn delete(root: &Path, date: &str, entry_id: &str, json: bool) {

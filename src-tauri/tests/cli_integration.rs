@@ -676,3 +676,70 @@ fn test_migrate_converts_md_to_yaml() {
 
     let _ = fs::remove_dir_all(&tmp);
 }
+
+#[test]
+fn test_entries_update_changes_item_and_dimensions() {
+    let tmp = std::env::temp_dir().join("logbook_cli_test_entries_update");
+    let _ = fs::remove_dir_all(&tmp);
+    setup_fixture(&tmp);
+    setup_commitments(&tmp, 2026, 6, "- role: Dev\n  allocation: 40\n  goals:\n    - Ship it\n    - Review");
+    // The integrity check requires a valid UUID v4 for entry ids.
+    let entry_id = "a505d5b7-4475-42f3-bafe-55e7df2cec0c";
+    setup_day_file(
+        &tmp,
+        "2026-06-15",
+        &format!(
+            "entries:\n  - id: {}\n    item: Old item\n    duration: 30\n    dimensions:\n      role: Dev\n      goal: Review",
+            entry_id
+        ),
+    );
+
+    // Update: change item text + switch goal from Review to Ship it
+    let input = r#"{"item":"Updated item","dimensions":{"role":"Dev","goal":"Ship it"}}"#;
+
+    let output = run_with_stdin(&[
+        "--root-path", tmp.to_str().unwrap(),
+        "--json",
+        "entries", "update", "--date", "2026-06-15", "--entry-id", entry_id,
+    ], input);
+    assert!(output.status.success(), "stderr: {}", String::from_utf8_lossy(&output.stderr));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Updated item"), "stdout: {}", stdout);
+    assert!(stdout.contains("Ship it"), "stdout: {}", stdout);
+    assert!(!stdout.contains("Review"), "old goal should be replaced: {}", stdout);
+
+    // Verify the change persisted via entries list
+    let output = run(&[
+        "--root-path", tmp.to_str().unwrap(),
+        "--json",
+        "entries", "list", "--date", "2026-06-15",
+    ]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Updated item"), "update did not persist: {}", stdout);
+    assert!(stdout.contains("Ship it"), "dimension update did not persist: {}", stdout);
+
+    let _ = fs::remove_dir_all(&tmp);
+}
+
+#[test]
+fn test_entries_update_bad_json() {
+    let tmp = std::env::temp_dir().join("logbook_cli_test_entries_update_bad_json");
+    let _ = fs::remove_dir_all(&tmp);
+    setup_fixture(&tmp);
+    setup_day_file(
+        &tmp,
+        "2026-06-15",
+        "entries:\n  - id: e1\n    item: Keep\n    duration: 30\n    dimensions: {}",
+    );
+
+    let output = run_with_stdin(&[
+        "--root-path", tmp.to_str().unwrap(),
+        "entries", "update", "--date", "2026-06-15", "--entry-id", "e1",
+    ], "not json");
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("Failed to parse"), "stderr: {}", stderr);
+
+    let _ = fs::remove_dir_all(&tmp);
+}
