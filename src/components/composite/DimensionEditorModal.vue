@@ -344,7 +344,7 @@ const monthLabel = computed(() =>
                   <button
                     data-test="add-dim-create"
                     class="text-secondary font-semibold text-white bg-[var(--color-brand-solid)] rounded-[var(--radius-form)] px-sm py-xs cursor-pointer"
-                    @click="createDimension"
+                    @click="createDimension()"
                   >Create</button>
                 </div>
               </div>
