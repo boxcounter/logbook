@@ -48,9 +48,9 @@ describe("DimensionPopover", () => {
     expect(wrapper.emitted("select")?.[0]).toEqual(["category", "Engineering"]);
   });
 
-  it("emits close once all required dimensions are filled after a selection", async () => {
-    // category already filled; selecting goal value fills the last required dim
-    const wrapper = mountPop({ category: "Engineering" });
+  it("emits close once all fillable dims are filled after a selection", async () => {
+    // category + business-line (optional) prefilled; selecting goal fills the last fillable dim
+    const wrapper = mountPop({ category: "Engineering", "business-line": "Slax" });
     await wrapper.findAll("[data-test='dim-item']")[1].trigger("click"); // Goal
     await wrapper.findAll("[data-test='val-item']")[0].trigger("click"); // Bug fixes
     expect(wrapper.emitted("close")).toBeTruthy();
@@ -374,5 +374,62 @@ describe("DimensionPopover", () => {
     const wrapper = mountPop();
     const roleItem = wrapper.find("[data-test='dim-role']");
     expect(roleItem.text()).toContain("optional");
+  });
+
+  // ---- auto-close: all fillable dims filled (not just required) ----
+
+  it("closes after all visible dims (incl. optional) are filled, ignoring deleted-required", async () => {
+    const dims = [
+      makeDimension({ name: "Category", key: "category", source: "static", values: ["Engineering"], required: true }),
+      makeDimension({ name: "Mode", key: "mode", source: "static", values: ["Deep Work"], required: true }),
+      makeDimension({ name: "Biz", key: "biz", source: "static", values: ["Slax"], required: false }),
+      // deleted-required: not visible, must not block close
+      makeDimension({ name: "Hidden", key: "hidden", source: "static", values: ["h"], required: true, deleted: true }),
+    ];
+    const wrapper = mount(DimensionPopover, {
+      props: { dimensions: dims, commitments: [], dimValues: {} },
+    });
+
+    async function pick(dimIdx: number, valIdx: number, next: Record<string, string>) {
+      await wrapper.findAll("[data-test='dim-item']")[dimIdx].trigger("click");
+      await wrapper.findAll("[data-test='val-item']")[valIdx].trigger("click");
+      await wrapper.setProps({ dimValues: next });
+    }
+
+    await pick(0, 0, { category: "Engineering" });
+    expect(wrapper.emitted("close")).toBeFalsy();
+    await pick(1, 0, { category: "Engineering", mode: "Deep Work" });
+    expect(wrapper.emitted("close")).toBeFalsy(); // optional "biz" still unfilled
+    await pick(2, 0, { category: "Engineering", mode: "Deep Work", biz: "Slax" });
+    expect(wrapper.emitted("close")).toBeTruthy();
+  });
+
+  it("does not close when an optional dim with available values is left unfilled", async () => {
+    const dims = [
+      makeDimension({ name: "Category", key: "category", source: "static", values: ["Engineering"], required: true }),
+      makeDimension({ name: "Biz", key: "biz", source: "static", values: ["Slax"], required: false }),
+    ];
+    const wrapper = mount(DimensionPopover, {
+      props: { dimensions: dims, commitments: [], dimValues: {} },
+    });
+    await wrapper.findAll("[data-test='dim-item']")[0].trigger("click"); // category
+    await wrapper.findAll("[data-test='val-item']")[0].trigger("click"); // Engineering
+    await wrapper.setProps({ dimValues: { category: "Engineering" } });
+    expect(wrapper.emitted("close")).toBeFalsy(); // optional "biz" still unfilled -> no close
+  });
+
+  it("closes when a required dim with empty values is the only unfilled dim", async () => {
+    const dims = [
+      makeDimension({ name: "Category", key: "category", source: "static", values: ["Engineering"], required: true }),
+      // required but no values to pick -> must not block close
+      makeDimension({ name: "Empty", key: "empty", source: "static", values: [], required: true }),
+    ];
+    const wrapper = mount(DimensionPopover, {
+      props: { dimensions: dims, commitments: [], dimValues: {} },
+    });
+    await wrapper.findAll("[data-test='dim-item']")[0].trigger("click"); // category
+    await wrapper.findAll("[data-test='val-item']")[0].trigger("click"); // Engineering
+    await wrapper.setProps({ dimValues: { category: "Engineering" } });
+    expect(wrapper.emitted("close")).toBeTruthy(); // "empty" has no values -> ignored
   });
 });
