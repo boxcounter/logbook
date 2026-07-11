@@ -279,9 +279,10 @@ describe("EntryComposer", () => {
     await setDims(wrapper, { category: "Engineering", goal: "Bug fixes" });
     const input = wrapper.find("input");
     await input.setValue("Code review 1h");
-    // Simulate the Enter that selects an IME candidate word — isComposing is true.
+    // Simulate the Enter that selects an IME candidate word on WebKit (macOS):
+    // isComposing is false but keyCode is 229 (IME-processed key indicator).
     input.element.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true, isComposing: true }),
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true, keyCode: 229 }),
     );
     await wrapper.vm.$nextTick();
     expect(wrapper.emitted("submit")).toBeFalsy();

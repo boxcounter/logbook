@@ -7,6 +7,7 @@ import { VueDraggable } from "vue-draggable-plus";
 import type { Dimension } from "../../types";
 import { dimensionHues, dimBar } from "../../utils/dimensionColor";
 import { logError } from "../../utils/errorLog";
+import { isIMEEvent } from "../../utils/ime";
 
 const props = defineProps<{
   open: boolean;
@@ -99,7 +100,7 @@ function removeValue(index: number) {
 }
 
 function onValueEnter(index: number, e?: KeyboardEvent) {
-  if (e?.isComposing) return;
+  if (e && isIMEEvent(e)) return;
   if (!selectedDimension.value?.values) return;
   const values = selectedDimension.value.values;
   if (index === values.length - 1 && values[index].trim() === "") return;
@@ -147,7 +148,7 @@ function validateNewDim(): string | null {
 }
 
 function createDimension(e?: KeyboardEvent) {
-  if (e?.isComposing) return;
+  if (e && isIMEEvent(e)) return;
   e?.preventDefault();
   const err = validateNewDim();
   if (err) {

@@ -8,6 +8,7 @@ import { VueDraggable } from "vue-draggable-plus";
 import type { Commitment, CommitmentProgress, RoleRowModel, GoalRowModel } from "../../types";
 import { formatDurationCompact } from "../../utils/format";
 import { logError } from "../../utils/errorLog";
+import { isIMEEvent } from "../../utils/ime";
 import { goalLoggedMinutes } from "../../utils/commitments";
 
 const props = defineProps<{
@@ -194,7 +195,7 @@ function addGoal() {
 }
 
 function onGoalEnter(g: GoalRowModel, e?: KeyboardEvent) {
-  if (e?.isComposing) return;
+  if (e && isIMEEvent(e)) return;
   if (!selectedRole.value) return;
   const goals = selectedRole.value.goals;
   const gi = goals.findIndex(x => x.key === g.key);

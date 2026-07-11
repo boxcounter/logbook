@@ -645,9 +645,10 @@ describe("DimensionEditorModal", () => {
     await wrapper.find('[data-test="add-dim-btn"]').trigger("click");
     await wrapper.find('[data-test="add-dim-name"]').setValue("New Dim");
     await wrapper.find('[data-test="add-dim-key"]').setValue("new-dim");
-    // Simulate the Enter that selects an IME candidate word — isComposing is true.
+    // Simulate the Enter that selects an IME candidate word on WebKit (macOS):
+    // isComposing is false but keyCode is 229 (IME-processed key indicator).
     wrapper.find('[data-test="add-dim-name"]').element.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true, isComposing: true }),
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true, keyCode: 229 }),
     );
     await nextTick();
     expect(wrapper.findAll('[data-test="dim-row"]')).toHaveLength(initialRows);
@@ -661,9 +662,10 @@ describe("DimensionEditorModal", () => {
     await wrapper.find('[data-test="add-dim-btn"]').trigger("click");
     await wrapper.find('[data-test="add-dim-name"]').setValue("New Dim");
     await wrapper.find('[data-test="add-dim-key"]').setValue("new-dim");
-    // Simulate the Enter that selects an IME candidate word — isComposing is true.
+    // Simulate the Enter that selects an IME candidate word on WebKit (macOS):
+    // isComposing is false but keyCode is 229 (IME-processed key indicator).
     wrapper.find('[data-test="add-dim-key"]').element.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true, isComposing: true }),
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true, keyCode: 229 }),
     );
     await nextTick();
     expect(wrapper.findAll('[data-test="dim-row"]')).toHaveLength(initialRows);

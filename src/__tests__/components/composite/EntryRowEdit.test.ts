@@ -341,10 +341,11 @@ describe("EntryRowEdit", () => {
 
   it("does NOT save when Enter is pressed during IME composition (e.g. Chinese pinyin)", async () => {
     const wrapper = mountEdit();
-    // Simulate the Enter that selects an IME candidate word — isComposing is true.
+    // Simulate the Enter that selects an IME candidate word on WebKit (macOS):
+    // isComposing is false but keyCode is 229 (IME-processed key indicator).
     const input = wrapper.find("input");
     input.element.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true, isComposing: true }),
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true, keyCode: 229 }),
     );
     await wrapper.vm.$nextTick();
     expect(wrapper.emitted("save")).toBeFalsy();

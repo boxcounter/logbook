@@ -3,6 +3,7 @@
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import type { Dimension, Commitment } from "../types";
 import { dimensionHues, dimBar } from "../utils/dimensionColor";
+import { isIMEEvent } from "../utils/ime";
 
 const props = defineProps<{
   dimensions: Dimension[];
@@ -153,7 +154,7 @@ function goBack() {
 // the highlighted item. capture + stopPropagation makes the popover own these keys
 // regardless of focus, ahead of the parent's handlers.
 function onWindowKeydown(e: KeyboardEvent) {
-  if (e.isComposing) return;
+  if (isIMEEvent(e)) return;
   if (e.key === "Escape") {
     e.preventDefault();
     e.stopPropagation();
