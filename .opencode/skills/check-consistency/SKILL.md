@@ -1,6 +1,6 @@
 ---
 name: check-consistency
-description: 文档一致性检查。交叉比对 CLAUDE.md、SPEC.md、HANDOFF.md 与代码实际状态。在用户要求检查一致性/文档同步时调用。
+description: 文档一致性检查。交叉比对 CLAUDE.md（根 + src-tauri）、HANDOFF.md 与代码实际状态。在用户要求检查一致性/文档同步时调用。
 disable-model-invocation: true
 ---
 
@@ -16,7 +16,6 @@ disable-model-invocation: true
 |------|------|
 | 根 CLAUDE.md | `CLAUDE.md` |
 | 后端 CLAUDE.md | `src-tauri/CLAUDE.md` |
-| 技术规格 | `SPEC.md` |
 | 交接文档 | `HANDOFF.md` |
 | 设计文档 | Obsidian vault `1_Projects/Logbook/README.md` |
 
@@ -52,7 +51,6 @@ disable-model-invocation: true
 文档：
 - CLAUDE.md（根目录）
 - src-tauri/CLAUDE.md
-- SPEC.md
 - HANDOFF.md（如果不存在，标注后跳过引用它的检查项）
 
 代码（用 ls / find 动态发现实际文件，以下为预期路径）：
@@ -75,11 +73,11 @@ disable-model-invocation: true
 ### A. 文档 ↔ 文档
 
 #### A1. 命令数量
-- src-tauri/CLAUDE.md 声称的命令数 vs SPEC.md 列出的命令数 vs HANDOFF.md 声称的命令数（如 HANDOFF.md 存在）
-- 不一致时报告：哪个文档说几个，实际应该几个
+- lib.rs `invoke_handler` 注册的命令数 vs HANDOFF.md 声称的命令数（如 HANDOFF.md 存在）
+- 不一致时报告：代码注册几个，文档说几个
 
 #### A2. Phase 进度
-- HANDOFF.md 声称的「已完成 Phase」与 SPEC.md Phase 表格对比（如 HANDOFF.md 存在）
+- HANDOFF.md 声称的「已完成 Phase」与实际代码实现状态对比（如 HANDOFF.md 存在）
 - CLAUDE.md 和 HANDOFF.md 的 Phase 描述是否一致（如 HANDOFF.md 存在）
 
 #### A3. 模块结构
@@ -87,16 +85,16 @@ disable-model-invocation: true
 - 报告多余或遗漏的文件
 
 #### A4. 组件树
-- SPEC.md「组件树」列出的组件 vs 实际 `src/components/` 下的 `.vue` 文件（用 ls 动态列出）
+- CLAUDE.md「前端架构」组件树列出的组件 vs 实际 `src/components/` 下的 `.vue` 文件（用 ls 动态列出）
 - 注意区分「已实现」和「planned」的组件
 
-#### A5. 数据结构
-- SPEC.md「数据结构」中的 struct 定义 vs src-tauri/CLAUDE.md「关键约定」中的描述
-- 两个文档是否对同一概念有矛盾的说法
+#### A5. 关键约定一致性
+- src-tauri/CLAUDE.md「关键约定」中的描述 vs CLAUDE.md（根）「数据流」「前端架构」中的描述
+- 两个文档是否对同一概念有矛盾的说法（如持久化文件路径、事件名等）
 
 #### A6. 技术栈
-- SPEC.md「技术栈」表格 vs Cargo.toml、package.json 和 tauri.conf.json 的实际依赖
-- 特别检查：yaml_serde（不是 serde_yml）、Tauri 版本、tauri.conf.json 中的 identifier/window 配置是否与 SPEC.md 一致
+- src-tauri/CLAUDE.md 和 Cargo.toml 依赖对照、package.json 和 tauri.conf.json 的实际配置
+- 特别检查：yaml_serde（不是 serde_yml）、Tauri 版本、tauri.conf.json 中的 identifier/window 配置
 
 #### A7. 测试覆盖
 - HANDOFF.md 声称的测试数（如存在）vs 实际运行测试的输出
@@ -106,20 +104,19 @@ disable-model-invocation: true
 ### B. 文档 ↔ 代码
 
 #### B1. 命令签名
-- SPEC.md 命令清单中每个命令的签名（函数名、参数、返回类型）
-- vs 实际 `commands.rs` 中 `#[tauri::command]` 的函数签名
-- 检查：命令名是否匹配、参数是否匹配、是否有多余或缺失的命令
+- lib.rs `invoke_handler` 注册的命令列表 vs 实际 `commands.rs` 中 `#[tauri::command]` 的函数
+- 检查：命令名是否匹配、是否有多余或缺失的命令
 
-#### B2. 数据结构
-- SPEC.md 中的 struct 定义（字段名、类型）
-- vs `models.rs` 中的实际 struct 定义
-- 字段名、类型、Option 包裹是否一致
+#### B2. 前端组件
+- CLAUDE.md 组件树中的「已实现」组件
+- vs `src/components/` 下实际存在的 `.vue` 文件
+- 组件是否在 `App.vue` 或父组件中被引用
 
 #### B3. 关键约定
 - 读取 src-tauri/CLAUDE.md「关键约定」章节的每一条
 - 逐条验证代码实现（而非验证本 prompt 中列出的项）：
   - 读取约定 → 找到对应代码文件 → 确认实现匹配
-- 示例（以 src-tauri/CLAUDE.md 实际内容为准，这些只是常见检查点）：
+- 常见检查点：
   - YAML 序列化库 → 检查 Cargo.toml 依赖 + files.rs 中的 import
   - Entry duration 类型 → 检查 models.rs
   - 文件写入策略 → 检查 files.rs 实现
@@ -128,18 +125,13 @@ disable-model-invocation: true
   - root_path 传递方式 → 检查 commands.rs
   - Phase checkpoint 规则 → 检查两个 CLAUDE.md 是否一致
 
-#### B4. 前端组件
-- SPEC.md 组件树中的「已实现」组件
-- vs `src/components/` 下实际存在的 `.vue` 文件
-- 组件是否在 `App.vue` 或父组件中被引用
+#### B4. 数据流
+- CLAUDE.md「数据流」描述的事件（`dimensions-changed`、`commitments-changed` 等）
+- vs `config.rs` 中实际 emit 的事件
 
-#### B5. 数据流
-- SPEC.md「数据流」描述的事件（`config-changed`、`commitments-changed` 等）
-- vs `lib.rs` 中实际 emit 的事件
-
-#### B6. 前端模块遗漏
+#### B5. 前端模块遗漏
 - 列出 `src/` 下的所有子目录和关键文件（components/、stores/、utils/、__tests__/ 等）
-- 检查 SPEC.md 或 HANDOFF.md 是否遗漏了这些模块的说明
+- 检查 CLAUDE.md「前端模块」表是否遗漏了这些模块的说明
 
 ## 输出格式
 
@@ -168,7 +160,7 @@ disable-model-invocation: true
 ## 已确认一致
 （列出已验证的关键项目，证明确实检查过——防止漏检）
 - [x] 命令签名匹配
-- [x] 数据结构匹配
+- [x] 关键约定匹配
 - ...
 ```
 

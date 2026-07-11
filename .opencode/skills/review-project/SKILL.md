@@ -70,7 +70,7 @@ disable-model-invocation: true
 
 通读关键文件以了解项目范围：
 
-- `CLAUDE.md`、`README.md`、`SPEC.md`（或等效文件）
+- `CLAUDE.md`、`README.md`（或等效文件）
 - 顶级目录列表
 - 包清单（`Cargo.toml`、`package.json`）
 

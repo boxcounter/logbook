@@ -16,7 +16,7 @@ Logbook — 个人工作时间记录工具。Tauri 2.x + Vue 3 + TypeScript。
 | 打包正式版 / 生产版本 / production build | `pnpm tauri:build` | `Logbook.app`（`com.boxcounter.logbook`），含 CLI |
 | 打包开发版 / dev build | `pnpm tauri:build:dev` | `Logbook Dev.app`（`com.boxcounter.logbook.dev`） |
 | 启动 / run / dev | `pnpm tauri dev` | 开发模式热重载 |
-| 测试 / test | `pnpm test` | vitest + cargo test |
+| 测试 / test | `pnpm test`（前端 vitest）+ `cd src-tauri && cargo test`（后端） | `pnpm test` 仅跑 vitest；后端测试须另跑 cargo test（Stop hook 会两者都跑） |
 
 ## 前端架构
 
@@ -27,10 +27,12 @@ App.vue
 ├── SetupScreen.vue                     // 首次启动，folder picker
 ├── ConfigErrorBanner.vue               // 启动时 config 错误提示
 ├── RecoveryScreen.vue                  // ConfigError/root_missing 恢复界面
+├── DataVersionScreen.vue               // 数据版本缺失/不匹配（DataVersionNotFound / DataVersionMismatch）恢复界面
 └── MonthView.vue                       // 固定月视图
     ├── HeatmapCalendar.vue             // 月历热力图 + 切换月份
     ├── QuickJumpPopover.vue            // 年/月快速跳转双下拉（基于 get_available_months）
     ├── CommitmentsPanel.vue            // Allocation / Spent / Balance 进度条
+    ├── IntegrityBanner.vue             // 运行时数据完整性告警（integrity-changed 事件驱动）
     ├── DayHeader.vue                   // 日期头部，显示当天 entry 合计
     ├── EntryComposer.vue               // 快速录入（内嵌 DimensionPopover）
     │   └── DimensionPopover.vue        // 维度选择 popover（dim 阶段 / val 阶段）
@@ -55,6 +57,10 @@ App.vue
 | `src/types.ts` | 前端 TypeScript 类型定义（与 Rust models 对应 + UI 专用类型） |
 | `src/stores/useStore.ts` | Reactive store（`reactive()` + `provide/inject`） |
 | `src/composables/useRootFolderPicker.ts` | 文件夹选择逻辑，SetupScreen / RecoveryScreen 复用 |
+| `src/composables/useMonthData.ts` | 月数据加载（entries / commitments / dimensions / day note / 导航） |
+| `src/composables/useEntryActions.ts` | Entry CRUD（提交 / 更新 / 删除 + undo / 高亮） |
+| `src/composables/useDayNote.ts` | Day note 内联编辑（保存 / esc 还原 / IME 安全） |
+| `src/composables/useClickOutside.ts` | 点击别处消解（实现交互原则 §2） |
 | `src/utils/dates.ts` | 日期工具函数 |
 | `src/utils/format.ts` | 格式化函数 |
 | `src/utils/commitments.ts` | Commitments 计算/聚合 |
@@ -62,7 +68,9 @@ App.vue
 | `src/utils/heatmap.ts` | 热力图数据生成 |
 | `src/utils/dimensionColor.ts` | 维度颜色辅助 |
 | `src/utils/applyInitResult.ts` | init 结果应用到 store 的逻辑 |
-| `src/__tests__/` | 前端单元测试（vitest + jsdom） |
+| `src/utils/constants.ts` | 时长常量（HIGHLIGHT_DURATION / SAVED_TOAST_DURATION / UNDO_DELETE_DELAY） |
+| `src/utils/ime.ts` | IME 组合状态辅助（`isIMEEvent`，回车选词守卫） |
+| `src/__tests__/` | 前端单元测试（vitest + jsdom），`mocks/` 下含 store / tauri / fixtures 桩 |
 
 ### 特殊处理
 
@@ -74,9 +82,10 @@ App.vue
 
 - **启动**: App mount → `invoke('init')`。Rust 端读 `root_path.txt`：
   - 无文件 → 返回 `NeedsSetup` → 前端弹文件夹选择器 → `set_root_path` → 重新 init
+  - 数据版本缺失/不匹配 → 返回 `DataVersionNotFound { root_path }` / `DataVersionMismatch { root_path, expected, found }` → 前端渲染 DataVersionScreen
   - dimensions.template.yaml / dimensions.yaml / commitments.yaml 有错 → 返回 `ConfigError { category, root_path, errors, scan_warnings }` → 前端按 `category` 决定 RecoveryScreen 路由
-  - 正常 → 返回 `Ready { root_path, dimensions, from_template, today, commitments, scan_warnings }`（dimensions = 当前月生效维度）→ 渲染 Today
-- **文件监听**: Tauri `setup` hook 中启动 `notify` 线程，watch `dimensions.template.yaml` + 当月 `dimensions.yaml` + `commitments.yaml`。变更时重新校验，emit `dimensions-changed` 或 `commitments-changed` 事件推前端。
+  - 正常 → 返回 `Ready { root_path, dimensions, usingDefaultDimensions, today, commitments, scan_warnings, integrity_issues }`（dimensions = 当前月生效维度）→ 渲染 Today
+- **文件监听**: Tauri `setup` hook 中启动 `notify` 线程，watch `dimensions.template.yaml` + 当月 `dimensions.yaml` + `commitments.yaml` + 当月 day yaml。变更时重新校验并复查完整性，emit `dimensions-changed` / `commitments-changed` / `integrity-changed` / `day-file-changed` 事件推前端。（「Copy User Data Path」菜单另 emit `copy-data-path-event`，非文件监听）
 - **录入**: 用户输入 → 前端扫描全文 duration（regex 求和） → 去除匹配片段得到 item → 添加继承的维度 → `invoke('append_entry', ...)` → Rust 解析 duration 字符串为 u32，写文件 → 返回 Entry → 前端 refresh 列表 + Commitments
 - MonthView 通过逐个调用 `get_entries` 加载月份数据。
 
