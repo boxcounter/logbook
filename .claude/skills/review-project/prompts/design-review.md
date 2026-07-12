@@ -18,6 +18,7 @@
 - 响应式 store vs 组件局部状态 —— 规模上选择是否正确？
 - 状态是否在多个 store/组件间重复？
 - 状态是否在正确的生命周期内存活（应用重启、页面导航）？
+- 全局 static/`LazyLock` 状态的 `root_path` 变更生命周期：切换数据目录时，哪些状态需重置？每个模块是否有文档注释说明？（例：`integrity.rs` 的 `INTEGRITY_OK`、`files.rs` 的 `FILE_LOCKS`、`config.rs` 的 `WatcherState`）
 
 ### 数据模型
 - 存储格式：对畸形输入是否鲁棒？
@@ -37,6 +38,10 @@
 - 功能正常但「可以更好看」的实现细节
 - 对库选择的主观偏好（那是 library reviewer 的工作）
 - Bug —— 那是 code reviewer 的工作
+
+## 知识沉淀建议
+
+如果你发现某个架构设计或状态管理模式在 3 处以上的模块中导致了同类结构缺陷，在 `detail` 中建议将其写为项目约定。使用 `category: "convention"` 标记。
 
 ## 输出格式
 

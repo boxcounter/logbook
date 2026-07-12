@@ -32,6 +32,10 @@
 - 「要是我会用 X 库」—— 那是 library reviewer 的领域
 - Bug —— 那是 code reviewer 的工作
 
+## 知识沉淀建议
+
+如果你发现某个框架使用模式或代码组织模式在 3 处以上的模块中导致了同类维护摩擦，在 `detail` 中建议将其写为项目约定。使用 `category: "convention"` 标记。
+
 ## 输出格式
 
 返回精确匹配以下 schema 的 JSON：

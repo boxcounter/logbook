@@ -108,3 +108,9 @@ App.vue
 ### 其他
 
 - 诊断先于计划：handoff 标记了 bug → 先写测试确认 bug 还存在 → 再计划修复
+
+### 数据安全与可靠性
+
+- **所有文件写入必须原子化**：先写 `.tmp`，再 `rename` 到目标路径。业务数据（day files、commitments.yaml、dimensions.yaml）、日志（operation_log）、配置文件均受此约束。禁止直接 `OpenOptions::append(true)` + `writeln!` 做"追加"——应通过"读旧 → 追加到内存 → 写新 tmp → rename"实现。新增写入路径按此审查。
+- **`if let Ok` 必须有 `else` 分支**：`else` 至少 `error_log::log_error`，记录操作名称、失败的文件/日期、错误信息。`Err(_) => continue` 在 batch 操作中同理——必须记录被跳过的对象（文件名 + 错误）。Code review 时此模式按 blocker 对待。
+- **全局 static/`LazyLock` 状态必须有文档化的 reset 路径**：`root_path` 变更（用户切换数据目录）时，`integrity.rs`（`INTEGRITY_OK` / `INTEGRITY_ISSUES`）、`files.rs`（`FILE_LOCKS` / `RECENTLY_APP_WRITTEN`）、`config.rs`（`WatcherState`）需全部或部分重置。每个模块注释必须说明：哪些状态在 root 切换时需 reset、哪些是 root-agnostic、reset 由谁触发。
