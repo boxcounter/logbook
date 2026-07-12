@@ -105,7 +105,7 @@ App.vue
 
 ### 文档一致性检查
 
-何时该做：写 HANDOFF.md 之前、Phase 结束时，应完成一次文档一致性检查。
+何时该做：Phase 结束时，应完成一次文档一致性检查。
 
 `/check-consistency` skill 已设为仅手动调用（其 frontmatter 含 `disable-model-invocation: true`），不会被自动触发。因此在上述时机，主动提醒用户运行 `/check-consistency`，由用户显式发起；用户说「检查一致性」/「文档同步」时同样运行。检查项目（文档 ↔ 文档 + 文档 ↔ 代码）已固化在 skill 定义中，不在此重复。
 

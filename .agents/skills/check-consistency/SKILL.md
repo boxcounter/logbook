@@ -1,6 +1,6 @@
 ---
 name: check-consistency
-description: 文档一致性检查。交叉比对 AGENTS.md（根 + src-tauri）、HANDOFF.md 与代码实际状态。在用户要求检查一致性/文档同步时调用。
+description: 文档一致性检查。交叉比对 AGENTS.md（根 + src-tauri）与代码实际状态。在用户要求检查一致性/文档同步时调用。
 disable-model-invocation: true
 ---
 
@@ -16,7 +16,6 @@ disable-model-invocation: true
 |------|------|
 | 根 AGENTS.md | `AGENTS.md` |
 | 后端 AGENTS.md | `src-tauri/AGENTS.md` |
-| 交接文档 | `HANDOFF.md` |
 | 设计文档 | Obsidian vault `1_Projects/Logbook/README.md` |
 
 ### 代码集
@@ -51,7 +50,6 @@ disable-model-invocation: true
 文档：
 - AGENTS.md（根目录）
 - src-tauri/AGENTS.md
-- HANDOFF.md（如果不存在，标注后跳过引用它的检查项）
 
 代码（用 ls / find 动态发现实际文件，以下为预期路径）：
 - src-tauri/src/ 下所有 .rs 文件
@@ -72,32 +70,23 @@ disable-model-invocation: true
 
 ### A. 文档 ↔ 文档
 
-#### A1. 命令数量
-- lib.rs `invoke_handler` 注册的命令数 vs HANDOFF.md 声称的命令数（如 HANDOFF.md 存在）
-- 不一致时报告：代码注册几个，文档说几个
-
-#### A2. Phase 进度
-- HANDOFF.md 声称的「已完成 Phase」与实际代码实现状态对比（如 HANDOFF.md 存在）
-- AGENTS.md 和 HANDOFF.md 的 Phase 描述是否一致（如 HANDOFF.md 存在）
-
-#### A3. 模块结构
+#### A1. 模块结构
 - src-tauri/AGENTS.md「模块结构」列出的文件 vs 实际 `src-tauri/src/` 下的 `.rs` 文件（用 ls 动态列出）
 - 报告多余或遗漏的文件
 
-#### A4. 组件树
+#### A2. 组件树
 - AGENTS.md「前端架构」组件树列出的组件 vs 实际 `src/components/` 下的 `.vue` 文件（用 ls 动态列出）
 - 注意区分「已实现」和「planned」的组件
 
-#### A5. 关键约定一致性
+#### A3. 关键约定一致性
 - src-tauri/AGENTS.md「关键约定」中的描述 vs AGENTS.md（根）「数据流」「前端架构」中的描述
 - 两个文档是否对同一概念有矛盾的说法（如持久化文件路径、事件名等）
 
-#### A6. 技术栈
+#### A4. 技术栈
 - src-tauri/AGENTS.md 和 Cargo.toml 依赖对照、package.json 和 tauri.conf.json 的实际配置
 - 特别检查：yaml_serde（不是 serde_yml）、Tauri 版本、tauri.conf.json 中的 identifier/window 配置
 
-#### A7. 测试覆盖
-- HANDOFF.md 声称的测试数（如存在）vs 实际运行测试的输出
+#### A5. 测试覆盖
 - Rust：`cd src-tauri && cargo test -- -q`
 - 前端：检查 `src/__tests__/` 下文件数、`vitest.config.ts` 是否存在、文档是否提及前端测试
 
@@ -169,7 +158,6 @@ disable-model-invocation: true
 - 不要裁剪——每个检查项都必须执行
 - 每个结论必须有文件引用（file:line）
 - 不确定的地方标注「未验证：...」
-- 如果 HANDOFF.md 不存在，在报告中标注，并跳过 A1/A2/A7 中引用 HANDOFF.md 的子项
 ```
 
 ## 使用方式
@@ -185,4 +173,4 @@ disable-model-invocation: true
 | 关注点 | 文档与代码的**一致性** | 代码**质量**（bug、设计、安全） |
 | 执行方式 | 单 Agent 结构化比对 | 6 Agent 并行 + 验证 + 汇总 |
 | 输出 | 不一致清单 | 按严重度排名的 findings |
-| 触发 | HANDOFF 前、Phase 结束 | 重大变更后、里程碑前 |
+| 触发 | Phase 结束 | 重大变更后、里程碑前 |
