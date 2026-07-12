@@ -89,6 +89,18 @@ App.vue
 - **录入**: 用户输入 → 前端扫描全文 duration（regex 求和） → 去除匹配片段得到 item → 添加继承的维度 → `invoke('append_entry', ...)` → Rust 解析 duration 字符串为 u32，写文件 → 返回 Entry → 前端 refresh 列表 + Commitments
 - MonthView 通过逐个调用 `get_entries` 加载月份数据。
 
+### 数据写入入口清单
+
+任何能触发数据写入 / 校验 / 默认值生效的入口。新增守卫 / 校验 / 兼容性逻辑时，必须逐个核对是否覆盖；新增入口时在此登记。
+
+| 入口 | 代码位置 | 说明 |
+|------|----------|------|
+| GUI init | `commands::init` | 启动时全量加载 + 版本校验，长生命周期进程 |
+| CLI 命令 | `cli::run` → `commands::*` | 短命进程，逐命令直接调用，**不走 init** |
+| 文件监听重载 | `notify` 线程 → 重新校验 | 运行时外部改动触发，重跑校验 + 完整性复查 |
+
+入口模式不统一是真实约束：GUI 有 init 全量前置，CLI 没有。没有现成的"所有数据访问公共前置"可挂守卫——因此跨切面逻辑靠**显式枚举入口 + 逐个安装**，而非假设有统一注入点。
+
 ## 项目级规则
 
 ### 文档一致性检查
@@ -114,3 +126,4 @@ App.vue
 - **所有文件写入必须原子化**：先写 `.tmp`，再 `rename` 到目标路径。业务数据（day files、commitments.yaml、dimensions.yaml）、日志（operation_log）、配置文件均受此约束。禁止直接 `OpenOptions::append(true)` + `writeln!` 做"追加"——应通过"读旧 → 追加到内存 → 写新 tmp → rename"实现。新增写入路径按此审查。
 - **`if let Ok` 必须有 `else` 分支**：`else` 至少 `error_log::log_error`，记录操作名称、失败的文件/日期、错误信息。`Err(_) => continue` 在 batch 操作中同理——必须记录被跳过的对象（文件名 + 错误）。Code review 时此模式按 blocker 对待。
 - **全局 static/`LazyLock` 状态必须有文档化的 reset 路径**：`root_path` 变更（用户切换数据目录）时，`integrity.rs`（`INTEGRITY_OK` / `INTEGRITY_ISSUES`）、`files.rs`（`FILE_LOCKS` / `RECENTLY_APP_WRITTEN`）、`config.rs`（`WatcherState`）需全部或部分重置。每个模块注释必须说明：哪些状态在 root 切换时需 reset、哪些是 root-agnostic、reset 由谁触发。
+- **跨切面守卫必须显式枚举覆盖的入口**：任何守卫 / 校验 / 版本检查 / 默认值 / 兼容性逻辑，spec 必须列出覆盖哪些数据写入入口（对照上方「数据写入入口清单」）、每个入口是否安装、哪些故意不覆盖及原因。评审时逐条核对。先例：data version check 曾只装在 GUI `init`、CLI 入口静默裸读写导致污染风险（`fix(cli): check data version before running commands`，`5b10a07`）——根因是 spec 把读取者锁死为单一入口，实现完全合规但范围画错。
