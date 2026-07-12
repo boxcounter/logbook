@@ -1,11 +1,10 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "instructions": [
-    "CLAUDE.md",
-    "SPEC.md",
+    "AGENTS.md",
     "docs/interaction-principles.md",
     "docs/naming-conventions.md",
-    "src-tauri/CLAUDE.md"
+    "src-tauri/AGENTS.md"
   ],
   "lsp": true
 }

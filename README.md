@@ -24,4 +24,4 @@ An [Agent Skill](./skill/logbook-cli/) is available for AI agents
 
 ## Documents
 
-- [CLAUDE.md](./CLAUDE.md) — Project conventions, command dictionary, frontend architecture, data flow
+- [AGENTS.md](./AGENTS.md) — Project conventions, command dictionary, frontend architecture, data flow

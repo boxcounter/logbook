@@ -70,7 +70,7 @@ disable-model-invocation: true
 
 通读关键文件以了解项目范围：
 
-- `CLAUDE.md`、`README.md`（或等效文件）
+- `AGENTS.md`、`README.md`（或等效文件）
 - 顶级目录列表
 - 包清单（`Cargo.toml`、`package.json`）
 
@@ -230,6 +230,17 @@ spawn 1 个**前台 subagent**，使用 **`prompts/completeness-review.md`** 作
 5. 完整性审视发现（第五步）
 6. Reviewer 健康度：哪些维度失败了（如果有）
 
+### 第七步：知识沉淀（可选）
+
+从所有 findings 中筛选 `category: "convention"` 的项，结合修复过程中发现的跨模块模式，主动向用户提议更新 `AGENTS.md`。
+
+若用户同意，执行更新并确保：
+- 新约定与已有约定不冲突
+- 如有旧约定被新发现覆盖、补充或细化，同步修订
+- 更新完毕后提请用户确认
+
+此步不要自动执行——先提议，等用户点头。
+
 ## 错误处理
 
 | 场景 | 处理方式 |
@@ -266,6 +277,7 @@ spawn 1 个**前台 subagent**，使用 **`prompts/completeness-review.md`** 作
 - 保持聚焦——每个 prompt 一个维度
 - 当项目的技术栈或架构变更时更新，而非每次 review 后更新
 - **每个 prompt 文件必须包含「返回结果」章节**，要求 subagent 把最终消息设为纯 JSON、且不调用 `SendMessage` 或任务工具。这是保证主 Agent 能拿到结果的关键
+- **从本次 review 中提炼的约定**：每个 Phase 1 reviewer prompt 含「知识沉淀建议」节，要求 reviewer 发现跨模块重复模式时用 `category: "convention"` 标记，供第七步汇总。同步更新了 `code-review.md`（`if let Ok` 无 else、`Err(_) => continue` 无日志）、`observability-review.md`（防护层错误吞没后的连锁影响）、`design-review.md`（全局 static 状态的 `root_path` 变更生命周期）。
 
 如果某个维度的 prompt 文件不存在，按照上述原则生成内联 prompt。
 

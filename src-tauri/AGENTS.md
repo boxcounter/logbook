@@ -11,7 +11,7 @@ cd src-tauri && cargo test -p tauri_app_lib   # 仅 lib tests
 pnpm tauri dev                                # 启动 GUI（在仓库根目录跑）
 ```
 
-Stop hook（自动）：`pnpm vue-tsc --noEmit && cd src-tauri && cargo check && cargo test`
+自动校验（OpenCode `verify-on-idle` plugin，会话 idle 时触发）：`pnpm vue-tsc --noEmit && cd src-tauri && cargo check && cargo test`
 
 ## 模块结构
 

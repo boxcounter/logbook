@@ -50,5 +50,5 @@
 
 ## 适用范围
 
-- 这些原则覆盖前端所有交互组件；后端约定见 `src-tauri/CLAUDE.md`。
+- 这些原则覆盖前端所有交互组件；后端约定见 `src-tauri/AGENTS.md`。
 - 评审新功能时（requesting-code-review / 手测），按本文件逐条核对，而不是只看单个组件是否"能用"。

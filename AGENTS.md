@@ -3,7 +3,7 @@
 Logbook — 个人工作时间记录工具。Tauri 2.x + Vue 3 + TypeScript。
 
 **设计文档**：Vault `1_Projects/Logbook/README.md`（产品设计中心，不做代码实现）
-**后端约定**：`src-tauri/CLAUDE.md`（Rust 测试规范、模块结构）
+**后端约定**：`src-tauri/AGENTS.md`（Rust 测试规范、模块结构）
 **交互原则**：`docs/interaction-principles.md`（不丢输入、消解一致性、快捷键按频率分配、尊重输入上下文——治理所有前端交互）
 **命名约定**：`docs/naming-conventions.md`（组件按职责命名、DTO 用 `*Input`、落盘格式与标识符解耦——治理命名）
 
@@ -16,7 +16,7 @@ Logbook — 个人工作时间记录工具。Tauri 2.x + Vue 3 + TypeScript。
 | 打包正式版 / 生产版本 / production build | `pnpm tauri:build` | `Logbook.app`（`com.boxcounter.logbook`），含 CLI |
 | 打包开发版 / dev build | `pnpm tauri:build:dev` | `Logbook Dev.app`（`com.boxcounter.logbook.dev`） |
 | 启动 / run / dev | `pnpm tauri dev` | 开发模式热重载 |
-| 测试 / test | `pnpm test`（前端 vitest）+ `cd src-tauri && cargo test`（后端） | `pnpm test` 仅跑 vitest；后端测试须另跑 cargo test（Stop hook 会两者都跑） |
+| 测试 / test | `pnpm test`（前端 vitest）+ `cd src-tauri && cargo test`（后端） | `pnpm test` 仅跑 vitest；后端测试须另跑 cargo test（OpenCode `verify-on-idle` plugin 会在会话 idle 时两者都跑） |
 
 ## 前端架构
 

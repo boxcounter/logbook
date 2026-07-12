@@ -22,7 +22,7 @@ const SPACE_PREFIXES =
 // Tailwind v4 resolves `max-w-md` against --spacing-md (=12px), not the 28rem you
 // expect — collapsing centered columns to one-word/one-char-per-line. Other t-shirt
 // sizes (3xl…7xl) emit no rule at all. Sizing is exempt from the spacing-token rule
-// (root CLAUDE.md), so the fix is an explicit value: max-w-[28rem], w-[300px], etc.
+// (root AGENTS.md), so the fix is an explicit value: max-w-[28rem], w-[300px], etc.
 // Regression guard for docs/bugs/2026-06-22-recovery-screen-layout-collapse.md.
 const SIZE_PREFIXES = "max-w|min-w|w|max-h|min-h|h|size|basis";
 const TSHIRT = "3xs|2xs|xs|sm|md|lg|xl|2xl|3xl|4xl|5xl|6xl|7xl";
