@@ -117,7 +117,12 @@ pub fn run(root: &Path) -> Result<(), String> {
         }
     }
 
-    // Bump version.txt to 2
+    // Bump version.txt to the migration's target version.
+    // Hardcoded `2` (not CURRENT_DATA_VERSION): this migrate command only
+    // implements the v1→v2 (.md→.yaml) conversion, so it only ever lands on v2.
+    // If a future format change adds a v3, it needs its own migration step and
+    // target here — bumping CURRENT_DATA_VERSION alone must NOT silently change
+    // what this command writes.
     if converted > 0 || skipped > 0 {
         crate::files::write_version_file(root, 2)?;
     }

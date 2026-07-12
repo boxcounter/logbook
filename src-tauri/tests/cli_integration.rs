@@ -18,11 +18,18 @@ fn cli_binary() -> std::path::PathBuf {
         })
 }
 
-/// Create a minimal fixture with dimensions.template.yaml.
+/// Create a minimal fixture with dimensions.template.yaml + version.txt.
+/// A usable data directory now requires a version.txt matching the CLI's
+/// CURRENT_DATA_VERSION; non-migrate commands refuse to run otherwise.
 fn setup_fixture(tmp: &Path) {
     fs::create_dir_all(tmp).unwrap();
     let config = "dimensions:\n  - name: Goal\n    key: goal\n    source: commitments:role:goals\n  - name: Role\n    key: role\n    source: commitments:role\n";
     fs::write(tmp.join("dimensions.template.yaml"), config).unwrap();
+    fs::write(
+        tmp.join("version.txt"),
+        tauri_app_lib::models::CURRENT_DATA_VERSION.to_string(),
+    )
+    .unwrap();
 }
 
 /// Create a commitments.yaml with given YAML body (commitments array, pure YAML).
