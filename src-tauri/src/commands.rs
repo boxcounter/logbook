@@ -47,6 +47,13 @@ pub fn parse_duration(input: &str) -> Result<u32, String> {
         return Err("Duration is empty".to_string());
     }
 
+    if let Ok(n) = input.parse::<f64>() {
+        if n > 0.0 {
+            return Ok(n.round() as u32);
+        }
+        return Err("Duration is zero".to_string());
+    }
+
     // Scan for all duration patterns (compiled once via LazyLock)
     let re = &*DURATION_RE;
     let mut total: f64 = 0.0;
@@ -329,12 +336,10 @@ pub fn load_root_state(root: &std::path::Path) -> InitResult {
 
     // Run repair sweep on startup to recover from crashes during set_commitments
     // pipeline (where commitments.yaml was written but day files have stale
-    // role/goal values). Best-effort — failures are logged but never block init.
+    // role/goal values). Scan every month that has data on disk — not just the
+    // current month — so past-month crash residue is always cleaned up.
     if !commitments.is_empty() {
-        let repair_errors = repair_entry_dimensions(root, now.year(), now.month());
-        for err in &repair_errors {
-            error_log::log_error("load_root_state:repair", err);
-        }
+        repair_entry_dimensions_all(root);
     }
 
     let today_date = format!("{}-{:02}-{:02}", now.year(), now.month(), now.day());
@@ -484,6 +489,7 @@ pub fn set_root_path(app: AppHandle, path: String) -> Result<InitResult, String>
 
     files::write_version_file(root_path, CURRENT_DATA_VERSION)?;
 
+    crate::integrity::reset();
     let result = load_root_state(root_path);
     crate::config::ensure_watcher(&app, root_path.to_path_buf());
     match &result {
@@ -1162,6 +1168,93 @@ pub fn repair_entry_dimensions(root: &std::path::Path, year: i32, month: u32) ->
     write_errors
 }
 
+/// Run repair_entry_dimensions for every year/month directory found under the
+/// data root. Best-effort — failures are logged but never block init.
+pub fn repair_entry_dimensions_all(root: &std::path::Path) {
+    let year_entries = match std::fs::read_dir(root) {
+        Ok(e) => e,
+        Err(e) => {
+            error_log::log_error(
+                "repair_entry_dimensions_all",
+                &format!("Failed to read root dir: {}", e),
+            );
+            return;
+        }
+    };
+
+    for year_entry in year_entries {
+        let year_entry = match year_entry {
+            Ok(e) => e,
+            Err(e) => {
+                error_log::log_error(
+                    "repair_entry_dimensions_all",
+                    &format!("Failed to read year entry: {:?}", e),
+                );
+                continue;
+            }
+        };
+        let is_dir = match year_entry.file_type() {
+            Ok(t) => t.is_dir(),
+            Err(e) => {
+                error_log::log_error(
+                    "repair_entry_dimensions_all",
+                    &format!("Failed to stat year entry {}: {:?}", year_entry.file_name().to_string_lossy(), e),
+                );
+                false
+            }
+        };
+        if !is_dir {
+            continue;
+        }
+        let year_name = year_entry.file_name();
+        let year_str = year_name.to_string_lossy();
+        let year: i32 = match year_str.parse() {
+            Ok(y) if y >= 2000 && y <= 9999 => y,
+            _ => continue,
+        };
+
+        let month_entries = match std::fs::read_dir(year_entry.path()) {
+            Ok(e) => e,
+            Err(e) => {
+                error_log::log_error(
+                    "repair_entry_dimensions_all",
+                    &format!("Failed to read month dir for year {}: {:?}", year, e),
+                );
+                continue;
+            }
+        };
+
+        for month_entry in month_entries {
+            let month_entry = match month_entry {
+                Ok(e) => e,
+                Err(e) => {
+                    error_log::log_error(
+                        "repair_entry_dimensions_all",
+                        &format!("Failed to read month entry in year {}: {:?}", year, e),
+                    );
+                    continue;
+                }
+            };
+            if !month_entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+                continue;
+            }
+            let month_name = month_entry.file_name();
+            let month_str = month_name.to_string_lossy();
+            let month: u32 = match month_str.parse() {
+                Ok(m) if (1..=12).contains(&m) => m,
+                _ => continue,
+            };
+
+            for err in repair_entry_dimensions(root, year, month) {
+                error_log::log_error(
+                    "repair_entry_dimensions_all",
+                    &format!("{}/{}: {}", year_str, month_str, err),
+                );
+            }
+        }
+    }
+}
+
 #[tauri::command]
 pub fn set_commitments(
     root_path: String,
@@ -1500,7 +1593,13 @@ fn cleanup_deleted_goals_in_entries(
         let date = file_name.trim_end_matches(".yaml");
         let mut day_file = match files::read_day_file(root, date) {
             Ok(df) => df,
-            Err(_) => continue,
+            Err(e) => {
+                error_log::log_error(
+                    "cleanup_deleted_goals",
+                    &format!("Failed to read day file {}: {}", date, e),
+                );
+                continue;
+            }
         };
         let mut changed = false;
         for e in &mut day_file.entries {
@@ -1874,9 +1973,11 @@ pub fn reveal_file(app: AppHandle, root_path: String, relative_path: String) -> 
     error_log::log_command_enter("reveal_file", &format!("root={} rel={}", root_path, relative_path));
     let root = std::path::Path::new(&root_path);
     let target = root.join(&relative_path);
-    // Prevent path traversal: ensure the resolved path stays within root.
-    let target = target.canonicalize().unwrap_or(target);
-    if !target.starts_with(&root.canonicalize().unwrap_or(root.to_path_buf())) {
+    let canonical_root = root.canonicalize().map_err(|e| {
+        format!("Cannot resolve root path {}: {}", root_path, e)
+    })?;
+    let canonical_target = target.canonicalize().unwrap_or_else(|_| target.clone());
+    if !canonical_target.starts_with(&canonical_root) {
         let err = format!("Path traversal attempt: {}", relative_path);
         error_log::log_error("reveal_file", &err);
         error_log::log_command_exit("reveal_file", false, "path traversal");
@@ -2026,18 +2127,25 @@ pub fn check_watcher_health(app: tauri::AppHandle) -> Result<bool, String> {
     Ok(alive)
 }
 
+#[tauri::command]
+pub fn restart_watcher(app: tauri::AppHandle, root_path: String) -> Result<(), String> {
+    error_log::log_command_enter("restart_watcher", &root_path);
+    let path = std::path::PathBuf::from(&root_path);
+    crate::config::respawn_watcher(&app, path)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_duration_rejects_plain_number() {
-        assert!(parse_duration("90").is_err());
+    fn test_parse_duration_accepts_plain_number() {
+        assert_eq!(parse_duration("90").unwrap(), 90);
     }
 
     #[test]
-    fn test_parse_duration_rejects_float_without_unit() {
-        assert!(parse_duration("1.5").is_err());
+    fn test_parse_duration_accepts_float_without_unit() {
+        assert_eq!(parse_duration("1.5").unwrap(), 2);
     }
 
     #[test]

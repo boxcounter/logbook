@@ -289,6 +289,7 @@ pub fn run() {
             commands::log_info,
             commands::recheck_integrity,
             commands::check_watcher_health,
+            commands::restart_watcher,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

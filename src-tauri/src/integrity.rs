@@ -204,59 +204,74 @@ fn is_valid_uuid_v4(s: &str) -> bool {
 }
 
 pub fn check_scoped_integrity(root: &Path) -> Vec<IntegrityIssue> {
-    use chrono::{Datelike, Local};
-
-    let now = Local::now();
-    let today = now.date_naive();
     let mut issues = Vec::new();
 
-    for offset in 0..=3 {
-        let target = if offset == 0 {
-            today
-        } else {
-            let mut y = today.year();
-            let mut m = today.month() as i32 - offset as i32;
-            while m <= 0 {
-                m += 12;
-                y -= 1;
-            }
-            chrono::NaiveDate::from_ymd_opt(y, m as u32, 1).unwrap_or(today)
-        };
-        let year = target.year();
-        let month = target.month();
+    let year_entries = match std::fs::read_dir(root) {
+        Ok(e) => e,
+        Err(_) => return issues,
+    };
 
-        let month_dir = root.join(year.to_string()).join(format!("{:02}", month));
-        if !month_dir.exists() {
+    for year_entry in year_entries {
+        let year_entry = match year_entry {
+            Ok(e) => e,
+            Err(_) => continue,
+        };
+        if !year_entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
             continue;
         }
+        let year_name = year_entry.file_name();
+        let year_str = year_name.to_string_lossy();
+        let _year: i32 = match year_str.parse() {
+            Ok(y) if y >= 2000 && y <= 9999 => y,
+            _ => continue,
+        };
 
-        let entries = match std::fs::read_dir(&month_dir) {
+        let month_entries = match std::fs::read_dir(year_entry.path()) {
             Ok(e) => e,
             Err(_) => continue,
         };
 
-        for entry in entries {
-            let entry = match entry {
+        for month_entry in month_entries {
+            let month_entry = match month_entry {
                 Ok(e) => e,
                 Err(_) => continue,
             };
-            let path = entry.path();
-            let file_name = match path.file_name().and_then(|n| n.to_str()) {
-                Some(n) => n,
-                None => continue,
+            if !month_entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+                continue;
+            }
+            let month_name = month_entry.file_name();
+            let month_str = month_name.to_string_lossy();
+            let _month: u32 = match month_str.parse() {
+                Ok(m) if (1..=12).contains(&m) => m,
+                _ => continue,
             };
-            if !file_name.ends_with(".yaml") {
-                continue;
-            }
-            let date = file_name.trim_end_matches(".yaml");
-            if chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d").is_err() {
-                continue;
-            }
 
-            match check_day_file_integrity(root, date) {
-                Ok(()) => {}
-                Err(issue) => {
-                    issues.push(issue);
+            for entry in match std::fs::read_dir(month_entry.path()) {
+                Ok(e) => e,
+                Err(_) => continue,
+            } {
+                let entry = match entry {
+                    Ok(e) => e,
+                    Err(_) => continue,
+                };
+                let path = entry.path();
+                let file_name = match path.file_name().and_then(|n| n.to_str()) {
+                    Some(n) => n,
+                    None => continue,
+                };
+                if !file_name.ends_with(".yaml") {
+                    continue;
+                }
+                let date = file_name.trim_end_matches(".yaml");
+                if chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d").is_err() {
+                    continue;
+                }
+
+                match check_day_file_integrity(root, date) {
+                    Ok(()) => {}
+                    Err(issue) => {
+                        issues.push(issue);
+                    }
                 }
             }
         }

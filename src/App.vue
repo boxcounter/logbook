@@ -59,6 +59,7 @@ let unlistenCopyResult: (() => void) | null = null;
 let unlistenDimensions: (() => void) | null = null;
 let unlistenCommitments: (() => void) | null = null;
 let unlistenDayFileChanged: (() => void) | null = null;
+let unlistenWatcherStopped: (() => void) | null = null;
 let unlistenFocus: (() => void) | null = null;
 
 onMounted(async () => {
@@ -140,6 +141,10 @@ onMounted(async () => {
       maybeRollover();
     });
 
+    unlistenWatcherStopped = await listen("watcher-stopped", () => {
+      triggerSavedToast("File watcher stopped — restart the app to resume live updates");
+    });
+
     unlistenCopyResult = await listen<string>("copy-data-path-event", (event) => {
       triggerSavedToast(event.payload);
     });
@@ -159,8 +164,13 @@ onMounted(async () => {
     watcherHealthTimer = setInterval(async () => {
       try {
         const alive = await invoke<boolean>("check_watcher_health");
-        if (!alive && watcherWasAlive) {
-          triggerSavedToast("File watcher stopped — restart the app to resume live updates");
+        if (!alive) {
+          if (watcherWasAlive) {
+            triggerSavedToast("File watcher stopped — attempting restart…");
+          }
+          try {
+            await invoke("restart_watcher", { rootPath: store.rootPath });
+          } catch (e) { logError("App.restartWatcher", e); }
         }
         watcherWasAlive = alive;
       } catch (e) { logError("App.healthCheck", e); }
@@ -175,6 +185,7 @@ onUnmounted(() => {
   unlistenDimensions?.();
   unlistenCommitments?.();
   unlistenDayFileChanged?.();
+  unlistenWatcherStopped?.();
   unlistenFocus?.();
   if (undoTimer) clearTimeout(undoTimer);
   if (savedToastTimer) clearTimeout(savedToastTimer);

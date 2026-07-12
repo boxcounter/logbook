@@ -208,7 +208,7 @@ watch(focusRequestId, () => {
         </span>
 
         <span v-if="text.trim() && !parsedDuration" class="text-micro text-[var(--color-warning)]">
-          Need a duration — type <code class="mono">1h</code>
+          Need a duration — type <code class="mono">90</code> or <code class="mono">1h 30m</code>
         </span>
       </div>
     </div>
@@ -226,7 +226,6 @@ watch(focusRequestId, () => {
     <!-- Hints -->
     <div class="flex gap-md mt-xs text-micro text-[var(--color-text-disabled)] group-focus-within:text-[var(--color-text-muted)] hover:text-[var(--color-text-muted)] transition-colors">
       <span><kbd class="mono px-xs border border-[var(--color-border-form)] rounded-[var(--radius-sm)] bg-[var(--color-surface)] text-micro">@</kbd> dim</span>
-      <span><kbd class="mono px-xs border border-[var(--color-border-form)] rounded-[var(--radius-sm)] bg-[var(--color-surface)] text-micro">#</kbd> time</span>
     </div>
   </div>
 </template>

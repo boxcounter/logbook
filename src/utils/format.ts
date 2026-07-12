@@ -25,6 +25,11 @@ const DURATION_RE = /(\d+(?:\.\d+)?)\s*(h|m)/gi;
 
 /** Parse duration from text. Accumulates as float, rounds once at end (matches Rust). */
 export function parseDurationFromText(text: string): number | null {
+  const trimmed = text.trim();
+  if (trimmed && /^\d+(\.\d+)?$/.test(trimmed)) {
+    const n = parseFloat(trimmed);
+    return n > 0 ? Math.round(n) : null;
+  }
   let total = 0;
   let matched = false;
   for (const m of text.matchAll(DURATION_RE)) {

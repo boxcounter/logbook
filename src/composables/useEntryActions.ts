@@ -18,6 +18,7 @@ export function useEntryActions(store: AppStore, inputRef: Ref<ComposerRef | nul
   const justAddedId = ref<string | null>(null);
   let highlightTimer: ReturnType<typeof setTimeout> | null = null;
   let pendingDeleteTimer: ReturnType<typeof setTimeout> | null = null;
+  const pendingDeleteInfo = ref<{ date: string; idx: number; entry: Entry } | null>(null);
 
   function sanitizeValues(vals: Record<string, string>): Record<string, string> {
     const validKeys = new Set(store.dimensions.map((d) => d.key));
@@ -124,7 +125,9 @@ export function useEntryActions(store: AppStore, inputRef: Ref<ComposerRef | nul
     const date = store.currentDate;
     const [removed] = entries.splice(idx, 1);
     let cancelled = false;
+    pendingDeleteInfo.value = { date, idx, entry: removed };
     pendingDeleteTimer = setTimeout(async () => {
+      pendingDeleteInfo.value = null;
       if (cancelled) return;
       try {
         const df = await invoke<DayFile>("delete_entry", {
@@ -173,7 +176,18 @@ export function useEntryActions(store: AppStore, inputRef: Ref<ComposerRef | nul
   onUnmounted(() => {
     window.removeEventListener("beforeunload", onBeforeUnload);
     if (highlightTimer) clearTimeout(highlightTimer);
-    if (pendingDeleteTimer) clearTimeout(pendingDeleteTimer);
+    if (pendingDeleteTimer) {
+      clearTimeout(pendingDeleteTimer);
+      const pd = pendingDeleteInfo.value;
+      if (pd && store.currentDate === pd.date) {
+        const curEntries = store.today?.entries;
+        if (curEntries && curEntries.findIndex((e) => e.id === pd.entry.id) === -1) {
+          curEntries.splice(pd.idx, 0, pd.entry);
+          store.monthEntries[pd.date] = [...curEntries];
+        }
+      }
+    }
+    pendingDeleteInfo.value = null;
   });
 
   return { handleSubmit, handleUpdateEntry, handleUpdateDimensions, handleDeleteEntry, justAddedId };

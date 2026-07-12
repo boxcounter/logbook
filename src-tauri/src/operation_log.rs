@@ -1,7 +1,6 @@
 use crate::models::Entry;
 use serde::Serialize;
 use std::fs;
-use std::io::Write;
 use std::path::Path;
 
 /// An operation to be logged before mutation.
@@ -129,14 +128,17 @@ pub fn append(root_path: &str, op: Operation) -> Result<(), String> {
             .map_err(|e| format!("Failed to create log directory: {}", e))?;
     }
 
-    let mut file = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&path)
-        .map_err(|e| format!("Failed to open log file {}: {}", path.display(), e))?;
+    let old_content = if path.exists() {
+        std::fs::read_to_string(&path).unwrap_or_default()
+    } else {
+        String::new()
+    };
 
-    writeln!(file, "{}", json)
-        .map_err(|e| format!("Failed to write log file {}: {}", path.display(), e))?;
+    let tmp_path = path.with_extension("tmp");
+    std::fs::write(&tmp_path, format!("{}{}\n", old_content, json))
+        .map_err(|e| format!("Failed to write log tmp file {}: {}", tmp_path.display(), e))?;
+    std::fs::rename(&tmp_path, &path)
+        .map_err(|e| format!("Failed to rename log file {}: {}", path.display(), e))?;
 
     Ok(())
 }

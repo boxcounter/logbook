@@ -258,6 +258,39 @@ pub fn ensure_watcher(app: &AppHandle, root_path: PathBuf) {
     }
 }
 
+/// Force-restart the file watcher if it has stopped (thread died).
+/// Unlike `ensure_watcher`, this bypasses the path-equality check so it can
+/// respawn a dead watcher even when the root path hasn't changed.
+pub fn respawn_watcher(app: &AppHandle, root_path: PathBuf) -> Result<(), String> {
+    let state = app.state::<WatcherState>();
+    let mut guard = state.inner.lock().expect("WatcherState lock poisoned");
+    let is_alive = guard
+        .as_ref()
+        .map(|h| h.alive.load(std::sync::atomic::Ordering::Acquire))
+        .unwrap_or(false);
+    if is_alive {
+        return Ok(());
+    }
+    crate::error_log::log_info("file_watcher", "restarting dead watcher");
+    let path = root_path.clone();
+    *guard = None;
+    match spawn_watcher(app.clone(), path.clone()) {
+        Ok((watcher, alive)) => {
+            *guard = Some(WatcherHandle {
+                path,
+                _watcher: watcher,
+                alive,
+            });
+            crate::error_log::log_info("file_watcher", "watcher restarted successfully");
+            Ok(())
+        }
+        Err(e) => {
+            crate::error_log::log_error("respawn_watcher", &e);
+            Err(e)
+        }
+    }
+}
+
 /// Build the watcher and spawn its receiver thread. Returns the watcher to be
 /// held in WatcherState; the receiver thread exits when the watcher is dropped.
 fn spawn_watcher(
@@ -291,16 +324,28 @@ fn spawn_watcher(
     let alive_clone = Arc::clone(&alive);
 
     let watch_root = root_path.clone();
+    let emit_handle = app_handle.clone();
     std::thread::spawn(move || {
-        // Guard: unconditionally mark the watcher as dead when this thread
-        // exits — whether normally or via panic unwind.
-        struct AliveGuard(Arc<AtomicBool>);
+        struct AliveGuard {
+            alive: Arc<AtomicBool>,
+            app_handle: Option<AppHandle>,
+        }
         impl Drop for AliveGuard {
             fn drop(&mut self) {
-                self.0.store(false, Ordering::Release);
+                self.alive.store(false, Ordering::Release);
+                if let Some(ref handle) = self.app_handle {
+                    let _ = handle.emit("watcher-stopped", ());
+                    crate::error_log::log_error(
+                        "file_watcher",
+                        "receiver thread exited — watcher-stopped event emitted",
+                    );
+                }
             }
         }
-        let _guard = AliveGuard(Arc::clone(&alive_clone));
+        let _guard = AliveGuard {
+            alive: Arc::clone(&alive_clone),
+            app_handle: Some(emit_handle),
+        };
 
         let debounce_ms = Duration::from_millis(300);
         let mut last_event: HashMap<std::path::PathBuf, Instant> = HashMap::new();
@@ -508,22 +553,36 @@ fn spawn_watcher(
                         Some(ym) => ym,
                         None => continue,
                     };
-                    if let Ok(day_file) =
-                        crate::files::read_day_file(&watch_root, file_name.trim_end_matches(".yaml"))
-                    {
-                        if let Err(e) = app_handle.emit(
-                            "day-file-changed",
-                            &json!({
-                                "date": file_name.trim_end_matches(".yaml"),
-                                "year": year,
-                                "month": month,
-                                "day_file": day_file,
-                            }),
-                        ) {
+                    match crate::files::read_day_file(
+                        &watch_root,
+                        file_name.trim_end_matches(".yaml"),
+                    ) {
+                        Ok(day_file) => {
+                            if let Err(e) = app_handle.emit(
+                                "day-file-changed",
+                                &json!({
+                                    "date": file_name.trim_end_matches(".yaml"),
+                                    "year": year,
+                                    "month": month,
+                                    "day_file": day_file,
+                                }),
+                            ) {
+                                crate::error_log::log_error(
+                                    "file_watcher",
+                                    &format!("emit day-file-changed failed: {}", e),
+                                );
+                            }
+                        }
+                        Err(e) => {
                             crate::error_log::log_error(
                                 "file_watcher",
-                                &format!("emit day-file-changed failed: {}", e),
+                                &format!(
+                                    "Failed to read day file {}: {}",
+                                    file_name, e
+                                ),
                             );
+                            let _ = app_handle
+                                .emit("integrity-changed", &crate::integrity::status());
                         }
                     }
                 }

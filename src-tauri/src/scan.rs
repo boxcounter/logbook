@@ -103,6 +103,34 @@ fn scan_dir(root: &Path, dir: &Path, warnings: &mut Vec<ScanWarning>) {
         }
 
         if file_name == "commitments.yaml" || file_name == "dimensions.yaml" {
+            let content = match std::fs::read_to_string(&path) {
+                Ok(c) => c,
+                Err(e) => {
+                    warnings.push(ScanWarning {
+                        kind: "ConfigFileError".to_string(),
+                        path: relative_path(root, &path),
+                        message: format!("Cannot read {}: {}", file_name, e),
+                    });
+                    continue;
+                }
+            };
+            if file_name == "commitments.yaml" {
+                if yaml_serde::from_str::<Vec<crate::models::Commitment>>(&content).is_err() {
+                    warnings.push(ScanWarning {
+                        kind: "ConfigFileError".to_string(),
+                        path: relative_path(root, &path),
+                        message: "Invalid commitments.yaml".to_string(),
+                    });
+                }
+            } else {
+                if yaml_serde::from_str::<Vec<crate::models::Dimension>>(&content).is_err() {
+                    warnings.push(ScanWarning {
+                        kind: "ConfigFileError".to_string(),
+                        path: relative_path(root, &path),
+                        message: "Invalid dimensions.yaml".to_string(),
+                    });
+                }
+            }
             continue;
         }
 

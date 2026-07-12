@@ -60,10 +60,9 @@ describe("EntryComposer", () => {
     expect(wrapper.text()).toContain("Goal");
   });
 
-  it("shows only @ and # hints, not month-navigation hints", () => {
+  it("shows @ hint, not month-navigation hints", () => {
     const wrapper = mountInput();
     expect(wrapper.text()).toContain("dim");
-    expect(wrapper.text()).toContain("time");
     expect(wrapper.text()).not.toContain("prev month");
     expect(wrapper.text()).not.toContain("next month");
   });

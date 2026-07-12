@@ -8,8 +8,8 @@ describe("formatDuration", () => {
 });
 
 describe("parseDurationFromText", () => {
-  it("plain number returns null (no unit)", () => { expect(parseDurationFromText("90")).toBeNull(); });
-  it("plain number 520 returns null", () => { expect(parseDurationFromText("520")).toBeNull(); });
+  it("plain number parsed as minutes", () => { expect(parseDurationFromText("90")).toBe(90); });
+  it("plain number 520 parsed as minutes", () => { expect(parseDurationFromText("520")).toBe(520); });
   it("hours", () => { expect(parseDurationFromText("1.5h")).toBe(90); });
   it("minutes", () => { expect(parseDurationFromText("30m")).toBe(30); });
   it("compound", () => { expect(parseDurationFromText("1h 30m")).toBe(90); });
