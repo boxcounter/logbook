@@ -142,6 +142,49 @@ impl Commands {
     }
 }
 
+/// Check the data directory's version.txt against `CURRENT_DATA_VERSION`.
+///
+/// `migrate` is exempt: it may legitimately read an older version and write a
+/// newer one. All other commands refuse on missing/mismatched version so an
+/// outdated CLI can't silently corrupt a newer-format data directory.
+///
+/// Returns `Err(msg)` with a human-readable message; the caller should print it
+/// and exit(1). Extracted from `run()` (which calls `process::exit`) so the
+/// exemption + message formatting stays unit-testable.
+fn ensure_compatible_version(root: &std::path::Path, command: &Commands) -> Result<(), String> {
+    if matches!(command, Commands::Migrate) {
+        return Ok(());
+    }
+
+    use crate::commands::check_data_version;
+    use crate::models::{CURRENT_DATA_VERSION, InitResult};
+
+    match check_data_version(root, CURRENT_DATA_VERSION) {
+        Ok(()) => Ok(()),
+        Err(InitResult::DataVersionNotFound { root_path }) => Err(format!(
+            "Data version file not found in {}.\n\
+             Run `logbook-cli migrate` to initialize the data version, \
+             or start the Logbook GUI once to set up.",
+            root_path
+        )),
+        Err(InitResult::DataVersionMismatch {
+            root_path,
+            expected,
+            found,
+        }) => Err(format!(
+            "Data format version mismatch in {}.\n\
+             Expected version {}, found version {}.\n\
+             This CLI (version {}) expects data version {}. \
+             Update Logbook and retry, or run `logbook-cli migrate` with a newer build.",
+            root_path, expected, found,
+            env!("CARGO_PKG_VERSION"),
+            expected
+        )),
+        // check_data_version only ever returns the two variants above.
+        Err(other) => unreachable!("check_data_version returned unexpected variant: {other:?}"),
+    }
+}
+
 pub fn run() {
     // Diagnostics: a panic backtrace lands on disk, and the shared command
     // functions' log_command_enter/exit calls become live (they no-op until
@@ -197,6 +240,16 @@ pub fn run() {
     });
 
     eprintln!("Using data root: {}", root.display());
+
+    // Refuse to operate on an incompatible-version data directory. Without
+    // this, an outdated CLI would silently read/write the wrong format and
+    // corrupt data (version check otherwise lives only in the GUI's `init`).
+    // `migrate` is exempt inside ensure_compatible_version.
+    if let Err(msg) = ensure_compatible_version(&root, &cli.command) {
+        crate::error_log::log_error("cli", &msg);
+        eprintln!("Error: {}", msg);
+        std::process::exit(1);
+    }
 
     match cli.command {
         Commands::Commitments { action } => match action {
@@ -308,5 +361,88 @@ mod tests {
             },
         }
         .is_read_only());
+    }
+
+    // --- ensure_compatible_version ---
+
+    fn temp_root() -> std::path::PathBuf {
+        std::env::temp_dir().join(format!(
+            "logbook_cli_version_{}_{}",
+            std::process::id(),
+            uuid::Uuid::new_v4()
+        ))
+    }
+
+    fn list_entries_cmd() -> Commands {
+        Commands::Entries {
+            action: EntryAction::List {
+                date: "2026-07-12".to_string(),
+            },
+        }
+    }
+
+    #[test]
+    fn ensure_compatible_version_migrate_is_exempt_even_when_version_missing() {
+        // migrate must run regardless of version.txt state — it may be the very
+        // tool that creates/bumps the version file.
+        let root = temp_root();
+        std::fs::create_dir_all(&root).unwrap();
+        // No version.txt at all.
+        let result = ensure_compatible_version(&root, &Commands::Migrate);
+        assert!(result.is_ok(), "migrate should be exempt, got {:?}", result);
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn ensure_compatible_version_migrate_is_exempt_on_version_mismatch() {
+        let root = temp_root();
+        std::fs::create_dir_all(&root).unwrap();
+        crate::files::write_version_file(&root, 999).unwrap();
+        let result = ensure_compatible_version(&root, &Commands::Migrate);
+        assert!(result.is_ok(), "migrate should be exempt, got {:?}", result);
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn ensure_compatible_version_ok_when_version_matches() {
+        let root = temp_root();
+        std::fs::create_dir_all(&root).unwrap();
+        crate::files::write_version_file(&root, crate::models::CURRENT_DATA_VERSION).unwrap();
+        let result = ensure_compatible_version(&root, &list_entries_cmd());
+        assert!(result.is_ok(), "got {:?}", result);
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn ensure_compatible_version_err_on_mismatch() {
+        let root = temp_root();
+        std::fs::create_dir_all(&root).unwrap();
+        crate::files::write_version_file(&root, 999).unwrap();
+        let result = ensure_compatible_version(&root, &list_entries_cmd());
+        let msg = result.expect_err("should refuse on mismatch");
+        assert!(
+            msg.contains("mismatch"),
+            "message should mention mismatch: {msg}"
+        );
+        assert!(
+            msg.contains(&crate::models::CURRENT_DATA_VERSION.to_string()),
+            "message should mention expected version: {msg}"
+        );
+        assert!(msg.contains("999"), "message should mention found version: {msg}");
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn ensure_compatible_version_err_when_version_file_missing() {
+        let root = temp_root();
+        std::fs::create_dir_all(&root).unwrap();
+        // No version.txt.
+        let result = ensure_compatible_version(&root, &list_entries_cmd());
+        let msg = result.expect_err("should refuse when version.txt is missing");
+        assert!(
+            msg.to_lowercase().contains("not found"),
+            "message should mention not found: {msg}"
+        );
+        std::fs::remove_dir_all(&root).unwrap();
     }
 }
