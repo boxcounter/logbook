@@ -98,8 +98,9 @@ App.vue
 | GUI init | `commands::init` | 启动时全量加载 + 版本校验，长生命周期进程 |
 | CLI 命令 | `cli::run` → `commands::*` | 短命进程，逐命令直接调用，**不走 init** |
 | 文件监听重载 | `notify` 线程 → 重新校验 | 运行时外部改动触发，重跑校验 + 完整性复查 |
+| 午夜 rollover | `App.vue::maybeRollover` | 跨日自动推进 currentDate（setInterval 60s + 窗口 focus 触发），随后 `initApp()` 全量重载。**状态同步入口，非直接写入**：rollover 必须同步推进 `store.currentDate` 与 `store.today`（从月度缓存重建），否则在两者不一致的窗口内 `saveNote` 会用新 currentDate 把旧 note 写入错误的 day file（先例见 `b29173b`、本次 rollover note stale 修复） |
 
-入口模式不统一是真实约束：GUI 有 init 全量前置，CLI 没有。没有现成的"所有数据访问公共前置"可挂守卫——因此跨切面逻辑靠**显式枚举入口 + 逐个安装**，而非假设有统一注入点。
+入口模式不统一是真实约束：GUI 有 init 全量前置，CLI 没有。没有现成的"所有数据访问公共前置"可挂守卫——因此跨切面逻辑靠**显式枚举入口 + 逐个安装**，而非假设有统一注入点。rollover 是间接写入风险：它本身不写文件，但状态不同步会污染下游 `saveNote` 的写入目标。
 
 ## 项目级规则
 

@@ -442,6 +442,83 @@ describe("App", () => {
     wrapper.unmount();
   });
 
+  it("rollover keeps store.today in sync with currentDate (no stale yesterday note)", async () => {
+    // Scenario reported by user: app left open overnight. Yesterday's day note
+    // is visible. After the midnight rollover auto-advances to today, the note
+    // area must NOT still show yesterday's text. Root cause under test:
+    // maybeRollover sets store.currentDate synchronously but updates
+    // store.today via an async initApp() — a window where the two disagree and
+    // the note area displays stale text (and a blur here would persist
+    // yesterday's note into today's day file).
+    vi.setSystemTime(new Date(2026, 5, 20, 23, 0, 0));
+    mockInvoke.mockResolvedValue({
+      status: "Ready",
+      data: {
+        root_path: "/test",
+        dimensions: makeDimensions(),
+        usingDefaultDimensions: false,
+        today: makeDayFile(),
+        commitments: [],
+        scan_warnings: [],
+      },
+    });
+    const { store, wrapper } = mountApp();
+    await vi.runAllTimersAsync();
+    await nextTick();
+
+    expect(store.status).toBe("ready");
+    expect(store.currentDate).toBe("2026-06-20");
+    // Simulate the user having written a note on yesterday: the in-memory
+    // store reflects what the DOM shows.
+    store.today = makeDayFile({ note: "yesterday's note" });
+    store.dayNotes["2026-06-20"] = "yesterday's note";
+    await nextTick();
+    const noteEl = () => wrapper.find("[contenteditable]");
+    expect(noteEl().text()).toBe("yesterday's note");
+
+    // Cross midnight, but BLOCK the rollover's init call so we can inspect the
+    // state where maybeRollover has advanced the date but initApp has not yet
+    // resolved (the stale window the user observed).
+    let resolveInit!: (v: unknown) => void;
+    vi.clearAllMocks();
+    mockInvoke.mockImplementation((cmd: string) => {
+      if (cmd === "init") return new Promise((r) => { resolveInit = r; });
+      return Promise.resolve({});
+    });
+    vi.setSystemTime(new Date(2026, 5, 21, 0, 5, 0));
+    focusChangedCallback?.({ payload: true });
+    await vi.runAllTimersAsync();
+    await nextTick();
+
+    expect(mockInvoke).toHaveBeenCalledWith("init");
+    // currentDate already advanced to today ...
+    expect(store.currentDate).toBe("2026-06-21");
+    // ... so store.today must already reflect today (empty note), NOT
+    // yesterday's stale text. This is the fix target.
+    expect(store.today?.note).toBe(null);
+    // The DOM (note area) must also be cleared — this is what the user
+    // actually sees. Asserting textContent guards against a future regression
+    // where the store is correct but the watch in useDayNote doesn't fire.
+    await nextTick();
+    expect(noteEl().text()).toBe("");
+
+    // Sanity: once init resolves, today's note stays correct.
+    resolveInit({
+      status: "Ready",
+      data: {
+        root_path: "/test",
+        dimensions: makeDimensions(),
+        usingDefaultDimensions: false,
+        today: makeDayFile({ note: null }),
+        commitments: [],
+        scan_warnings: [],
+      },
+    });
+    await vi.runAllTimersAsync();
+    await nextTick();
+    expect(store.today?.note).toBe(null);
+  });
+
   it("triggerUndoToast: shows undo toast with Undo and Dismiss buttons", async () => {
     mockInvoke.mockResolvedValue({
       status: "Ready",

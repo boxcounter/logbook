@@ -50,6 +50,19 @@ function maybeRollover() {
   lastKnownToday = formatDate(new Date());
   if (rollover) {
     store.currentDate = date;
+    // Sync store.today to the advanced date IMMEDIATELY, in lockstep with
+    // currentDate. initApp() (below) is async, so without this the two fields
+    // disagree for the duration of the IPC round-trip: currentDate is already
+    // "today" while store.today still holds yesterday's DayFile. In that window
+    // the note area renders yesterday's text, and a blur would call saveNote
+    // with the new currentDate — persisting yesterday's note into today's day
+    // file. Rebuild from the (month-scoped) cache the same way handleSelectDay
+    // does; a missing key falls back to null/[] so today shows empty until the
+    // reload completes. See b29173b for the same class of stale-today bug.
+    store.today = {
+      note: store.dayNotes[date] ?? null,
+      entries: store.monthEntries[date] ?? [],
+    };
     initApp();
   }
 }
