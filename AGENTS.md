@@ -16,7 +16,7 @@ Logbook — 个人工作时间记录工具。Tauri 2.x + Vue 3 + TypeScript。
 | 打包正式版 / 生产版本 / production build | `pnpm tauri:build` | `Logbook.app`（`com.boxcounter.logbook`），含 CLI |
 | 打包开发版 / dev build | `pnpm tauri:build:dev` | `Logbook Dev.app`（`com.boxcounter.logbook.dev`） |
 | 启动 / run / dev | `pnpm tauri dev` | 开发模式热重载 |
-| 测试 / test | `pnpm test`（前端 vitest）+ `cd src-tauri && cargo test`（后端） | `pnpm test` 仅跑 vitest；后端测试须另跑 cargo test（OpenCode `verify-on-idle` plugin 会在会话 idle 时两者都跑） |
+| 测试 / test | `pnpm test`（前端 vitest）+ `cd src-tauri && cargo test`（后端） | `pnpm test` 仅跑 vitest；后端测试须另跑 cargo test（OpenCode `verify-on-idle` plugin 会话 idle 时跑 vue-tsc + cargo check + cargo test，不含 vitest） |
 
 ## 前端架构
 
@@ -25,12 +25,12 @@ Logbook — 个人工作时间记录工具。Tauri 2.x + Vue 3 + TypeScript。
 ```
 App.vue
 ├── SetupScreen.vue                     // 首次启动，folder picker
-├── ConfigErrorBanner.vue               // 启动时 config 错误提示
 ├── RecoveryScreen.vue                  // ConfigError/root_missing 恢复界面
 ├── DataVersionScreen.vue               // 数据版本缺失/不匹配（DataVersionNotFound / DataVersionMismatch）恢复界面
 └── MonthView.vue                       // 固定月视图
+    ├── ConfigErrorBanner.vue           // config 错误提示（RecoveryScreen 亦引用）
     ├── HeatmapCalendar.vue             // 月历热力图 + 切换月份
-    ├── QuickJumpPopover.vue            // 年/月快速跳转双下拉（基于 get_available_months）
+    │   └── QuickJumpPopover.vue        // 年/月快速跳转双下拉（基于 get_available_months）
     ├── CommitmentsPanel.vue            // Allocation / Spent / Balance 进度条
     ├── IntegrityBanner.vue             // 运行时数据完整性告警（integrity-changed 事件驱动）
     ├── DayHeader.vue                   // 日期头部，显示当天 entry 合计
@@ -84,10 +84,10 @@ App.vue
   - 无文件 → 返回 `NeedsSetup` → 前端弹文件夹选择器 → `set_root_path` → 重新 init
   - 数据版本缺失/不匹配 → 返回 `DataVersionNotFound { root_path }` / `DataVersionMismatch { root_path, expected, found }` → 前端渲染 DataVersionScreen
   - dimensions.template.yaml / dimensions.yaml / commitments.yaml 有错 → 返回 `ConfigError { category, root_path, errors, scan_warnings }` → 前端按 `category` 决定 RecoveryScreen 路由
-  - 正常 → 返回 `Ready { root_path, dimensions, usingDefaultDimensions, today, commitments, scan_warnings, integrity_issues }`（dimensions = 当前月生效维度）→ 渲染 Today
-- **文件监听**: Tauri `setup` hook 中启动 `notify` 线程，watch `dimensions.template.yaml` + 当月 `dimensions.yaml` + `commitments.yaml` + 当月 day yaml。变更时重新校验并复查完整性，emit `dimensions-changed` / `commitments-changed` / `integrity-changed` / `day-file-changed` 事件推前端。（「Copy User Data Path」菜单另 emit `copy-data-path-event`，非文件监听）
+  - 正常 → 返回 `Ready { root_path, dimensions, usingDefaultDimensions, today, commitments, scan_warnings, integrity_issues }`（dimensions = 当前月生效维度）→ 渲染 MonthView
+- **文件监听**: Tauri `setup` hook 中启动 `notify` 线程，watch `dimensions.template.yaml` + 当月 `dimensions.yaml` + `commitments.yaml` + 当月 day yaml。变更时重新校验并复查完整性，emit `dimensions-changed` / `commitments-changed` / `integrity-changed` / `day-file-changed` 事件推前端；watcher 异常停止时 emit `watcher-stopped`，前端另有 60s 周期的 `check_watcher_health` / `restart_watcher` 自愈循环。（「Copy User Data Path」菜单另 emit `copy-data-path-event`，非文件监听）
 - **录入**: 用户输入 → 前端扫描全文 duration（regex 求和） → 去除匹配片段得到 item → 添加继承的维度 → `invoke('append_entry', ...)` → Rust 解析 duration 字符串为 u32，写文件 → 返回 Entry → 前端 refresh 列表 + Commitments
-- MonthView 通过逐个调用 `get_entries` 加载月份数据。
+- MonthView 通过批量命令 `get_month_entries` 一次加载整月数据（返回 `Record<string, DayFile>`），不逐日调用 `get_entries`。
 
 ### 数据写入入口清单
 
