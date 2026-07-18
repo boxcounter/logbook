@@ -137,8 +137,13 @@ mod tests {
     use super::*;
     use std::fs;
 
+    /// Tests below mutate the global LOG_PATH; serialize them so a parallel
+    /// `cargo test` run doesn't write into another test's temp dir.
+    static TEST_LOCK: Mutex<()> = Mutex::new(());
+
     #[test]
     fn test_append_log_creates_file() {
+        let _guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let tmp = std::env::temp_dir().join("logbook_log_test");
         let _ = fs::remove_dir_all(&tmp);
         fs::create_dir_all(&tmp).unwrap();
@@ -157,6 +162,7 @@ mod tests {
 
     #[test]
     fn test_log_rotation_keeps_appending_below_threshold() {
+        let _guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let tmp = std::env::temp_dir().join("logbook_log_rotation");
         let _ = fs::remove_dir_all(&tmp);
         fs::create_dir_all(&tmp).unwrap();
