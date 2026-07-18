@@ -4,7 +4,7 @@ import { nextTick } from "vue";
 import { STORE_KEY } from "../../stores/useStore";
 import { UNDO_TOAST_KEY, SAVED_TOAST_KEY } from "../../types";
 import { createTestStore } from "../mocks/store";
-import { makeDimensions, makeDayFile, makeCommitment, makeDimension } from "../mocks/fixtures";
+import { makeDimensions, makeDayFile, makeCommitment, makeDimension, makeEntry } from "../mocks/fixtures";
 import App from "../../App.vue";
 import Toast from "../../components/base/Toast.vue";
 
@@ -341,6 +341,45 @@ describe("App", () => {
     expect(store.commitments).toStrictEqual(sentinel); // commitments untouched
   });
 
+  it("dimensions-changed discards the result when the user navigated to a different YEAR with the same month", async () => {
+    // The stale-write guard compared only the month number: navigating from
+    // 2025-06 to 2026-06 while get_month_dimensions was in flight let the old
+    // year's dimensions overwrite the newly-viewed month's. The guard must
+    // compare year AND month (like commitments-changed already does).
+    vi.setSystemTime(new Date(2026, 5, 20, 10, 0, 0));
+    const mountDims = makeDimensions();
+    mockInvoke.mockResolvedValue({
+      status: "Ready",
+      data: { root_path: "/test", dimensions: mountDims, usingDefaultDimensions: false, today: makeDayFile(), commitments: [], scan_warnings: [] },
+    });
+    const { store } = mountApp();
+    await vi.runAllTimersAsync();
+    await nextTick();
+
+    store.currentDate = "2025-06-15"; // viewing June 2025
+    vi.clearAllMocks();
+    let resolveDims!: (v: unknown) => void;
+    mockInvoke.mockImplementation((cmd: string) => {
+      if (cmd === "get_month_dimensions") return new Promise((r) => { resolveDims = r; });
+      return Promise.resolve({});
+    });
+
+    dimensionsChangedCallback?.({ payload: [] });
+    await vi.runAllTimersAsync();
+    expect(mockInvoke).toHaveBeenCalledWith("get_month_dimensions", expect.objectContaining({ year: 2025, month: 6 }));
+
+    // While the IPC is in flight, the user navigates to June 2026 — same
+    // month number, different year.
+    store.currentDate = "2026-06-10";
+    const staleDims = [makeDimension({ name: "Stale2025", key: "stale", source: "static", required: false })];
+    resolveDims({ dimensions: staleDims, usingDefaultDimensions: true });
+    await vi.runAllTimersAsync();
+
+    // The stale 2025 result must be discarded, not written into the store.
+    expect(store.dimensions).toEqual(mountDims);
+    expect(store.usingDefaultDimensions).toBe(false);
+  });
+
   // ---- Focus / midnight crossing ----
 
   function ymd(d: Date): string {
@@ -469,8 +508,8 @@ describe("App", () => {
     expect(store.status).toBe("ready");
     expect(store.currentDate).toBe("2026-06-20");
     // Simulate the user having written a note on yesterday: the in-memory
-    // store reflects what the DOM shows.
-    store.today = makeDayFile({ note: "yesterday's note" });
+    // store reflects what the DOM shows. store.today is derived, so seed the
+    // source cache (dayNotes) — the view and the note area follow from it.
     store.dayNotes["2026-06-20"] = "yesterday's note";
     await nextTick();
     const noteEl = () => wrapper.find("[contenteditable]");
@@ -517,6 +556,90 @@ describe("App", () => {
     await vi.runAllTimersAsync();
     await nextTick();
     expect(store.today?.note).toBe(null);
+  });
+
+  it("midnight rollover does NOT clear an unsubmitted draft in the composer (#14)", async () => {
+    // Scenario: typing an entry at 23:58, the window-focus/interval rollover
+    // advances currentDate across midnight. The composer stays mounted (the
+    // new selected day IS today), so the draft must survive.
+    vi.setSystemTime(new Date(2026, 5, 20, 23, 58, 0));
+    mockInvoke.mockImplementation(async (cmd: string) => {
+      if (cmd === "init") {
+        return {
+          status: "Ready",
+          data: { root_path: "/test", dimensions: makeDimensions(), usingDefaultDimensions: false, today: makeDayFile(), commitments: [], scan_warnings: [] },
+        };
+      }
+      if (cmd === "get_month_entries") return {};
+      if (cmd === "get_month_dimensions") return { dimensions: makeDimensions(), usingDefaultDimensions: false };
+      if (cmd === "get_commitments") return [];
+      if (cmd === "get_commitment_progress") return [];
+      return {};
+    });
+    const { wrapper, store } = mountApp();
+    await vi.runAllTimersAsync();
+    await nextTick();
+
+    const composer = () => wrapper.findComponent({ name: "EntryComposer" });
+    expect(composer().exists()).toBe(true);
+    expect(store.currentDate).toBe("2026-06-20");
+    await composer().find("input").setValue("Unfinished draft 45m");
+
+    // Cross midnight; the focus event drives maybeRollover → initApp reload.
+    vi.setSystemTime(new Date(2026, 5, 21, 0, 2, 0));
+    focusChangedCallback?.({ payload: true });
+    await vi.runAllTimersAsync();
+    await nextTick();
+
+    expect(store.currentDate).toBe("2026-06-21");
+    expect(composer().exists()).toBe(true); // still mounted: selected day is the new today
+    expect((composer().find("input").element as HTMLInputElement).value).toBe("Unfinished draft 45m");
+  });
+
+  it("cross-month midnight rollover loads the NEW month's entries (stale month cache bug)", async () => {
+    // App left open from 2026-06-30 into 2026-07-01. maybeRollover advances
+    // currentDate to 07-01, but the monthEntries cache still holds June's keys
+    // unless the new month is loaded — the calendar renders July with June
+    // data and the day view shows empty until a manual month switch.
+    vi.setSystemTime(new Date(2026, 5, 30, 23, 59, 0));
+    const juneEntry = makeEntry({ item: "June task", duration: 30 });
+    const julyEntry = makeEntry({ item: "July task", duration: 45 });
+    mockInvoke.mockImplementation(async (cmd: string, args?: { year: number; month: number }) => {
+      if (cmd === "init") {
+        return {
+          status: "Ready",
+          data: { root_path: "/test", dimensions: makeDimensions(), usingDefaultDimensions: false, today: makeDayFile(), commitments: [], scan_warnings: [] },
+        };
+      }
+      if (cmd === "get_month_entries") {
+        if (args?.month === 7) return { "2026-07-01": { note: null, entries: [julyEntry] } };
+        return { "2026-06-30": { note: null, entries: [juneEntry] } };
+      }
+      if (cmd === "get_month_dimensions") return { dimensions: makeDimensions(), usingDefaultDimensions: false };
+      if (cmd === "get_commitments") return [];
+      if (cmd === "get_commitment_progress") return [];
+      return {};
+    });
+    const { store } = mountApp();
+    await vi.runAllTimersAsync();
+    await nextTick();
+
+    expect(store.status).toBe("ready");
+    expect(store.currentDate).toBe("2026-06-30");
+    expect(mockInvoke).toHaveBeenCalledWith("get_month_entries", expect.objectContaining({ year: 2026, month: 6 }));
+
+    // Cross into July; the focus event drives maybeRollover.
+    vi.setSystemTime(new Date(2026, 6, 1, 0, 1, 0));
+    focusChangedCallback?.({ payload: true });
+    await vi.runAllTimersAsync();
+    await nextTick();
+
+    expect(store.currentDate).toBe("2026-07-01");
+    // The July cache must be loaded through the normal month-load channel ...
+    expect(mockInvoke).toHaveBeenCalledWith("get_month_entries", expect.objectContaining({ year: 2026, month: 7 }));
+    // ... so the derived day view shows July's data, not an empty day.
+    expect(store.monthEntries["2026-07-01"]?.find((e) => e.id === julyEntry.id)).toBeDefined();
+    expect(store.today!.entries.find((e) => e.id === julyEntry.id)).toBeDefined();
   });
 
   it("triggerUndoToast: shows undo toast with Undo and Dismiss buttons", async () => {

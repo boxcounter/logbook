@@ -16,7 +16,7 @@ Logbook — 个人工作时间记录工具。Tauri 2.x + Vue 3 + TypeScript。
 | 打包正式版 / 生产版本 / production build | `pnpm tauri:build` | `Logbook.app`（`com.boxcounter.logbook`），含 CLI |
 | 打包开发版 / dev build | `pnpm tauri:build:dev` | `Logbook Dev.app`（`com.boxcounter.logbook.dev`） |
 | 启动 / run / dev | `pnpm tauri dev` | 开发模式热重载 |
-| 测试 / test | `pnpm test`（前端 vitest）+ `cd src-tauri && cargo test`（后端） | `pnpm test` 仅跑 vitest；后端测试须另跑 cargo test（OpenCode `verify-on-idle` plugin 会话 idle 时跑 vue-tsc + cargo check + cargo test，不含 vitest） |
+| 测试 / test | `pnpm test`（前端 vitest）+ `cd src-tauri && cargo test`（后端） | `pnpm test` 仅跑 vitest；后端测试须另跑 cargo test。门控：CI 跑 `pnpm run verify` + `cargo test`；pre-commit 跑 config-dev-prod-separation + lint-staged + `cargo check`（OpenCode `verify-on-idle` plugin 会话 idle 时跑 vue-tsc + cargo check + cargo test，不含 vitest） |
 
 ## 前端架构
 
@@ -26,7 +26,7 @@ Logbook — 个人工作时间记录工具。Tauri 2.x + Vue 3 + TypeScript。
 App.vue
 ├── SetupScreen.vue                     // 首次启动，folder picker
 ├── RecoveryScreen.vue                  // ConfigError/root_missing 恢复界面
-├── DataVersionScreen.vue               // 数据版本缺失/不匹配（DataVersionNotFound / DataVersionMismatch）恢复界面
+├── DataVersionScreen.vue               // 数据版本缺失/不匹配（DataVersionNotFound / DataVersionMismatch）恢复界面（含「Choose a different folder」出口）
 └── MonthView.vue                       // 固定月视图
     ├── ConfigErrorBanner.vue           // config 错误提示（RecoveryScreen 亦引用）
     ├── HeatmapCalendar.vue             // 月历热力图 + 切换月份
@@ -50,13 +50,17 @@ App.vue
 
 `reactive()` + `provide/inject`。根组件创建 reactive store，`provide()` 注入子组件树。
 
+**单一真源规则**：`store.today` 是从 `currentDate` + `monthEntries` + `dayNotes` 派生的 computed（只读）。写操作只写 `monthEntries[date]` / `dayNotes[date]`，禁止给 `store.today` 赋值或手工维护其副本（历史事故：`b29173b`、`ca1605e`）。
+
+**异步回写守卫**：异步写回 store 必须用**进入函数时捕获的** date/year/month（`useEntryActions` 为样板），禁止 await 之后读「活的」`store.currentDate`——IPC 在途期间用户切日会把结果写错日期。watcher 事件监听器的 stale 守卫必须同时校验 year + month（`App.vue` 的 dimensions-changed / commitments-changed 为样板）。新增异步回写点按此审查。
+
 ### 前端模块
 
 | 路径 | 说明 |
 |------|------|
 | `src/types.ts` | 前端 TypeScript 类型定义（与 Rust models 对应 + UI 专用类型） |
 | `src/stores/useStore.ts` | Reactive store（`reactive()` + `provide/inject`） |
-| `src/composables/useRootFolderPicker.ts` | 文件夹选择逻辑，SetupScreen / RecoveryScreen 复用 |
+| `src/composables/useRootFolderPicker.ts` | 文件夹选择逻辑，SetupScreen / RecoveryScreen / DataVersionScreen 复用 |
 | `src/composables/useMonthData.ts` | 月数据加载（entries / commitments / dimensions / day note / 导航） |
 | `src/composables/useEntryActions.ts` | Entry CRUD（提交 / 更新 / 删除 + undo / 高亮） |
 | `src/composables/useDayNote.ts` | Day note 内联编辑（保存 / esc 还原 / IME 安全） |
@@ -77,6 +81,7 @@ App.vue
 - Goal 维度：值列表不从 template/月度维度块取，从 Rust 端 `get_commitments` 返回的 goals 并集构建
 - CommitmentsPanel：始终可见（录入框上方）
 - DimensionPopover 键盘导航：`CTRL+N`/`CTRL+P` 或 `↑`/`↓` 移动高亮（循环），默认高亮第一个还没填 value 的维度（从 val 阶段返回时高亮下一个未填项）。popover 开启时 `Enter` 改为「选中当前高亮项」（dim 阶段进入值菜单 / val 阶段填值），不再提交 entry / 保存编辑；按 `Esc` 关闭 popover 后 `Enter` 恢复提交。`EntryComposer` 与 `EntryRowEdit` 复用同一 popover，行为一致。
+- EntryComposer 草稿：只在选中今天时渲染，离开今天即卸载（导航清空靠 unmount，不靠 watch）；午夜 rollover 推进 currentDate 时 composer 保持挂载、**草稿必须保留**（交互原则 §1 不丢输入）。
 
 ## 数据流
 
@@ -96,9 +101,10 @@ App.vue
 | 入口 | 代码位置 | 说明 |
 |------|----------|------|
 | GUI init | `commands::init` | 启动时全量加载 + 版本校验，长生命周期进程 |
-| CLI 命令 | `cli::run` → `commands::*` | 短命进程，逐命令直接调用，**不走 init** |
+| CLI 命令 | `cli::run` → `commands::*` | 短命进程，逐命令直接调用，**不走 init**；写命令先取 `{root}/.logbook/writer.lock`（只读命令不加锁） |
 | 文件监听重载 | `notify` 线程 → 重新校验 | 运行时外部改动触发，重跑校验 + 完整性复查 |
-| 午夜 rollover | `App.vue::maybeRollover` | 跨日自动推进 currentDate（setInterval 60s + 窗口 focus 触发），随后 `initApp()` 全量重载。**状态同步入口，非直接写入**：rollover 必须同步推进 `store.currentDate` 与 `store.today`（从月度缓存重建），否则在两者不一致的窗口内 `saveNote` 会用新 currentDate 把旧 note 写入错误的 day file（先例见 `b29173b`、本次 rollover note stale 修复） |
+| 午夜 rollover | `App.vue::maybeRollover` | 跨日自动推进 currentDate（setInterval 60s + 窗口 focus 触发），随后 `initApp()` 全量重载。**状态同步入口，非直接写入**：rollover 只需推进 `store.currentDate`——`store.today` 是从 `currentDate` + `monthEntries` + `dayNotes` 派生的 computed，锁步跟随、无不一致窗口；跨月时 `useMonthData` 的 watch 检测到新今天不在缓存月，走 `loadMonth` 通道重载对应月。历史事故：`store.today` 曾是独立可变状态，靠手工同步（先例见 `b29173b`、`ca1605e`），现为派生只读 |
+| root 切换 | `commands::set_root_path` | 换挂 writer lock（`swap_writer_lock`，同根 no-op；被占用时拒绝且不变更任何状态）→ 版本守卫（`stamp_or_check_version`，仅全新空目录盖戳）→ 重置 integrity → 重启 watcher |
 
 入口模式不统一是真实约束：GUI 有 init 全量前置，CLI 没有。没有现成的"所有数据访问公共前置"可挂守卫——因此跨切面逻辑靠**显式枚举入口 + 逐个安装**，而非假设有统一注入点。rollover 是间接写入风险：它本身不写文件，但状态不同步会污染下游 `saveNote` 的写入目标。
 
@@ -124,7 +130,10 @@ App.vue
 
 ### 数据安全与可靠性
 
-- **所有文件写入必须原子化**：先写 `.tmp`，再 `rename` 到目标路径。业务数据（day files、commitments.yaml、dimensions.yaml）、日志（operation_log）、配置文件均受此约束。禁止直接 `OpenOptions::append(true)` + `writeln!` 做"追加"——应通过"读旧 → 追加到内存 → 写新 tmp → rename"实现。新增写入路径按此审查。
-- **`if let Ok` 必须有 `else` 分支**：`else` 至少 `error_log::log_error`，记录操作名称、失败的文件/日期、错误信息。`Err(_) => continue` 在 batch 操作中同理——必须记录被跳过的对象（文件名 + 错误）。Code review 时此模式按 blocker 对待。
-- **全局 static/`LazyLock` 状态必须有文档化的 reset 路径**：`root_path` 变更（用户切换数据目录）时，`integrity.rs`（`INTEGRITY_OK` / `INTEGRITY_ISSUES`）、`files.rs`（`FILE_LOCKS` / `RECENTLY_APP_WRITTEN`）、`config.rs`（`WatcherState`）需全部或部分重置。每个模块注释必须说明：哪些状态在 root 切换时需 reset、哪些是 root-agnostic、reset 由谁触发。
+- **所有文件写入必须原子化**：一律走 `files::atomic_write`（tmp 文件名为 `<目标名>.tmp.<pid>`，写完后 `rename` 到目标路径）。业务数据（day files、commitments.yaml、dimensions.yaml）、日志（operation_log）、配置文件均受此约束。禁止直接 `OpenOptions::append(true)` + `writeln!` 做"追加"——应通过"读旧 → 追加到内存 → atomic_write"实现（读旧失败必须返回 Err，不得 `unwrap_or_default` 当空内容覆写）。**唯一豁免：`error_log.rs` 的诊断日志**（高频、best-effort、丢失可接受，append+writeln! 是有意为之）——豁免不外溢，新写入路径不得照抄 error_log。孤儿 tmp 由 `cleanup_tmp_files` 清理（`files::is_tmp_file_name` 同时识别旧 `.tmp` 与带 PID 后缀形式）。
+- **跨进程写互斥按数据目录加锁**：写互斥锁是 `{root}/.logbook/writer.lock`（`single_instance::writer_lock_path` 唯一构造点）——dev/prod GUI 与 CLI 对同一数据 root 竞争同一把锁；bundle 级 `instance.pid` 只防同 bundle 双开，防不住跨 bundle / CLI 写同一 root。覆盖入口：GUI 启动（root_path.txt 存在时）、`set_root_path`（`swap_writer_lock`）、CLI 写命令。锁 IO 失败 fail-open（记 error_log 继续，与启动同姿势）；崩溃残留锁由 stale-PID 替换兜底。新增写入入口必须核对是否在锁保护内。
+- **`if let Ok` 必须有 `else` 分支**：`else` 至少 `error_log::log_error`，记录操作名称、失败的文件/日期、错误信息。`Err(_) => continue` 在 batch 操作中同理——必须记录被跳过的对象（文件名 + 错误）。Code review 时此模式按 blocker 对待。新代码零容忍；已知存量违规（`commands.rs` 的 batch_count / repair / role rename-cleanup 等 batch 循环）列入清理 backlog，方向是沉淀为可执行护栏（lint / checklist 测试）。
+- **损坏 ≠ 空**：数据文件损坏/不可读时必须显式报错（error_log + issue/banner），不得静默渲染为空数据——「空」是合法状态，「损坏」不是。目录级读取失败 fail-closed（integrity.rs 的 `DirectoryUnreadable` 为样板）。已知待收敛例外：`get_month_entries` 对损坏 day file 返回空 DayFile（有 log_error、前端无提示）；新读取路径不得复制该模式。
+- **全局 static/`LazyLock` 状态必须有文档化的 reset 路径**：`root_path` 变更（用户切换数据目录）时，`integrity.rs`（`INTEGRITY_OK` / `INTEGRITY_ISSUES`）、`files.rs`（`FILE_LOCKS` / `RECENTLY_APP_WRITTEN`）、`config.rs`（`WatcherState`）需全部或部分重置。每个模块头部注释块必须按固定格式说明：哪些状态在 root 切换时需 reset、哪些是 root-agnostic、reset 由谁触发（`integrity.rs` / `files.rs` / `config.rs` / `error_log.rs` 为样板）。新增全局状态时按 blocker 审查此注释块。
+- **月目录遍历不得手写新拷贝**：`read_dir → 过滤 .yaml → 校验日期文件名 → read_day_file` 的遍历样板现存 13 处拷贝（commands.rs / integrity.rs / operation_log.rs / cli/migrate.rs），错误处理粒度各不相同——这正是 if-let-Ok 规则难以执行的结构原因。新代码需要月遍历时，先在 `files.rs` 抽共享迭代 helper（统一错误上报）再使用；存量拷贝列入渐进迁移 backlog。
 - **跨切面守卫必须显式枚举覆盖的入口**：任何守卫 / 校验 / 版本检查 / 默认值 / 兼容性逻辑，spec 必须列出覆盖哪些数据写入入口（对照上方「数据写入入口清单」）、每个入口是否安装、哪些故意不覆盖及原因。评审时逐条核对。先例：data version check 曾只装在 GUI `init`、CLI 入口静默裸读写导致污染风险（`fix(cli): check data version before running commands`，`5b10a07`）——根因是 spec 把读取者锁死为单一入口，实现完全合规但范围画错。

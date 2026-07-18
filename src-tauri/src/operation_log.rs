@@ -129,12 +129,16 @@ pub fn append(root_path: &str, op: Operation) -> Result<(), String> {
     }
 
     let old_content = if path.exists() {
-        std::fs::read_to_string(&path).unwrap_or_default()
+        // Fail closed: an unreadable log file (permissions, I/O, invalid UTF-8)
+        // must abort the write — degrading to an empty string would silently
+        // destroy the day's audit history on the rename below.
+        std::fs::read_to_string(&path)
+            .map_err(|e| format!("Failed to read existing log file {}: {}", path.display(), e))?
     } else {
         String::new()
     };
 
-    let tmp_path = path.with_extension("tmp");
+    let tmp_path = crate::files::tmp_path_for(&path);
     std::fs::write(&tmp_path, format!("{}{}\n", old_content, json))
         .map_err(|e| format!("Failed to write log tmp file {}: {}", tmp_path.display(), e))?;
     std::fs::rename(&tmp_path, &path)
@@ -759,6 +763,36 @@ mod tests {
         assert_eq!(lines.len(), 2, "should have exactly 2 lines");
         assert!(lines[0].contains("\"item\":\"First\""));
         assert!(lines[1].contains("\"item\":\"Second\""));
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_append_fails_closed_when_log_unreadable() {
+        let tmp = test_root("append_unreadable");
+        let _ = fs::remove_dir_all(&tmp);
+
+        // Pre-create the day's log file with invalid UTF-8 bytes. read_to_string
+        // fails on it; append must refuse instead of overwriting the log.
+        let log_file = tmp.join(".logbook/operations/2026/06/2026-06-14.jsonl");
+        fs::create_dir_all(log_file.parent().unwrap()).unwrap();
+        let original_bytes: &[u8] = b"\xff\xfe not utf8 \xff";
+        fs::write(&log_file, original_bytes).unwrap();
+
+        let root_path = tmp.to_string_lossy().to_string();
+        let result = append(
+            &root_path,
+            Operation::Append {
+                date: "2026-06-14".into(),
+                entry_id: "e1".into(),
+                params: serde_json::json!({"item": "Test", "duration": "30m", "dimensions": {}}),
+            },
+        );
+        assert!(result.is_err(), "append must fail when the log file is unreadable");
+
+        // The original content must be untouched.
+        let after = fs::read(&log_file).unwrap();
+        assert_eq!(after, original_bytes, "log file content must not be modified");
 
         let _ = fs::remove_dir_all(&tmp);
     }

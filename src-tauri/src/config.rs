@@ -200,6 +200,11 @@ pub fn validate_commitments(commitments: &[Commitment]) -> Result<(), String> {
 
 /// Managed state holding the live file watcher. Dropping the inner watcher stops
 /// its event stream (the receiver thread exits when the channel closes).
+///
+/// Root-switch lifecycle (AGENTS.md「数据安全与可靠性」): on a data-root change,
+/// `ensure_watcher` replaces the watcher wholesale — that replacement IS the
+/// reset path, triggered by `set_root_path` and startup. No other watcher state
+/// survives a root switch.
 pub struct WatcherState {
     inner: Mutex<Option<WatcherHandle>>,
 }

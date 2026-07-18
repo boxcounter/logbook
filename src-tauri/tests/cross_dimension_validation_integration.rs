@@ -251,3 +251,87 @@ fn append_accepts_when_no_commitments_file_exists() {
 
     teardown(suffix);
 }
+
+/// A commitments.yaml that exists but is corrupt must NOT be treated as "no
+/// commitments" — that would silently disable cross-dimension validation and
+/// let arbitrary role/goal values through. Writes must fail closed.
+fn setup_corrupt_commitments(suffix: &str) {
+    setup(suffix);
+    let root = test_root(suffix);
+    fs::write(
+        root.join("2026/06/commitments.yaml"),
+        "\t- not: [valid yaml\n  broken",
+    )
+    .unwrap();
+}
+
+#[test]
+fn append_rejects_when_commitments_file_corrupt() {
+    let suffix = "append_commitments_corrupt";
+    setup_corrupt_commitments(suffix);
+    let root = test_root(suffix);
+    let root_path = root.to_string_lossy().to_string();
+    let date = "2026-06-15".to_string();
+
+    // Even a valid role/goal pair must be rejected: validation cannot run
+    // against an unreadable commitments file.
+    let entry = make_entry("Ship it", "Dev");
+    let result = tauri_app_lib::commands::append_entry(root_path.clone(), date.clone(), entry);
+    assert!(result.is_err(), "Expected rejection but got: {:?}", result.ok());
+
+    // The day file must not have been written.
+    let day = tauri_app_lib::files::read_day_file(&root, &date).unwrap();
+    assert!(day.entries.is_empty(), "day file must remain empty on rejected append");
+
+    teardown(suffix);
+}
+
+#[test]
+fn update_rejects_when_commitments_file_corrupt() {
+    let suffix = "update_commitments_corrupt";
+    // Start from a valid setup so an entry can be appended...
+    let root = test_root(suffix);
+    let _ = fs::remove_dir_all(&root);
+    fs::create_dir_all(&root).unwrap();
+    fs::write(
+        root.join("dimensions.template.yaml"),
+        concat!(
+            "dimensions:\n",
+            "  - name: Goal\n    key: goal\n    source: commitments:role:goals\n",
+            "  - name: Role\n    key: role\n    source: commitments:role\n",
+        ),
+    )
+    .unwrap();
+    let month_dir = root.join("2026/06");
+    fs::create_dir_all(&month_dir).unwrap();
+    // No commitments.yaml yet — append is allowed in that state.
+    let root_path = root.to_string_lossy().to_string();
+    let date = "2026-06-15".to_string();
+    let entry = make_entry("Ship it", "Dev");
+    let appended = tauri_app_lib::commands::append_entry(root_path.clone(), date.clone(), entry).unwrap();
+
+    // ...then corrupt the commitments file and try to update dimensions.
+    fs::write(
+        month_dir.join("commitments.yaml"),
+        "\t- not: [valid yaml\n  broken",
+    )
+    .unwrap();
+
+    let mut dims = BTreeMap::new();
+    dims.insert("role".to_string(), "Dev".to_string());
+    dims.insert("goal".to_string(), "Ship it".to_string());
+    let update = UpdateEntryInput {
+        item: None,
+        duration: None,
+        dimensions: Some(dims),
+    };
+    let result = tauri_app_lib::commands::update_entry(root_path, date.clone(), appended.id.clone(), update);
+    assert!(result.is_err(), "Expected rejection but got: {:?}", result.ok());
+
+    // Entry dimensions on disk must be unchanged.
+    let day = tauri_app_lib::files::read_day_file(&root, &date).unwrap();
+    let on_disk = day.entries.iter().find(|e| e.id == appended.id).unwrap();
+    assert_eq!(on_disk.dimensions.get("role").map(String::as_str), Some("Dev"));
+
+    teardown(suffix);
+}

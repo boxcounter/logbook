@@ -1,8 +1,19 @@
 <script setup lang="ts">
+import { useStore } from "../stores/useStore";
+import { useRootFolderPicker } from "../composables/useRootFolderPicker";
+
 defineProps<{
   message: string;
   rootPath: string;
 }>();
+
+const store = useStore();
+// Same escape hatch as RecoveryScreen: pick a different data folder and
+// re-init via set_root_path. applyInitResult already handles every result
+// variant (Ready / ConfigError / DataVersionNotFound / DataVersionMismatch),
+// so picking another outdated folder simply lands back on this screen with a
+// refreshed message.
+const { pick } = useRootFolderPicker(store);
 </script>
 
 <template>
@@ -13,5 +24,12 @@ defineProps<{
         数据目录: {{ rootPath }}
       </p>
     </div>
+    <button
+      data-testid="choose-folder"
+      class="px-lg py-sm rounded-[var(--radius-form-lg)] border border-[var(--color-border-form)] text-secondary text-[var(--color-text-primary)] whitespace-nowrap cursor-pointer"
+      @click="pick"
+    >
+      Choose a different folder…
+    </button>
   </div>
 </template>

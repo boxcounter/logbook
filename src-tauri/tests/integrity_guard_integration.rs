@@ -5,6 +5,13 @@ mod tests {
     use super::*;
     use std::fs;
     use std::path::PathBuf;
+    use std::sync::Mutex;
+
+    /// Tests below mutate the process-global INTEGRITY_OK / INTEGRITY_ISSUES
+    /// (via reset/set_compromised, directly or through cleanup); serialize
+    /// them so a parallel `cargo test` run doesn't interleave that state
+    /// between tests.
+    static TEST_LOCK: Mutex<()> = Mutex::new(());
 
     fn temp_root() -> PathBuf {
         std::env::temp_dir().join(format!("logbook_integrity_test_{}", uuid::Uuid::new_v4()))
@@ -63,12 +70,14 @@ mod tests {
 
     #[test]
     fn guard_starts_uncompromised() {
+        let _guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         integrity::reset();
         assert!(integrity::check().is_ok());
     }
 
     #[test]
     fn startup_scan_passes_on_valid_data() {
+        let _guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let root = temp_root();
         setup_fixture(&root);
 
@@ -80,6 +89,7 @@ mod tests {
 
     #[test]
     fn startup_scan_detects_corrupt_yaml() {
+        let _guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let root = temp_root();
         setup_fixture(&root);
 
@@ -105,6 +115,7 @@ mod tests {
 
     #[test]
     fn startup_scan_detects_zero_duration() {
+        let _guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let root = temp_root();
         setup_fixture(&root);
 
@@ -134,6 +145,7 @@ mod tests {
 
     #[test]
     fn set_compromised_then_check_denies_write() {
+        let _guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         integrity::reset();
 
         integrity::set_compromised(IntegrityIssue {
@@ -149,6 +161,7 @@ mod tests {
 
     #[test]
     fn reset_after_compromised_allows_write() {
+        let _guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         integrity::reset();
 
         integrity::set_compromised(IntegrityIssue {
@@ -163,6 +176,7 @@ mod tests {
 
     #[test]
     fn startup_scan_detects_invalid_uuid() {
+        let _guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let root = temp_root();
         setup_fixture(&root);
 
@@ -189,6 +203,7 @@ mod tests {
 
     #[test]
     fn startup_scan_detects_unknown_dimension_key() {
+        let _guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let root = temp_root();
         setup_fixture(&root);
 
@@ -218,6 +233,7 @@ mod tests {
 
     #[test]
     fn startup_scan_detects_empty_required_dimension() {
+        let _guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let root = temp_root();
         setup_fixture(&root);
 
@@ -247,6 +263,7 @@ mod tests {
 
     #[test]
     fn startup_scan_detects_jsonl_parse_error() {
+        let _guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let root = temp_root();
         setup_fixture(&root);
 
@@ -281,6 +298,68 @@ mod tests {
         let issues = integrity::check_scoped_integrity(&root);
         assert_eq!(issues.len(), 1);
         assert_eq!(issues[0].kind, "JsonlParseError");
+
+        cleanup(&root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn startup_scan_detects_unreadable_month_dir() {
+        let _guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let root = temp_root();
+        setup_fixture(&root);
+
+        use chrono::{Datelike, Local};
+        let now = Local::now();
+        let month_dir = root
+            .join(format!("{}", now.year()))
+            .join(format!("{:02}", now.month()));
+
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&month_dir, fs::Permissions::from_mode(0o000)).unwrap();
+
+        let issues = integrity::check_scoped_integrity(&root);
+
+        // Restore permissions before any assertion so cleanup always works.
+        fs::set_permissions(&month_dir, fs::Permissions::from_mode(0o755)).unwrap();
+
+        let expected_path = format!("{}/{:02}", now.year(), now.month());
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.kind == "DirectoryUnreadable" && i.path == expected_path),
+            "expected a DirectoryUnreadable issue for {}, got {:?}",
+            expected_path,
+            issues
+        );
+
+        // Fail closed: applying the scan result (watcher / recheck behavior)
+        // must keep writes denied instead of resetting to a clean state.
+        integrity::reset();
+        for issue in &issues {
+            integrity::set_compromised(issue.clone());
+        }
+        assert!(integrity::check().is_err(), "writes must stay denied");
+
+        cleanup(&root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn startup_scan_detects_unreadable_root_dir() {
+        let _guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let root = temp_root();
+        setup_fixture(&root);
+
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&root, fs::Permissions::from_mode(0o000)).unwrap();
+
+        let issues = integrity::check_scoped_integrity(&root);
+
+        fs::set_permissions(&root, fs::Permissions::from_mode(0o755)).unwrap();
+
+        assert_eq!(issues.len(), 1, "expected exactly 1 issue, got {:?}", issues);
+        assert_eq!(issues[0].kind, "DirectoryUnreadable");
 
         cleanup(&root);
     }

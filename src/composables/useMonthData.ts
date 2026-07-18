@@ -1,15 +1,23 @@
 import { invoke } from "@tauri-apps/api/core";
+import { watch } from "vue";
 import type { AppStore, AvailableMonth } from "../stores/useStore";
 import type { DayFile, Commitment, CommitmentProgress, MonthDimensions } from "../types";
 import { logError } from "../utils/errorLog";
-import { yearMonthFromDate } from "../utils/dates";
+import { yearMonthFromDate, formatDate } from "../utils/dates";
 
 function isConfigError(msg: string): boolean {
   return /dimensions|commitments|\.yaml|corrupt|not configured|parse/i.test(msg);
 }
 
 export function useMonthData(store: AppStore, guardUnsaved: () => boolean) {
+  // The month currently held by the monthEntries/dayNotes caches. Set at the
+  // START of loadMonth so the rollover watch below doesn't re-enter mid-load.
+  let loadedYear: number | null = null;
+  let loadedMonth: number | null = null;
+
   async function loadMonth(year: number, month: number, defaultDay?: number) {
+    loadedYear = year;
+    loadedMonth = month;
     store.configErrors = [];
     store.commitments = [];
     store.commitmentProgress = [];
@@ -44,7 +52,6 @@ export function useMonthData(store: AppStore, guardUnsaved: () => boolean) {
     await loadCommitmentProgress(year, month);
     await loadCommitments(year, month);
     await loadMonthDimensions(year, month);
-    store.today = { note: store.dayNotes[store.currentDate] ?? null, entries: store.monthEntries[store.currentDate] ?? [] };
   }
 
   async function loadCommitmentProgress(year: number, month: number) {
@@ -106,13 +113,13 @@ export function useMonthData(store: AppStore, guardUnsaved: () => boolean) {
     } catch (e) {
       logError("useMonthData.reloadMonthEntries", e);
     }
-    store.today = { note: store.today?.note ?? null, entries: store.monthEntries[store.currentDate] ?? [] };
+    // Only entries are reloaded here (commitments edits don't touch notes);
+    // store.today re-derives from monthEntries + the untouched dayNotes.
   }
 
   async function handleSelectDay(dateStr: string) {
     if (!guardUnsaved()) return;
     store.currentDate = dateStr;
-    store.today = { note: store.dayNotes[dateStr] ?? null, entries: store.monthEntries[dateStr] ?? [] };
   }
 
   async function handleNavigate({ year, month }: { year: number; month: number }) {
@@ -126,6 +133,23 @@ export function useMonthData(store: AppStore, guardUnsaved: () => boolean) {
       store.availableMonths = await invoke<AvailableMonth[]>("get_available_months", { rootPath: store.rootPath });
     } catch (e) { logError("useMonthData.handleRequestMonths", e); store.availableMonths = []; }
   }
+
+  // Midnight rollover (App.maybeRollover) advances store.currentDate directly,
+  // without going through loadMonth. When that crosses a month boundary, the
+  // caches still hold the OLD month's keys and the new month renders empty
+  // until a manual month switch. Detect it here and load the new month through
+  // the normal channel. Guarded to the real today: manual currentDate writes
+  // (navigation) already go through loadMonth and must not trigger reloads.
+  watch(
+    () => store.currentDate.slice(0, 7),
+    () => {
+      const todayStr = formatDate(new Date());
+      if (store.currentDate !== todayStr) return;
+      const { year, month } = yearMonthFromDate(todayStr);
+      if (year === loadedYear && month === loadedMonth) return;
+      loadMonth(year, month);
+    },
+  );
 
   return {
     loadMonth,

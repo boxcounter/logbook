@@ -49,20 +49,9 @@ function maybeRollover() {
   );
   lastKnownToday = formatDate(new Date());
   if (rollover) {
+    // store.today is derived from currentDate, so it advances in lockstep —
+    // no stale-yesterday window for saveNote to hit (see b29173b / ca1605e).
     store.currentDate = date;
-    // Sync store.today to the advanced date IMMEDIATELY, in lockstep with
-    // currentDate. initApp() (below) is async, so without this the two fields
-    // disagree for the duration of the IPC round-trip: currentDate is already
-    // "today" while store.today still holds yesterday's DayFile. In that window
-    // the note area renders yesterday's text, and a blur would call saveNote
-    // with the new currentDate — persisting yesterday's note into today's day
-    // file. Rebuild from the (month-scoped) cache the same way handleSelectDay
-    // does; a missing key falls back to null/[] so today shows empty until the
-    // reload completes. See b29173b for the same class of stale-today bug.
-    store.today = {
-      note: store.dayNotes[date] ?? null,
-      entries: store.monthEntries[date] ?? [],
-    };
     initApp();
   }
 }
@@ -103,7 +92,11 @@ onMounted(async () => {
           year,
           month,
         });
-        if (yearMonthFromDate(store.currentDate).month !== month) return;
+        // Guard against stale writes: if the user navigated away while
+        // loading, discard. Compare year AND month — same month number in a
+        // different year (2025-06 vs 2026-06) is still stale.
+        const cur = yearMonthFromDate(store.currentDate);
+        if (cur.year !== year || cur.month !== month) return;
         store.dimensions = result.dimensions;
         store.usingDefaultDimensions = result.usingDefaultDimensions;
       } catch (e) {
@@ -142,9 +135,6 @@ onMounted(async () => {
         const { date, day_file } = event.payload;
         store.monthEntries[date] = day_file.entries;
         store.dayNotes[date] = day_file.note;
-        if (store.currentDate === date) {
-          store.today = day_file;
-        }
       },
     );
 

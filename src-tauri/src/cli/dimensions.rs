@@ -87,9 +87,7 @@ pub fn handle_dimensions(cmd: DimensionsCommands, root: &Path) -> Result<(), Str
                 let tmpl = Template { dimensions: dims };
                 let path = files::dimensions_template_path(root);
                 let yaml = yaml_serde::to_string(&tmpl).map_err(|e| e.to_string())?;
-                let tmp = path.with_extension("tmp");
-                std::fs::write(&tmp, &yaml).map_err(|e| e.to_string())?;
-                std::fs::rename(&tmp, &path).map_err(|e| e.to_string())?;
+                files::atomic_write(&path, &yaml)?;
             } else {
                 files::write_dimensions_file(root, year.unwrap(), month.unwrap(), &dims)?;
             }

@@ -830,3 +830,140 @@ fn test_entries_delete_human_output() {
 
     let _ = fs::remove_dir_all(&tmp);
 }
+
+// ---- Writer-lock tests (cross-process write exclusion) ----
+
+/// Spawn a live placeholder process and record its PID as the writer-lock
+/// holder, simulating a running GUI (either bundle) or another CLI holding
+/// `{lock_dir}/writer.lock` (LOGBOOK_LOCK_DIR overrides the lock directory).
+#[cfg(unix)]
+fn hold_writer_lock(lock_dir: &Path) -> std::process::Child {
+    let child = Command::new("sleep")
+        .arg("30")
+        .spawn()
+        .expect("spawn sleep");
+    fs::create_dir_all(lock_dir).unwrap();
+    fs::write(lock_dir.join("writer.lock"), format!("{}\n", child.id())).unwrap();
+    child
+}
+
+/// A write command must be refused while a live process holds the writer
+/// lock — this is what stops a CLI write from racing a GUI of the *other*
+/// bundle (dev/prod) on the same data root. Once the holder dies, the stale
+/// lock is replaced and the write proceeds.
+#[cfg(unix)]
+#[test]
+fn test_write_command_refused_while_writer_lock_held() {
+    let tmp = std::env::temp_dir().join("logbook_cli_test_writer_lock_block");
+    let _ = fs::remove_dir_all(&tmp);
+    setup_fixture(&tmp);
+    // delete_entry does not instantiate the month; create dimensions.yaml so
+    // the pre-write integrity check has the goal dimension key available.
+    let dim_dir = tmp.join("2026").join("06");
+    fs::create_dir_all(&dim_dir).unwrap();
+    fs::write(
+        dim_dir.join("dimensions.yaml"),
+        "- name: Goal\n  key: goal\n  source: commitments:role:goals\n",
+    )
+    .unwrap();
+    let entry_id = "d505d5b7-4475-42f3-bafe-55e7df2cec0c";
+    setup_day_file(
+        &tmp,
+        "2026-06-15",
+        &format!(
+            "entries:\n  - id: {id}\n    item: Locked work\n    duration: 30\n    dimensions:\n      goal: Review",
+            id = entry_id
+        ),
+    );
+
+    let lock_dir = std::env::temp_dir().join("logbook_cli_test_writer_lock_dir");
+    let _ = fs::remove_dir_all(&lock_dir);
+    let mut holder = hold_writer_lock(&lock_dir);
+
+    // Write refused while the lock is held by a live process.
+    let output = run_with_log_dir(
+        &[
+            "--root-path", tmp.to_str().unwrap(),
+            "entries", "delete", "--date", "2026-06-15", "--entry-id", entry_id,
+        ],
+        &lock_dir,
+    );
+    assert!(
+        !output.status.success(),
+        "write must be refused while writer.lock is held"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("Close the GUI before using CLI write commands"),
+        "stderr should keep the GUI-close guidance: {}",
+        stderr
+    );
+    let day_content = fs::read_to_string(tmp.join("2026/06/2026-06-15.yaml")).unwrap();
+    assert!(
+        day_content.contains("Locked work"),
+        "entry must survive the refused write"
+    );
+
+    // Holder dies → stale lock is replaced → write succeeds.
+    holder.kill().unwrap();
+    holder.wait().unwrap();
+    let output = run_with_log_dir(
+        &[
+            "--root-path", tmp.to_str().unwrap(),
+            "entries", "delete", "--date", "2026-06-15", "--entry-id", entry_id,
+        ],
+        &lock_dir,
+    );
+    assert!(
+        output.status.success(),
+        "stale lock must be replaced, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let day_content = fs::read_to_string(tmp.join("2026/06/2026-06-15.yaml")).unwrap();
+    assert!(
+        !day_content.contains("Locked work"),
+        "entry should be deleted after the lock holder died"
+    );
+
+    let _ = fs::remove_dir_all(&tmp);
+    let _ = fs::remove_dir_all(&lock_dir);
+}
+
+/// Read-only commands never touch the writer lock and must keep working
+/// while another process holds it.
+#[cfg(unix)]
+#[test]
+fn test_read_command_runs_while_writer_lock_held() {
+    let tmp = std::env::temp_dir().join("logbook_cli_test_writer_lock_read");
+    let _ = fs::remove_dir_all(&tmp);
+    setup_fixture(&tmp);
+    setup_day_file(
+        &tmp,
+        "2026-06-15",
+        "entries:\n  - id: e1\n    item: Readable\n    duration: 30\n    dimensions: {}",
+    );
+
+    let lock_dir = std::env::temp_dir().join("logbook_cli_test_writer_lock_read_dir");
+    let _ = fs::remove_dir_all(&lock_dir);
+    let mut holder = hold_writer_lock(&lock_dir);
+
+    let output = run_with_log_dir(
+        &[
+            "--root-path", tmp.to_str().unwrap(),
+            "entries", "list", "--date", "2026-06-15",
+        ],
+        &lock_dir,
+    );
+    assert!(
+        output.status.success(),
+        "read must work while writer.lock is held, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Readable"), "stdout: {}", stdout);
+
+    holder.kill().unwrap();
+    holder.wait().unwrap();
+    let _ = fs::remove_dir_all(&tmp);
+    let _ = fs::remove_dir_all(&lock_dir);
+}

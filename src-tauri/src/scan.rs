@@ -64,7 +64,7 @@ fn scan_dir(root: &Path, dir: &Path, warnings: &mut Vec<ScanWarning>) {
             None => continue,
         };
 
-        if file_name.ends_with(".tmp") {
+        if crate::files::is_tmp_file_name(file_name) {
             warnings.push(ScanWarning {
                 kind: "OrphanedTemp".to_string(),
                 path: relative_path(root, &path),
@@ -299,6 +299,25 @@ mod tests {
         assert_eq!(warnings[0].kind, "OrphanedTemp");
         assert!(warnings[0].path.contains(".tmp"));
         assert!(!warnings[0].message.is_empty());
+
+        fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    // ---------------------------------------------------------------------------
+    // 7. orphaned suffixed .tmp (process-unique form "<name>.tmp.<pid>")
+    // ---------------------------------------------------------------------------
+
+    #[test]
+    fn test_orphaned_suffixed_tmp_reported() {
+        let root = temp_root();
+        let tmp_file = root.join("2026/06/2026-06-15.yaml.tmp.4242");
+        write_file(&tmp_file, "leftover temp content\n");
+
+        let warnings = scan_data_dir(&root);
+        assert_eq!(warnings.len(), 1, "expected 1 warning, got {:?}", warnings);
+
+        assert_eq!(warnings[0].kind, "OrphanedTemp");
+        assert!(warnings[0].path.contains(".tmp."));
 
         fs::remove_dir_all(&root).expect("cleanup");
     }

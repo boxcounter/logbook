@@ -470,6 +470,85 @@ pub fn init(app: AppHandle) -> InitResult {
     result
 }
 
+/// Returns true if the directory contains any data-relevant content: a YYYY
+/// year directory, or any .yaml/.md file (template, commitments, dimensions,
+/// day files) within it. Unrelated files (.DS_Store, *.txt) do not count.
+/// Unreadable entries count as "has content" (fail closed: when we cannot
+/// confirm emptiness, we must not stamp).
+fn dir_has_data_content(root: &std::path::Path) -> bool {
+    const MAX_DEPTH: u32 = 3;
+    fn recurse(dir: &std::path::Path, depth: u32) -> bool {
+        if depth > MAX_DEPTH {
+            return false;
+        }
+        let entries = match std::fs::read_dir(dir) {
+            Ok(e) => e,
+            Err(e) => {
+                error_log::log_error(
+                    "dir_has_data_content",
+                    &format!("Failed to read directory {}: {}", dir.display(), e),
+                );
+                return true; // cannot confirm emptiness — do not stamp
+            }
+        };
+        for entry in entries {
+            let entry = match entry {
+                Ok(e) => e,
+                Err(e) => {
+                    error_log::log_error(
+                        "dir_has_data_content",
+                        &format!("Failed to read dir entry in {}: {:?}", dir.display(), e),
+                    );
+                    return true; // cannot confirm emptiness — do not stamp
+                }
+            };
+            let path = entry.path();
+            let name = entry.file_name().to_string_lossy().to_string();
+            if path.is_dir() {
+                // YYYY year directory → data content
+                if name.len() == 4 && name.parse::<u32>().is_ok() {
+                    return true;
+                }
+                if recurse(&path, depth + 1) {
+                    return true;
+                }
+            } else if name.ends_with(".yaml") || name.ends_with(".md") {
+                return true;
+            }
+        }
+        false
+    }
+    recurse(root, 0)
+}
+
+/// set_root_path's version guard. Stamps version.txt with the current data
+/// version only when the directory is brand new (no version.txt and no data
+/// content — preserves the f9eda9a chicken-and-egg fix for first-time setup).
+/// Any other directory goes through the same version check as init, so an old
+/// (e.g. v1) data tree surfaces DataVersionNotFound / DataVersionMismatch
+/// instead of having its version.txt silently overwritten.
+pub fn stamp_or_check_version(root: &std::path::Path) -> Result<(), InitResult> {
+    if !files::version_path(root).exists() && !dir_has_data_content(root) {
+        files::write_version_file(root, CURRENT_DATA_VERSION).map_err(|e| {
+            error_log::log_error(
+                "stamp_or_check_version",
+                &format!("Failed to stamp version.txt in {}: {}", root.display(), e),
+            );
+            InitResult::ConfigError {
+                category: RecoveryCategory::InPlace,
+                root_path: root.to_string_lossy().into_owned(),
+                errors: vec![ConfigErrorDetail {
+                    kind: "VersionStampFailed".to_string(),
+                    message: e,
+                }],
+                scan_warnings: vec![],
+            }
+        })?;
+        return Ok(());
+    }
+    check_data_version(root, CURRENT_DATA_VERSION)
+}
+
 #[tauri::command]
 pub fn set_root_path(app: AppHandle, path: String) -> Result<InitResult, String> {
     error_log::log_command_enter("set_root_path", &format!("path={}", path));
@@ -485,9 +564,44 @@ pub fn set_root_path(app: AppHandle, path: String) -> Result<InitResult, String>
         return Err(format!("Path is not a directory: {}", path));
     }
 
+    // Cross-process writer exclusion: swap the data-root writer lock BEFORE
+    // persisting anything. If another live process (CLI or other-bundle GUI)
+    // holds it, refuse without mutating state — root_path.txt, the watcher
+    // and the previously held lock all stay as they were.
+    match app.state::<crate::WriterLock>().swap_to(root_path) {
+        Ok(_) => {}
+        Err(crate::single_instance::InstanceLockError::AlreadyRunning(pid)) => {
+            error_log::log_command_exit(
+                "set_root_path",
+                false,
+                &format!("writer lock for {} held by PID {}", path, pid),
+            );
+            return Err(format!(
+                "Another Logbook process is already using this data folder (PID {}). Close it first.",
+                pid
+            ));
+        }
+        Err(crate::single_instance::InstanceLockError::Io(e)) => {
+            // Fail-open, same posture as startup: log and proceed unlocked.
+            error_log::log_error(
+                "set_root_path",
+                &format!(
+                    "Failed to acquire writer lock for {}: {}",
+                    root_path.display(),
+                    e
+                ),
+            );
+        }
+    }
+
     save_root_path(&app_data_dir, root_path)?;
 
-    files::write_version_file(root_path, CURRENT_DATA_VERSION)?;
+    // Version guard BEFORE any state load: stamp only brand-new empty dirs,
+    // otherwise surface DataVersionNotFound / DataVersionMismatch like init.
+    if let Err(version_result) = stamp_or_check_version(root_path) {
+        error_log::log_command_exit("set_root_path", true, "version guard rejected");
+        return Ok(version_result);
+    }
 
     crate::integrity::reset();
     let result = load_root_state(root_path);
@@ -517,7 +631,10 @@ pub fn set_root_path(app: AppHandle, path: String) -> Result<InitResult, String>
             error_log::log_command_exit("set_root_path", true, "NeedsSetup");
         }
         InitResult::DataVersionNotFound { .. } | InitResult::DataVersionMismatch { .. } => {
-            unreachable!("version just written should be current")
+            // load_root_state never yields version variants; if that ever
+            // changes, pass the variant through (the frontend handles both)
+            // instead of panicking in the GUI process.
+            error_log::log_command_exit("set_root_path", false, "unexpected version variant");
         }
     }
     Ok(result)
@@ -616,7 +733,20 @@ pub fn append_entry(root_path: String, date: String, entry: CreateEntryInput) ->
     let (year, month) = files::year_month_from_date(&date)?;
     files::create_dimensions_if_missing(root, year, month)?;
     let dims = files::resolve_month_dimensions(root, year, month)?;
-    let commitments = crate::files::read_commitments_file(root, year, month).unwrap_or_default();
+    // Fail closed: a commitments.yaml that exists but cannot be parsed must
+    // reject the write. Swallowing the error into an empty vec would silently
+    // disable cross-dimension validation (role_to_goals empty → checks skip).
+    // Missing file is fine — read_commitments_file returns Ok(vec![]) then.
+    let commitments = crate::files::read_commitments_file(root, year, month).map_err(|e| {
+        error_log::log_error(
+            "append_entry",
+            &format!("commitments.yaml for {}-{:02} unreadable, refusing write: {}", year, month, e),
+        );
+        format!(
+            "commitments.yaml for {}-{:02} exists but cannot be parsed; refusing to write: {}",
+            year, month, e
+        )
+    })?;
     let goal_key = goal_dim_key(root, year, month)?;
     let role_key = role_dim_key(root, year, month)?;
     let (_, role_to_goals) = build_commitment_maps(&commitments);
@@ -695,7 +825,18 @@ pub fn update_entry(
         check_unknown_dimension_keys(&effective, dims)?;
         validate_required_dimensions(&effective, dims)?;
         {
-            let commitments = crate::files::read_commitments_file(root, year, month).unwrap_or_default();
+            // Fail closed like append_entry: a corrupt commitments.yaml must
+            // reject the write, not silently skip cross-dimension validation.
+            let commitments = crate::files::read_commitments_file(root, year, month).map_err(|e| {
+                error_log::log_error(
+                    "update_entry",
+                    &format!("commitments.yaml for {}-{:02} unreadable, refusing write: {}", year, month, e),
+                );
+                format!(
+                    "commitments.yaml for {}-{:02} exists but cannot be parsed; refusing to write: {}",
+                    year, month, e
+                )
+            })?;
             let goal_key = goal_dim_key(root, year, month)?;
             let role_key = role_dim_key(root, year, month)?;
             let (_, role_to_goals) = build_commitment_maps(&commitments);
@@ -2010,7 +2151,8 @@ pub fn create_starter_files(path: String) -> Result<(), String> {
     }
     let template_path = root.join("dimensions.template.yaml");
     if !template_path.exists() {
-        if let Err(e) = std::fs::write(
+        // Atomic write (tmp + rename) per project write-safety convention.
+        if let Err(e) = files::atomic_write(
             &template_path,
             concat!(
                 "dimensions:\n",
@@ -2019,6 +2161,17 @@ pub fn create_starter_files(path: String) -> Result<(), String> {
             ),
         ) {
             let msg = format!("Failed to write dimensions.template.yaml: {}", e);
+            error_log::log_error("create_starter_files", &msg);
+            error_log::log_command_exit("create_starter_files", false, &msg);
+            return Err(msg);
+        }
+    }
+    // Stamp version.txt so the init that follows "Start fresh" passes
+    // check_data_version instead of dead-ending on DataVersionNotFound.
+    // Never overwrite an existing version file (could be an older data tree).
+    if !files::version_path(root).exists() {
+        if let Err(e) = files::write_version_file(root, CURRENT_DATA_VERSION) {
+            let msg = format!("Failed to write version.txt: {}", e);
             error_log::log_error("create_starter_files", &msg);
             error_log::log_command_exit("create_starter_files", false, &msg);
             return Err(msg);
@@ -2085,11 +2238,7 @@ pub fn save_dimensions_template(
     let path = files::dimensions_template_path(root);
     let yaml_body = yaml_serde::to_string(&template)
         .map_err(|e| format!("Failed to serialize template: {}", e))?;
-    let tmp_path = path.with_extension("tmp");
-    std::fs::write(&tmp_path, yaml_body)
-        .map_err(|e| format!("Failed to write temp file: {}", e))?;
-    std::fs::rename(&tmp_path, &path)
-        .map_err(|e| format!("Failed to rename temp file: {}", e))?;
+    files::atomic_write(&path, &yaml_body)?;
 
     error_log::log_command_exit("save_dimensions_template", true, "");
     Ok(())

@@ -1,3 +1,16 @@
+//! Runtime data-integrity guard: once a check finds corruption, the
+//! process-wide compromised flag freezes all writes ("data protection mode").
+//!
+//! Global state and root-switch lifecycle (AGENTS.md「数据安全与可靠性」):
+//! - `INTEGRITY_OK` / `INTEGRITY_ISSUES` — per-process, describe the CURRENT
+//!   data root. Must be reset on root switch; reset is triggered by
+//!   `commands::set_root_path` (`integrity::reset()` before loading the new
+//!   root). Re-evaluation afterwards is done by `recheck_integrity` and the
+//!   file watcher (scan → `set_compromised` or `reset`).
+//! - Directory-level read failures are fail-closed: they log and produce a
+//!   `DirectoryUnreadable` issue so a transient IO error can never masquerade
+//!   as "integrity OK" and let the watcher reset real alerts.
+
 use std::path::Path;
 
 use crate::models::{IntegrityIssue, IntegrityStatus};
@@ -206,15 +219,37 @@ fn is_valid_uuid_v4(s: &str) -> bool {
 pub fn check_scoped_integrity(root: &Path) -> Vec<IntegrityIssue> {
     let mut issues = Vec::new();
 
+    // Directory-level read failures must fail closed: silently returning an
+    // empty issue list tells callers (file watcher, recheck_integrity) that
+    // integrity is OK, letting them reset previously recorded problems while
+    // the data may simply be unreadable (permissions, disconnected mount).
+    // So every unreadable directory is logged and reported as an issue.
     let year_entries = match std::fs::read_dir(root) {
         Ok(e) => e,
-        Err(_) => return issues,
+        Err(e) => {
+            crate::error_log::log_error(
+                "check_scoped_integrity",
+                &format!("cannot read root directory {}: {}", root.display(), e),
+            );
+            issues.push(IntegrityIssue {
+                path: root.display().to_string(),
+                message: format!("Cannot read data root directory: {}", e),
+                kind: "DirectoryUnreadable".into(),
+            });
+            return issues;
+        }
     };
 
     for year_entry in year_entries {
         let year_entry = match year_entry {
             Ok(e) => e,
-            Err(_) => continue,
+            Err(e) => {
+                crate::error_log::log_error(
+                    "check_scoped_integrity",
+                    &format!("cannot read entry in {}: {}", root.display(), e),
+                );
+                continue;
+            }
         };
         if !year_entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
             continue;
@@ -226,15 +261,33 @@ pub fn check_scoped_integrity(root: &Path) -> Vec<IntegrityIssue> {
             _ => continue,
         };
 
-        let month_entries = match std::fs::read_dir(year_entry.path()) {
+        let year_path = year_entry.path();
+        let month_entries = match std::fs::read_dir(&year_path) {
             Ok(e) => e,
-            Err(_) => continue,
+            Err(e) => {
+                crate::error_log::log_error(
+                    "check_scoped_integrity",
+                    &format!("cannot read year directory {}: {}", year_path.display(), e),
+                );
+                issues.push(IntegrityIssue {
+                    path: year_str.to_string(),
+                    message: format!("Cannot read year directory: {}", e),
+                    kind: "DirectoryUnreadable".into(),
+                });
+                continue;
+            }
         };
 
         for month_entry in month_entries {
             let month_entry = match month_entry {
                 Ok(e) => e,
-                Err(_) => continue,
+                Err(e) => {
+                    crate::error_log::log_error(
+                        "check_scoped_integrity",
+                        &format!("cannot read entry in {}: {}", year_path.display(), e),
+                    );
+                    continue;
+                }
             };
             if !month_entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
                 continue;
@@ -246,13 +299,33 @@ pub fn check_scoped_integrity(root: &Path) -> Vec<IntegrityIssue> {
                 _ => continue,
             };
 
-            for entry in match std::fs::read_dir(month_entry.path()) {
+            let month_path = month_entry.path();
+            let day_entries = match std::fs::read_dir(&month_path) {
                 Ok(e) => e,
-                Err(_) => continue,
-            } {
+                Err(e) => {
+                    crate::error_log::log_error(
+                        "check_scoped_integrity",
+                        &format!("cannot read month directory {}: {}", month_path.display(), e),
+                    );
+                    issues.push(IntegrityIssue {
+                        path: format!("{}/{}", year_str, month_str),
+                        message: format!("Cannot read month directory: {}", e),
+                        kind: "DirectoryUnreadable".into(),
+                    });
+                    continue;
+                }
+            };
+
+            for entry in day_entries {
                 let entry = match entry {
                     Ok(e) => e,
-                    Err(_) => continue,
+                    Err(e) => {
+                        crate::error_log::log_error(
+                            "check_scoped_integrity",
+                            &format!("cannot read entry in {}: {}", month_path.display(), e),
+                        );
+                        continue;
+                    }
                 };
                 let path = entry.path();
                 let file_name = match path.file_name().and_then(|n| n.to_str()) {
@@ -284,8 +357,14 @@ pub fn check_scoped_integrity(root: &Path) -> Vec<IntegrityIssue> {
 mod tests {
     use super::*;
 
+    /// Tests below mutate the process-global INTEGRITY_OK / INTEGRITY_ISSUES
+    /// (via reset/set_compromised); serialize them so a parallel `cargo test`
+    /// run doesn't interleave that state between tests.
+    static TEST_LOCK: Mutex<()> = Mutex::new(());
+
     #[test]
     fn starts_uncompromised() {
+        let _guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         reset();
         assert!(check().is_ok());
         let s = status();
@@ -295,6 +374,7 @@ mod tests {
 
     #[test]
     fn set_compromised_blocks_writes() {
+        let _guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         reset();
         set_compromised(IntegrityIssue {
             path: "2026/07/05.yaml".into(),
@@ -310,6 +390,7 @@ mod tests {
 
     #[test]
     fn reset_restores_writes() {
+        let _guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         set_compromised(IntegrityIssue {
             path: "x.yaml".into(),
             message: "bad".into(),
@@ -324,6 +405,7 @@ mod tests {
 
     #[test]
     fn multiple_issues_accumulate() {
+        let _guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         reset();
         set_compromised(IntegrityIssue {
             path: "a.yaml".into(),

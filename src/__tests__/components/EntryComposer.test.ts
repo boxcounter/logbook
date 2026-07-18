@@ -145,6 +145,34 @@ describe("EntryComposer", () => {
     expect(wrapper.find("[data-test='dim-token']").exists()).toBe(false);
   });
 
+  it("does NOT clear the draft when currentDate changes (midnight rollover keeps the composer mounted)", async () => {
+    // #14: the composer is rendered only for "today", so a rollover advances
+    // currentDate WITHOUT unmounting it. Clearing on date change is the
+    // parent's job (leaving today unmounts the composer); the composer itself
+    // must never wipe an unsubmitted draft — that would silently lose input
+    // (interaction-principles §1). Use a dedicated store: this mutates currentDate.
+    const store = createTestStore({ status: "ready" });
+    const wrapper = mount(EntryComposer, {
+      props: { dimensions, commitments },
+      global: { provide: { [STORE_KEY as symbol]: store } },
+    });
+    await wrapper.find("input").setValue("Late-night draft 45m");
+    await wrapper.find("input").trigger("keydown", { key: "@" });
+    const pop = wrapper.findComponent({ name: "DimensionPopover" });
+    await pop.vm.$emit("select", "category", "Engineering");
+    await pop.vm.$emit("close");
+    await wrapper.vm.$nextTick();
+    expect(wrapper.find("[data-test='dim-token']").exists()).toBe(true);
+
+    // Rollover: currentDate advances to the next day with no navigation action.
+    store.currentDate = "2030-01-01";
+    await wrapper.vm.$nextTick();
+
+    expect((wrapper.find("input").element as HTMLInputElement).value).toBe("Late-night draft 45m");
+    expect(wrapper.find("[data-test='dim-token']").exists()).toBe(true);
+    expect(wrapper.find("[data-test='dim-token']").text()).toContain("Engineering");
+  });
+
   it("clearInput() empties the field and dims", async () => {
     const wrapper = mountInput();
     await setDims(wrapper, { category: "Engineering" });

@@ -1,5 +1,6 @@
 import type { AppStore } from "../stores/useStore";
 import type { InitResult, ScanWarning } from "../types";
+import { formatDate } from "./dates";
 
 /**
  * Map an InitResult onto the store and return scan_warnings for the caller to
@@ -31,7 +32,11 @@ export function applyInitResult(store: AppStore, result: InitResult): ScanWarnin
       store.rootPath = result.data.root_path;
       store.dimensions = result.data.dimensions;
       store.usingDefaultDimensions = result.data.usingDefaultDimensions;
-      store.today = result.data.today;
+      // result.data.today is the REAL today's DayFile. store.today is derived
+      // from the caches, so seed them at the real-today key instead of
+      // assigning today directly (keeps the previous startup behavior).
+      store.monthEntries[formatDate(new Date())] = result.data.today.entries;
+      store.dayNotes[formatDate(new Date())] = result.data.today.note;
       store.commitments = result.data.commitments;
       store.configCategory = null;
       store.status = "ready";

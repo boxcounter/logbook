@@ -12,3 +12,5 @@ jobs:
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm run verify
+      - run: cargo test
+        working-directory: src-tauri

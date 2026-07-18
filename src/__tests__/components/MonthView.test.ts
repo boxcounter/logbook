@@ -1,10 +1,10 @@
 // src/__tests__/components/MonthView.test.ts
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
-import { reactive } from "vue";
 import MonthView from "../../components/MonthView.vue";
 import { STORE_KEY } from "../../stores/useStore";
 import { UNDO_TOAST_KEY } from "../../types";
+import { createTestStore } from "../mocks/store";
 import { makeDimensions, makeCommitment, makeEntry } from "../mocks/fixtures";
 import { addDays } from "../../utils/dates";
 
@@ -23,20 +23,13 @@ function todayDateStr(): string {
 
 function makeStore() {
   const today = todayDateStr();
-  return reactive({
+  return createTestStore({
     status: "ready",
     rootPath: "/root",
     dimensions: makeDimensions(),
-    usingDefaultDimensions: false,
-    configErrors: [],
     commitments: [makeCommitment({ goals: ["Bug fixes"] })],
-    commitmentProgress: [],
-    today: { note: null, entries: [makeEntry({ item: "Existing", duration: 60 })] },
     currentDate: today,
     monthEntries: { [today]: [makeEntry({ item: "Existing", duration: 60 })] },
-    dayNotes: {},
-    availableMonths: null,
-    integrityIssues: [],
   });
 }
 
@@ -181,6 +174,38 @@ describe("MonthView", () => {
     expect(store.currentDate).toBe(todayDateStr());
   });
 
+  it("confirmed navigation away from today discards the draft; returning to today shows an empty composer", async () => {
+    // guardUnsaved asks before leaving today with an unsubmitted draft; on
+    // confirm, the draft is discarded. Mechanism: the composer only renders
+    // for "today", so leaving unmounts it and returning remounts it fresh.
+    const confirmSpy = vi.fn(() => true);
+    vi.stubGlobal("confirm", confirmSpy);
+    try {
+      const store = makeStore();
+      const wrapper = mountView(store);
+      await flushPromises(); // onMounted loadMonth
+      const composer = () => wrapper.findComponent({ name: "EntryComposer" });
+      expect(composer().exists()).toBe(true);
+
+      await composer().find("input").setValue("draft 30m");
+      wrapper.findComponent({ name: "DayHeader" }).vm.$emit("prev-day");
+      await flushPromises();
+
+      expect(confirmSpy).toHaveBeenCalled(); // guardUnsaved ran
+      expect(store.currentDate).toBe(addDays(todayDateStr(), -1));
+      expect(composer().exists()).toBe(false); // unmounted on a non-today date
+
+      wrapper.findComponent({ name: "DayHeader" }).vm.$emit("next-day");
+      await flushPromises();
+
+      expect(store.currentDate).toBe(todayDateStr());
+      expect(composer().exists()).toBe(true);
+      expect((composer().find("input").element as HTMLInputElement).value).toBe("");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("passes can-go-next=false to DayHeader when today is selected", () => {
     const store = makeStore();
     const wrapper = mountView(store);
@@ -262,7 +287,6 @@ describe("MonthView", () => {
 
     // Navigate to a past date that has entries in monthEntries
     store.currentDate = "2026-06-15";
-    store.today = { note: null, entries: [makeEntry({ item: "Old task", duration: 30 })] };
     expect(store.today!.entries).toHaveLength(1);
 
     // ⌘T → goToToday() → today not in monthEntries → loadMonth → today.entries should be []
@@ -360,7 +384,7 @@ describe("MonthView delete entry", () => {
     emitDelete(wrapper, DEL_ID);
     await wrapper.vm.$nextTick();
     // Removed from the list immediately (optimistic), backend not called yet.
-    expect(store.today.entries.find(e => e.id === DEL_ID)).toBeUndefined();
+    expect(store.today!.entries.find(e => e.id === DEL_ID)).toBeUndefined();
     expect(invokeMock).not.toHaveBeenCalledWith("delete_entry", expect.anything());
 
     await vi.advanceTimersByTimeAsync(5000);
@@ -398,12 +422,12 @@ describe("MonthView delete entry", () => {
 
     emitDelete(wrapper, DEL_ID);
     await wrapper.vm.$nextTick();
-    expect(store.today.entries.find(e => e.id === DEL_ID)).toBeUndefined();
+    expect(store.today!.entries.find(e => e.id === DEL_ID)).toBeUndefined();
 
     // User clicks Undo.
     getUndo()!();
     await wrapper.vm.$nextTick();
-    expect(store.today.entries.find(e => e.id === DEL_ID)).toBeDefined();
+    expect(store.today!.entries.find(e => e.id === DEL_ID)).toBeDefined();
 
     await vi.advanceTimersByTimeAsync(5000);
     expect(invokeMock).not.toHaveBeenCalledWith("delete_entry", expect.anything());
@@ -420,12 +444,127 @@ describe("MonthView delete entry", () => {
 
     emitDelete(wrapper, DEL_ID);
     await wrapper.vm.$nextTick();
-    expect(store.today.entries.find(e => e.id === DEL_ID)).toBeUndefined();
+    expect(store.today!.entries.find(e => e.id === DEL_ID)).toBeUndefined();
 
     await vi.advanceTimersByTimeAsync(5000);
     await flushPromises();
 
     // Failed delete must restore the entry rather than silently drop it.
-    expect(store.today.entries.find(e => e.id === DEL_ID)).toBeDefined();
+    expect(store.today!.entries.find(e => e.id === DEL_ID)).toBeDefined();
+  });
+});
+
+
+// ---- Stale-date cache writes: await resolves after the user navigated ----
+// handleSubmit / handleUpdateEntry / handleUpdateDimensions used to read
+// store.currentDate AFTER the IPC await. If the user switches day while the
+// call is in flight, the result is written into the newly-selected day's
+// cache (phantom entry / old day's DayFile clobbering the new day's view).
+// handleDeleteEntry already captures the date on entry (see F5 above); these
+// three must behave the same way.
+describe("MonthView stale-date writes after in-flight IPC", () => {
+  // A day in the same month as dateStr, guaranteed different from it (an
+  // in-month navigation, so no month reload is involved).
+  function sameMonthOtherDay(dateStr: string): string {
+    const day = parseInt(dateStr.slice(8, 10), 10);
+    const other = day === 15 ? 16 : 15;
+    return `${dateStr.slice(0, 8)}${String(other).padStart(2, "0")}`;
+  }
+
+  const existing = () => makeEntry({ item: "Existing", duration: 60 });
+
+  function mockMonthWithEntry(origDate: string, entry = existing()) {
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === "get_commitment_progress") return [];
+      if (cmd === "get_commitments") return [];
+      if (cmd === "get_month_entries") return { [origDate]: { note: null, entries: [entry] } };
+      return { note: null, entries: [] };
+    });
+    return entry;
+  }
+
+  it("submit lands on the ORIGINAL day when the user navigates while append_entry is in flight", async () => {
+    const origDate = todayDateStr();
+    const otherDate = sameMonthOtherDay(origDate);
+    mockMonthWithEntry(origDate);
+    const store = makeStore();
+    const wrapper = mountView(store);
+    await flushPromises(); // loadMonth done
+
+    let resolveAppend!: (v: unknown) => void;
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === "append_entry") return new Promise((r) => { resolveAppend = r; });
+      if (cmd === "get_commitment_progress") return [];
+      return { note: null, entries: [] };
+    });
+    const added = makeEntry({ item: "New task", duration: 30 });
+    wrapper.findComponent({ name: "EntryComposer" }).vm.$emit("submit", "New task", 30, {});
+    await wrapper.vm.$nextTick();
+    expect(invokeMock).toHaveBeenCalledWith("append_entry", expect.objectContaining({ date: origDate }));
+
+    // User switches day BEFORE the IPC resolves.
+    store.currentDate = otherDate;
+    resolveAppend(added);
+    await flushPromises();
+
+    // The entry must land on the day it was submitted from ...
+    expect(store.monthEntries[origDate]?.find((e) => e.id === added.id)).toBeDefined();
+    // ... and must NOT appear on the day the user navigated to (phantom entry).
+    expect(store.monthEntries[otherDate]?.find((e) => e.id === added.id)).toBeUndefined();
+    expect(store.today!.entries.find((e) => e.id === added.id)).toBeUndefined();
+  });
+
+  it("update lands on the ORIGINAL day when the user navigates while update_entry is in flight", async () => {
+    const origDate = todayDateStr();
+    const otherDate = sameMonthOtherDay(origDate);
+    const entry = mockMonthWithEntry(origDate);
+    const store = makeStore();
+    const wrapper = mountView(store);
+    await flushPromises();
+
+    let resolveUpdate!: (v: unknown) => void;
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === "update_entry") return new Promise((r) => { resolveUpdate = r; });
+      if (cmd === "get_commitment_progress") return [];
+      return { note: null, entries: [] };
+    });
+    wrapper.findComponent({ name: "EntryList" }).vm.$emit("update", entry.id, "Edited", 45);
+    await wrapper.vm.$nextTick();
+    expect(invokeMock).toHaveBeenCalledWith("update_entry", expect.objectContaining({ date: origDate, entryId: entry.id }));
+
+    store.currentDate = otherDate;
+    const updatedEntries = [makeEntry({ id: entry.id, item: "Edited", duration: 45 })];
+    resolveUpdate({ note: null, entries: updatedEntries });
+    await flushPromises();
+
+    expect(store.monthEntries[origDate]).toEqual(updatedEntries);
+    expect(store.monthEntries[otherDate]).toBeUndefined();
+  });
+
+  it("dimension update lands on the ORIGINAL day when the user navigates while update_entry is in flight", async () => {
+    const origDate = todayDateStr();
+    const otherDate = sameMonthOtherDay(origDate);
+    const entry = mockMonthWithEntry(origDate);
+    const store = makeStore();
+    const wrapper = mountView(store);
+    await flushPromises();
+
+    let resolveUpdate!: (v: unknown) => void;
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === "update_entry") return new Promise((r) => { resolveUpdate = r; });
+      if (cmd === "get_commitment_progress") return [];
+      return { note: null, entries: [] };
+    });
+    wrapper.findComponent({ name: "EntryList" }).vm.$emit("updateDimensions", entry.id, { goal: "Ship feature X" });
+    await wrapper.vm.$nextTick();
+    expect(invokeMock).toHaveBeenCalledWith("update_entry", expect.objectContaining({ date: origDate, entryId: entry.id }));
+
+    store.currentDate = otherDate;
+    const updatedEntries = [makeEntry({ id: entry.id, item: "Existing", duration: 60 })];
+    resolveUpdate({ note: null, entries: updatedEntries });
+    await flushPromises();
+
+    expect(store.monthEntries[origDate]).toEqual(updatedEntries);
+    expect(store.monthEntries[otherDate]).toBeUndefined();
   });
 });

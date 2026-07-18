@@ -4,6 +4,13 @@ use tauri_app_lib::integrity;
 mod tests {
     use super::*;
     use std::fs;
+    use std::sync::Mutex;
+
+    /// Tests below mutate the process-global INTEGRITY_OK / INTEGRITY_ISSUES
+    /// (via reset/set_compromised, directly or through cleanup); serialize
+    /// them so a parallel `cargo test` run doesn't interleave that state
+    /// between tests.
+    static TEST_LOCK: Mutex<()> = Mutex::new(());
 
     fn temp_root() -> std::path::PathBuf {
         std::env::temp_dir().join(format!("logbook_recheck_test_{}", uuid::Uuid::new_v4()))
@@ -60,6 +67,7 @@ mod tests {
 
     #[test]
     fn recheck_on_clean_data_returns_no_issues() {
+        let _guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let root = temp_root();
         setup_clean_fixture(&root);
 
@@ -75,6 +83,7 @@ mod tests {
 
     #[test]
     fn recheck_on_corrupt_data_reports_issues() {
+        let _guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let root = temp_root();
         setup_corrupt_fixture(&root);
 
@@ -87,6 +96,7 @@ mod tests {
 
     #[test]
     fn recheck_after_fix_clears_compromised_state() {
+        let _guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let root = temp_root();
         setup_corrupt_fixture(&root);
 
@@ -110,6 +120,7 @@ mod tests {
 
     #[test]
     fn recheck_after_repair_allows_writes() {
+        let _guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let root = temp_root();
         setup_corrupt_fixture(&root);
 

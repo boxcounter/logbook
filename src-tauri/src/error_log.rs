@@ -1,3 +1,12 @@
+//! Diagnostics log (logbook.log) — best-effort by design.
+//!
+//! Global state and root-switch lifecycle (AGENTS.md「数据安全与可靠性」):
+//! - `LOG_PATH` — lives under the app-data dir, not the data root:
+//!   root-agnostic, no reset on root switch. Set once by `init()` at app setup.
+//! - This module is the documented single EXEMPTION from the atomic-write rule
+//!   (append + writeln!, no tmp+rename): high-frequency, loss-tolerant
+//!   diagnostics. The exemption must not leak into business-data writes.
+
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::PathBuf;

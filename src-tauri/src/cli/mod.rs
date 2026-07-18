@@ -21,14 +21,17 @@ fn log_dir() -> Option<std::path::PathBuf> {
     root_path::app_data_dir()
 }
 
-/// InstanceLock directory. Always the shared GUI app-data dir, regardless of
-/// LOGBOOK_LOG_DIR — the lock must protect the same data directory the GUI uses.
-/// Overridable via LOGBOOK_LOCK_DIR for test isolation.
-fn lock_dir() -> Option<std::path::PathBuf> {
+/// Writer-lock path for write commands: `{root}/.logbook/writer.lock`.
+///
+/// The lock lives in the *data* directory so it mutually excludes every
+/// process writing to the same root — including a GUI of the other bundle
+/// (dev/prod share no app-data dir, so the bundle-level instance.pid cannot
+/// see them). `LOGBOOK_LOCK_DIR` overrides the directory for test isolation.
+fn writer_lock_path(root: &std::path::Path) -> std::path::PathBuf {
     if let Ok(dir) = std::env::var("LOGBOOK_LOCK_DIR") {
-        return Some(std::path::PathBuf::from(dir));
+        return std::path::PathBuf::from(dir).join("writer.lock");
     }
-    root_path::app_data_dir()
+    crate::single_instance::writer_lock_path(root)
 }
 
 #[derive(Parser)]
@@ -198,38 +201,6 @@ pub fn run() {
     let cli = Cli::parse();
     crate::error_log::log_info("cli", &format!("invoked: {:?}", std::env::args().collect::<Vec<_>>()));
 
-    // Prevent concurrent writes: if the GUI is running, refuse CLI write
-    // commands to avoid cross-process read-modify-write races that would
-    // silently lose data. Read-only commands skip the lock so they can run
-    // alongside the GUI.
-    let _lock = if cli.command.is_read_only() {
-        None
-    } else if let Some(lock_dir) = lock_dir() {
-        match InstanceLock::try_acquire(&lock_dir) {
-            Ok(guard) => Some(guard),
-            Err(e) => {
-                match e {
-                    InstanceLockError::AlreadyRunning(pid) => {
-                        eprintln!(
-                            "Error: Logbook GUI is already running (PID {}).\n\
-                             Close the GUI before using CLI write commands.",
-                            pid
-                        );
-                    }
-                    InstanceLockError::Io(io_err) => {
-                        eprintln!(
-                            "Error: Failed to acquire instance lock: {}. Check permissions on {}.",
-                            io_err, lock_dir.display()
-                        );
-                    }
-                }
-                std::process::exit(1);
-            }
-        }
-    } else {
-        None
-    };
-
     let root = resolve_root_path(cli.root_path).unwrap_or_else(|| {
         crate::error_log::log_error("cli", "could not determine data root path");
         eprintln!(
@@ -240,6 +211,39 @@ pub fn run() {
     });
 
     eprintln!("Using data root: {}", root.display());
+
+    // Prevent concurrent writes: refuse CLI write commands while another
+    // process holds the data root's writer lock, to avoid cross-process
+    // read-modify-write races that would silently lose data. The lock lives
+    // at {root}/.logbook/writer.lock so it also excludes a GUI of the other
+    // bundle (dev/prod) — the bundle-level instance.pid cannot see those.
+    // Read-only commands skip the lock so they can run alongside the GUI.
+    let _lock = if cli.command.is_read_only() {
+        None
+    } else {
+        let lock_path = writer_lock_path(&root);
+        match InstanceLock::try_acquire_at(&lock_path) {
+            Ok(guard) => Some(guard),
+            Err(e) => {
+                match e {
+                    InstanceLockError::AlreadyRunning(pid) => {
+                        eprintln!(
+                            "Error: Another Logbook process is already using this data directory (PID {}).\n\
+                             Close the GUI before using CLI write commands.",
+                            pid
+                        );
+                    }
+                    InstanceLockError::Io(io_err) => {
+                        eprintln!(
+                            "Error: Failed to acquire writer lock: {}. Check permissions on {}.",
+                            io_err, lock_path.display()
+                        );
+                    }
+                }
+                std::process::exit(1);
+            }
+        }
+    };
 
     // Refuse to operate on an incompatible-version data directory. Without
     // this, an outdated CLI would silently read/write the wrong format and

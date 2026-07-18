@@ -1,3 +1,11 @@
+//! Path helpers, atomic I/O (`atomic_write`, PID-suffixed tmp names), root_path
+//! persistence, pure-YAML day file read/write, template/month dimensions.
+//!
+//! Global state and root-switch lifecycle (AGENTS.md「数据安全与可靠性」):
+//! - `FILE_LOCKS` / `RECENTLY_APP_WRITTEN` — keyed by absolute file path (the
+//!   path embeds the data root), hence root-agnostic: entries for a previous
+//!   root simply go stale. No reset is needed or triggered on root switch.
+
 use crate::models::{Commitment, DayFile, Dimension, Entry, Template};
 use std::collections::HashMap;
 use std::fs;
@@ -83,15 +91,48 @@ pub fn version_path(root: &Path) -> PathBuf {
     root.join("version.txt")
 }
 
+/// Process-unique temp path for atomic writes: "<target>.tmp.<pid>" next to
+/// the target file. Two processes writing the same target no longer share (and
+/// truncate) a single deterministic .tmp file; the final rename stays atomic.
+pub fn tmp_path_for(path: &Path) -> PathBuf {
+    match path.file_name() {
+        Some(name) => {
+            let mut tmp = name.to_os_string();
+            tmp.push(format!(".tmp.{}", std::process::id()));
+            path.with_file_name(tmp)
+        }
+        None => path.with_extension(format!("tmp.{}", std::process::id())),
+    }
+}
+
+/// Returns true if `name` looks like an atomic-write temp file: the legacy
+/// "<target>.tmp" form or the current "<target>.tmp.<pid>" form.
+pub fn is_tmp_file_name(name: &str) -> bool {
+    if name.ends_with(".tmp") {
+        return true;
+    }
+    if let Some(pos) = name.rfind(".tmp.") {
+        let suffix = &name[pos + 5..];
+        return !suffix.is_empty() && suffix.chars().all(|c| c.is_ascii_digit());
+    }
+    false
+}
+
+/// Atomic write: write to a process-unique tmp file in the same directory,
+/// then rename over the target. Same-directory rename is atomic on macOS/Linux.
+pub fn atomic_write(path: &Path, content: &str) -> Result<(), String> {
+    let tmp_path = tmp_path_for(path);
+    fs::write(&tmp_path, content)
+        .map_err(|e| format!("Failed to write temp file {}: {}", tmp_path.display(), e))?;
+    fs::rename(&tmp_path, path)
+        .map_err(|e| format!("Failed to rename temp file {}: {}", path.display(), e))
+}
+
 /// Write version.txt (atomic: tmp then rename).
 pub fn write_version_file(root: &Path, version: u32) -> Result<(), String> {
     let path = version_path(root);
-    let tmp = path.with_extension("tmp");
     let content = version.to_string();
-    fs::write(&tmp, &content)
-        .map_err(|e| format!("Failed to write version file: {}", e))?;
-    fs::rename(&tmp, &path)
-        .map_err(|e| format!("Failed to rename version file: {}", e))
+    atomic_write(&path, &content)
 }
 
 /// Read version.txt. Returns Ok(None) if file doesn't exist.
@@ -160,7 +201,7 @@ pub fn write_day_file(root: &Path, date: &str, day_file: &DayFile) -> Result<(),
     }
     let yaml_body =
         yaml_serde::to_string(day_file).map_err(|e| format!("Failed to serialize: {}", e))?;
-    let tmp_path = path.with_extension("tmp");
+    let tmp_path = tmp_path_for(&path);
     fs::write(&tmp_path, &yaml_body).map_err(|e| format!("Failed to write temp file: {}", e))?;
     fs::rename(&tmp_path, &path).map_err(|e| format!("Failed to rename temp file: {}", e))?;
     mark_file_written_by_app(&path);
@@ -293,7 +334,7 @@ pub fn write_dimensions_file(
     }
     let yaml_body = yaml_serde::to_string(dimensions)
         .map_err(|e| format!("Failed to serialize dimensions: {}", e))?;
-    let tmp_path = path.with_extension("tmp");
+    let tmp_path = tmp_path_for(&path);
     fs::write(&tmp_path, yaml_body)
         .map_err(|e| format!("Failed to write temp file: {}", e))?;
     fs::rename(&tmp_path, &path)
@@ -334,7 +375,7 @@ pub fn write_commitments_file(
     }
     let yaml_body = yaml_serde::to_string(commitments)
         .map_err(|e| format!("Failed to serialize commitments: {}", e))?;
-    let tmp_path = path.with_extension("tmp");
+    let tmp_path = tmp_path_for(&path);
     fs::write(&tmp_path, yaml_body)
         .map_err(|e| format!("Failed to write temp file: {}", e))?;
     fs::rename(&tmp_path, &path)
@@ -445,7 +486,11 @@ pub fn cleanup_tmp_files(root: &Path) {
             let path = entry.path();
             if path.is_dir() {
                 recurse(&path, depth + 1);
-            } else if path.extension().map_or(false, |ext| ext == "tmp") {
+            } else if path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .map_or(false, is_tmp_file_name)
+            {
                 if let Err(e) = std::fs::remove_file(&path) {
                     crate::error_log::log_error(
                         "cleanup_tmp_files",
@@ -461,7 +506,7 @@ pub fn cleanup_tmp_files(root: &Path) {
 /// Root path persistence (atomic write)
 pub fn save_root_path(app_data_dir: &Path, root_path: &Path) -> Result<(), String> {
     let path = app_data_dir.join("root_path.txt");
-    let tmp = path.with_extension("tmp");
+    let tmp = tmp_path_for(&path);
     fs::write(&tmp, root_path.to_string_lossy().as_ref())
         .map_err(|e| format!("Failed to save root path: {}", e))?;
     fs::rename(&tmp, &path).map_err(|e| format!("Failed to rename root path file: {}", e))
@@ -770,6 +815,104 @@ mod tests {
 
         assert!(!day_dir.join("2026-07-04.yaml.tmp").exists(), "orphaned .tmp should be removed");
         assert!(day_dir.join("2026-07-04.yaml").exists(), "valid .yaml should survive");
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_tmp_path_for_appends_pid_suffix() {
+        let p = PathBuf::from("/data/2026/07/2026-07-04.yaml");
+        let tmp = tmp_path_for(&p);
+        let name = tmp.file_name().unwrap().to_string_lossy().to_string();
+        assert!(
+            name.starts_with("2026-07-04.yaml.tmp."),
+            "tmp path must keep the target name and append .tmp.<pid>, got {}",
+            name
+        );
+        let suffix = name.trim_start_matches("2026-07-04.yaml.tmp.");
+        assert!(
+            !suffix.is_empty() && suffix.chars().all(|c| c.is_ascii_digit()),
+            "suffix must be a numeric pid, got {}",
+            suffix
+        );
+        assert_eq!(tmp.parent(), p.parent());
+    }
+
+    #[test]
+    fn test_is_tmp_file_name_recognizes_legacy_and_suffixed() {
+        assert!(is_tmp_file_name("2026-07-04.yaml.tmp"));
+        assert!(is_tmp_file_name("2026-07-04.yaml.tmp.12345"));
+        assert!(is_tmp_file_name("version.txt.tmp.7"));
+        assert!(!is_tmp_file_name("2026-07-04.yaml"));
+        assert!(!is_tmp_file_name("2026-07-04.yaml.tmpx"));
+        assert!(!is_tmp_file_name("2026-07-04.yaml.tmp."));
+        assert!(!is_tmp_file_name("2026-07-04.yaml.tmp.abc"));
+    }
+
+    #[test]
+    fn test_cleanup_tmp_files_removes_suffixed_tmp() {
+        let tmp = std::env::temp_dir().join("logbook_test_cleanup_suffixed_tmp");
+        let _ = fs::remove_dir_all(&tmp);
+        fs::create_dir_all(&tmp).unwrap();
+
+        // Orphaned tmp file with the process-unique suffix form "<name>.tmp.<pid>"
+        let day_dir = tmp.join("2026/07");
+        fs::create_dir_all(&day_dir).unwrap();
+        fs::write(day_dir.join("2026-07-04.yaml.tmp.12345"), "data").unwrap();
+        fs::write(day_dir.join("2026-07-04.yaml.tmp"), "legacy").unwrap();
+        fs::write(day_dir.join("2026-07-04.yaml"), "note:\nentries: []\n").unwrap();
+
+        cleanup_tmp_files(&tmp);
+
+        assert!(
+            !day_dir.join("2026-07-04.yaml.tmp.12345").exists(),
+            "suffixed orphaned tmp should be removed"
+        );
+        assert!(
+            !day_dir.join("2026-07-04.yaml.tmp").exists(),
+            "legacy orphaned tmp should be removed"
+        );
+        assert!(day_dir.join("2026-07-04.yaml").exists(), "valid .yaml should survive");
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_atomic_writes_leave_no_tmp_residue() {
+        let tmp = std::env::temp_dir().join("logbook_test_atomic_no_residue");
+        let _ = fs::remove_dir_all(&tmp);
+        fs::create_dir_all(&tmp).unwrap();
+
+        write_version_file(&tmp, 2).unwrap();
+        write_day_file(
+            &tmp,
+            "2026-07-04",
+            &DayFile {
+                note: None,
+                entries: vec![],
+            },
+        )
+        .unwrap();
+        write_dimensions_file(&tmp, 2026, 7, &[]).unwrap();
+        write_commitments_file(&tmp, 2026, 7, &[]).unwrap();
+
+        // Walk the tree: no tmp file (legacy or suffixed) may remain.
+        fn assert_no_tmp(dir: &Path) {
+            for entry in fs::read_dir(dir).unwrap() {
+                let path = entry.unwrap().path();
+                if path.is_dir() {
+                    assert_no_tmp(&path);
+                } else {
+                    let name = path.file_name().unwrap().to_string_lossy().to_string();
+                    assert!(
+                        !is_tmp_file_name(&name),
+                        "tmp residue left behind: {}",
+                        path.display()
+                    );
+                }
+            }
+        }
+        assert_no_tmp(&tmp);
 
         let _ = fs::remove_dir_all(&tmp);
     }

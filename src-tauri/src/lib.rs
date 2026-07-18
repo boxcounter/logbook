@@ -18,6 +18,40 @@ use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
 
+/// Managed wrapper for the data-root writer lock, kept as a distinct type
+/// from the bundle-level InstanceLock so both can live in Tauri state
+/// (`manage()` keys state by type). Holds at most one `{root}/.logbook/
+/// writer.lock` guard at a time; `set_root_path` swaps it when the user
+/// switches data roots at runtime. Always managed (possibly empty) so
+/// commands can rely on `app.state::<WriterLock>()`.
+pub(crate) struct WriterLock {
+    current: std::sync::Mutex<Option<(PathBuf, single_instance::InstanceLock)>>,
+}
+
+impl WriterLock {
+    fn new() -> Self {
+        WriterLock {
+            current: std::sync::Mutex::new(None),
+        }
+    }
+
+    /// Record an already-acquired lock (startup path).
+    fn store(&self, root: PathBuf, guard: single_instance::InstanceLock) {
+        let mut held = self.current.lock().unwrap_or_else(|e| e.into_inner());
+        *held = Some((root, guard));
+    }
+
+    /// Swap the held writer lock to `new_root` (no-op when already held for
+    /// it). On error the previously held lock is retained untouched.
+    pub(crate) fn swap_to(
+        &self,
+        new_root: &std::path::Path,
+    ) -> Result<single_instance::WriterSwap, single_instance::InstanceLockError> {
+        let mut held = self.current.lock().unwrap_or_else(|e| e.into_inner());
+        single_instance::swap_writer_lock(&mut held, new_root)
+    }
+}
+
 fn show_already_running_dialog(app_name: &str) {
     #[cfg(target_os = "macos")]
     {
@@ -49,6 +83,7 @@ pub fn run() {
         .setup(|app| {
             error_log::install_panic_hook();
             app.manage(config::WatcherState::new());
+            app.manage(WriterLock::new());
             let app_handle = app.handle().clone();
             let app_data_dir = app
                 .path()
@@ -99,6 +134,38 @@ pub fn run() {
 
             if let Some(root_path) = files::read_root_path(&app_data_dir) {
                 if root_path.exists() {
+                    // Cross-process writer exclusion for the data root. The
+                    // bundle-level lock above cannot see a GUI of the other
+                    // bundle (dev/prod have separate app-data dirs) or the
+                    // CLI; the writer lock lives in the data root itself, so
+                    // all writers of the same root contend on one file.
+                    match single_instance::InstanceLock::try_acquire_at(
+                        &single_instance::writer_lock_path(&root_path),
+                    ) {
+                        Ok(lock) => {
+                            app.state::<WriterLock>().store(root_path.clone(), lock);
+                        }
+                        Err(single_instance::InstanceLockError::AlreadyRunning(pid)) => {
+                            error_log::log_info(
+                                "single_instance",
+                                &format!(
+                                    "Data root {} is already locked by PID {}. Exiting.",
+                                    root_path.display(),
+                                    pid
+                                ),
+                            );
+                            show_already_running_dialog(&app.package_info().name);
+                            std::process::exit(0);
+                        }
+                        Err(single_instance::InstanceLockError::Io(io_err)) => {
+                            // Same posture as the bundle-level lock: a lock
+                            // I/O failure must not block startup.
+                            error_log::log_error(
+                                "single_instance",
+                                &format!("Failed to acquire writer lock: {}", io_err),
+                            );
+                        }
+                    }
                     files::cleanup_tmp_files(&root_path);
                     config::ensure_watcher(&app_handle, root_path);
                 }

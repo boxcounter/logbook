@@ -49,18 +49,18 @@ export function useEntryActions(store: AppStore, inputRef: Ref<ComposerRef | nul
   async function handleSubmit(item: string, durationMinutes: number, dimensions: Record<string, string>) {
     const finalDimensions = sanitizeValues(dimensions);
     const newEntry = { item, duration: String(durationMinutes) + "m", dimensions: finalDimensions };
+    // Capture the target day up front: the user may navigate while the IPC is
+    // in flight, and the result must land on the day it was submitted from.
+    const date = store.currentDate;
     try {
       const result = await invoke("append_entry", {
         rootPath: store.rootPath,
-        date: store.currentDate,
+        date,
         entry: newEntry,
       });
       const added = result as Entry;
-      if (store.today) {
-        const entries = [...store.today.entries, added];
-        store.today = { ...store.today, entries };
-        store.monthEntries[store.currentDate] = entries;
-      }
+      const entries = [...(store.monthEntries[date] ?? []), added];
+      store.monthEntries[date] = entries;
       justAddedId.value = added.id;
       if (highlightTimer) clearTimeout(highlightTimer);
       highlightTimer = setTimeout(() => {
@@ -75,7 +75,8 @@ export function useEntryActions(store: AppStore, inputRef: Ref<ComposerRef | nul
   }
 
   async function handleUpdateEntry(entryId: string, item: string, durationMinutes: number) {
-    const entries = store.today?.entries;
+    const date = store.currentDate; // capture: user may navigate during the IPC
+    const entries = store.monthEntries[date];
     if (!entries) return;
     const entry = entries.find((e) => e.id === entryId);
     if (!entry) return;
@@ -86,12 +87,12 @@ export function useEntryActions(store: AppStore, inputRef: Ref<ComposerRef | nul
     try {
       const df = await invoke<DayFile>("update_entry", {
         rootPath: store.rootPath,
-        date: store.currentDate,
+        date,
         entryId,
         update,
       });
-      store.today = df;
-      store.monthEntries[store.currentDate] = df.entries;
+      store.monthEntries[date] = df.entries;
+      store.dayNotes[date] = df.note;
       await refreshProgress();
       triggerSavedToast("Saved");
     } catch (e) {
@@ -101,15 +102,16 @@ export function useEntryActions(store: AppStore, inputRef: Ref<ComposerRef | nul
   }
 
   async function handleUpdateDimensions(entryId: string, dimensions: Record<string, string>) {
+    const date = store.currentDate; // capture: user may navigate during the IPC
     try {
       const df = await invoke<DayFile>("update_entry", {
         rootPath: store.rootPath,
-        date: store.currentDate,
+        date,
         entryId,
         update: { dimensions },
       });
-      store.today = df;
-      store.monthEntries[store.currentDate] = df.entries;
+      store.monthEntries[date] = df.entries;
+      store.dayNotes[date] = df.note;
       await refreshProgress();
       triggerSavedToast("Saved");
     } catch (e) {
@@ -136,7 +138,7 @@ export function useEntryActions(store: AppStore, inputRef: Ref<ComposerRef | nul
           entryId,
         });
         if (store.currentDate === date) {
-          store.today = df;
+          store.dayNotes[date] = df.note;
         }
         store.monthEntries[date] = df.entries;
         await refreshProgress(date);
