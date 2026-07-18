@@ -201,9 +201,7 @@ pub fn write_day_file(root: &Path, date: &str, day_file: &DayFile) -> Result<(),
     }
     let yaml_body =
         yaml_serde::to_string(day_file).map_err(|e| format!("Failed to serialize: {}", e))?;
-    let tmp_path = tmp_path_for(&path);
-    fs::write(&tmp_path, &yaml_body).map_err(|e| format!("Failed to write temp file: {}", e))?;
-    fs::rename(&tmp_path, &path).map_err(|e| format!("Failed to rename temp file: {}", e))?;
+    atomic_write(&path, &yaml_body)?;
     mark_file_written_by_app(&path);
     Ok(())
 }
@@ -334,12 +332,7 @@ pub fn write_dimensions_file(
     }
     let yaml_body = yaml_serde::to_string(dimensions)
         .map_err(|e| format!("Failed to serialize dimensions: {}", e))?;
-    let tmp_path = tmp_path_for(&path);
-    fs::write(&tmp_path, yaml_body)
-        .map_err(|e| format!("Failed to write temp file: {}", e))?;
-    fs::rename(&tmp_path, &path)
-        .map_err(|e| format!("Failed to rename temp file: {}", e))?;
-    Ok(())
+    atomic_write(&path, &yaml_body)
 }
 
 /// Read a month's commitments.yaml. Returns empty Vec if file doesn't exist.
@@ -375,12 +368,7 @@ pub fn write_commitments_file(
     }
     let yaml_body = yaml_serde::to_string(commitments)
         .map_err(|e| format!("Failed to serialize commitments: {}", e))?;
-    let tmp_path = tmp_path_for(&path);
-    fs::write(&tmp_path, yaml_body)
-        .map_err(|e| format!("Failed to write temp file: {}", e))?;
-    fs::rename(&tmp_path, &path)
-        .map_err(|e| format!("Failed to rename temp file: {}", e))?;
-    Ok(())
+    atomic_write(&path, &yaml_body)
 }
 
 /// Read template.yaml. Returns error if file missing.
@@ -506,10 +494,7 @@ pub fn cleanup_tmp_files(root: &Path) {
 /// Root path persistence (atomic write)
 pub fn save_root_path(app_data_dir: &Path, root_path: &Path) -> Result<(), String> {
     let path = app_data_dir.join("root_path.txt");
-    let tmp = tmp_path_for(&path);
-    fs::write(&tmp, root_path.to_string_lossy().as_ref())
-        .map_err(|e| format!("Failed to save root path: {}", e))?;
-    fs::rename(&tmp, &path).map_err(|e| format!("Failed to rename root path file: {}", e))
+    atomic_write(&path, root_path.to_string_lossy().as_ref())
 }
 
 /// Read persisted root path

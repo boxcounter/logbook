@@ -138,11 +138,7 @@ pub fn append(root_path: &str, op: Operation) -> Result<(), String> {
         String::new()
     };
 
-    let tmp_path = crate::files::tmp_path_for(&path);
-    std::fs::write(&tmp_path, format!("{}{}\n", old_content, json))
-        .map_err(|e| format!("Failed to write log tmp file {}: {}", tmp_path.display(), e))?;
-    std::fs::rename(&tmp_path, &path)
-        .map_err(|e| format!("Failed to rename log file {}: {}", path.display(), e))?;
+    crate::files::atomic_write(&path, &format!("{}{}\n", old_content, json))?;
 
     Ok(())
 }
