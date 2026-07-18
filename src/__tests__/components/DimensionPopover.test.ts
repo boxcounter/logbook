@@ -102,10 +102,21 @@ describe("DimensionPopover", () => {
     expect(activeDimIndex(wrapper)).toBe(0);
   });
 
-  it("syncs highlight to a dim-item on mouseenter", async () => {
+  it("syncs highlight to a dim-item on mouseenter after a real mousemove", async () => {
     const wrapper = mountPop();
+    window.dispatchEvent(new MouseEvent("mousemove"));
     await wrapper.findAll("[data-test='dim-item']")[2].trigger("mouseenter");
     expect(activeDimIndex(wrapper)).toBe(2);
+  });
+
+  // WebKit dispatches a synthetic mouseenter when the popover appears under a
+  // stationary cursor — no real mousemove precedes it. It must not steal the
+  // highlight from firstUnfilledIndex.
+  it("mouseenter without a preceding mousemove does not change the highlight", async () => {
+    const wrapper = mountPop(); // active index 0
+    await wrapper.vm.$nextTick();
+    await wrapper.findAll("[data-test='dim-item']")[2].trigger("mouseenter");
+    expect(activeDimIndex(wrapper)).toBe(0);
   });
 
   it("ArrowDown / Ctrl+N move highlight down with wrap", async () => {
@@ -153,6 +164,46 @@ describe("DimensionPopover", () => {
       (n) => n.attributes("data-active") === "true"
     );
   }
+
+  // The hover latch re-arms on every stage swap: entering val stage renders a
+  // new list under a possibly-stationary cursor, and the resulting synthetic
+  // mouseenter must not move the highlight until a real mousemove occurs.
+  it("val stage: mouseenter without a fresh mousemove does not change the highlight", async () => {
+    const wrapper = mountPop();
+    window.dispatchEvent(new MouseEvent("mousemove")); // user moved the mouse to click
+    await wrapper.findAll("[data-test='dim-item']")[0].trigger("click"); // → val stage, latch re-arms
+    await wrapper.findAll("[data-test='val-item']")[1].trigger("mouseenter"); // synthetic, no real move
+    expect(activeValIndex(wrapper)).toBe(0);
+    window.dispatchEvent(new MouseEvent("mousemove"));
+    await wrapper.findAll("[data-test='val-item']")[1].trigger("mouseenter");
+    expect(activeValIndex(wrapper)).toBe(1);
+  });
+
+  // macOS WebKit marks key events routed through a CJK input source with
+  // keyCode 229 even with no active composition. Navigation keys must not be
+  // swallowed by the IME guard — only an active composition owns them.
+  it("Ctrl+N marked keyCode 229 (WebKit IME pass-through) still moves the highlight", async () => {
+    const wrapper = mountPop();
+    await wrapper.findAll("[data-test='dim-item']")[0].trigger("click"); // → val stage
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "n", ctrlKey: true, keyCode: 229 }));
+    await wrapper.vm.$nextTick();
+    expect(activeValIndex(wrapper)).toBe(1);
+  });
+
+  it("Ctrl+N during an active IME composition is ignored", async () => {
+    const wrapper = mountPop();
+    await wrapper.findAll("[data-test='dim-item']")[0].trigger("click"); // → val stage
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "n", ctrlKey: true, isComposing: true }));
+    await wrapper.vm.$nextTick();
+    expect(activeValIndex(wrapper)).toBe(0);
+  });
+
+  it("Enter marked keyCode 229 (IME candidate confirm) is still ignored", async () => {
+    const wrapper = mountPop();
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", keyCode: 229 }));
+    await wrapper.vm.$nextTick();
+    expect(wrapper.find("[data-test='back-btn']").exists()).toBe(false); // still dim stage
+  });
 
   it("Enter in dim stage enters the highlighted dimension's value menu", async () => {
     const wrapper = mountPop(); // highlight on Category (index 0)

@@ -20,6 +20,18 @@ const stage = ref<"dim" | "val">("dim");
 const selectedDimKey = ref<string | null>(null);
 const highlightedIndex = ref(0);
 
+// Hover latch: mouseenter updates the highlight only after a real mousemove.
+// WebKit dispatches synthetic mouse events when new content appears under a
+// stationary cursor (popover open, stage swap); without the latch that
+// synthetic mouseenter steals the highlight from the keyboard position.
+// Within one hit-test update mouseenter fires before mousemove, so the
+// synthetic enter is ignored and the trailing mousemove re-arms the latch.
+// Reset on every list swap (mount, selectDim, selectVal→dim, goBack).
+let hoverArmed = false;
+function armHover() {
+  hoverArmed = true;
+}
+
 const visibleDims = computed(() => props.dimensions.filter(d => !d.deleted));
 
 // First dimension still missing a value. `justFilled` lets callers treat a
@@ -138,6 +150,7 @@ function selectDim(key: string) {
   selectedDimKey.value = key;
   stage.value = "val";
   highlightedIndex.value = defaultValIndex();
+  hoverArmed = false; // list swapped under a possibly-stationary cursor
 }
 
 function selectVal(value: string) {
@@ -153,6 +166,7 @@ function selectVal(value: string) {
     stage.value = "dim";
     selectedDimKey.value = null;
     highlightedIndex.value = firstUnfilledIndex(justFilledKey);
+    hoverArmed = false; // list swapped under a possibly-stationary cursor
   }
 }
 
@@ -160,13 +174,30 @@ function goBack() {
   stage.value = "dim";
   selectedDimKey.value = null;
   highlightedIndex.value = firstUnfilledIndex();
+  hoverArmed = false; // list swapped under a possibly-stationary cursor
 }
 
 // Window-level capture-phase handler (spec §5.1/§5.2 + keyboard nav design):
 // Esc — val→dim / dim→close. Arrows / Ctrl+N/P move the highlight. Enter selects
 // the highlighted item. capture + stopPropagation makes the popover own these keys
 // regardless of focus, ahead of the parent's handlers.
+//
+// IME guarding is per key type: navigation keys check isComposing only — during
+// an active composition the IME owns them (candidate paging), but the keyCode-229
+// guard must NOT apply to them, because WebKit marks IME pass-through events 229
+// with a CJK input source active even with no composition, which would eat the
+// key. Enter/Esc keep the full isIMEEvent guard: 229 is the only reliable WebKit
+// signal for candidate confirm/cancel.
 function onWindowKeydown(e: KeyboardEvent) {
+  const down = e.key === "ArrowDown" || (e.ctrlKey && (e.key === "n" || e.key === "N"));
+  const up = e.key === "ArrowUp" || (e.ctrlKey && (e.key === "p" || e.key === "P"));
+  if (down || up) {
+    if (e.isComposing) return;
+    e.preventDefault();
+    e.stopPropagation();
+    move(down ? 1 : -1);
+    return;
+  }
   if (isIMEEvent(e)) return;
   if (e.key === "Escape") {
     e.preventDefault();
@@ -175,10 +206,6 @@ function onWindowKeydown(e: KeyboardEvent) {
     else emit("close");
     return;
   }
-  const down = e.key === "ArrowDown" || (e.ctrlKey && (e.key === "n" || e.key === "N"));
-  const up = e.key === "ArrowUp" || (e.ctrlKey && (e.key === "p" || e.key === "P"));
-  if (down) { e.preventDefault(); e.stopPropagation(); move(1); return; }
-  if (up) { e.preventDefault(); e.stopPropagation(); move(-1); return; }
   if (e.key === "Enter") {
     e.preventDefault();
     e.stopPropagation();
@@ -199,8 +226,12 @@ function onWindowKeydown(e: KeyboardEvent) {
 onMounted(() => {
   highlightedIndex.value = firstUnfilledIndex();
   window.addEventListener("keydown", onWindowKeydown, true);
+  window.addEventListener("mousemove", armHover);
 });
-onUnmounted(() => window.removeEventListener("keydown", onWindowKeydown, true));
+onUnmounted(() => {
+  window.removeEventListener("keydown", onWindowKeydown, true);
+  window.removeEventListener("mousemove", armHover);
+});
 </script>
 
 <template>
@@ -233,7 +264,7 @@ onUnmounted(() => window.removeEventListener("keydown", onWindowKeydown, true));
                 ? 'text-[var(--color-brand-solid)] font-semibold'
                 : 'text-[var(--color-text-primary)]')
         "
-        @mouseenter="highlightedIndex = i"
+        @mouseenter="hoverArmed && (highlightedIndex = i)"
         @click="selectDim(d.key)"
       >
         <span class="w-[3px] h-[18px] rounded-[var(--radius-sm)] flex-shrink-0" :style="{ background: barColor(d.key) }"></span>
@@ -267,7 +298,7 @@ onUnmounted(() => window.removeEventListener("keydown", onWindowKeydown, true));
                 ? 'text-[var(--color-brand-solid)] font-semibold'
                 : 'text-[var(--color-text-primary)]')
         "
-        @mouseenter="highlightedIndex = visibleDims.length"
+        @mouseenter="hoverArmed && (highlightedIndex = visibleDims.length)"
         @click="selectDim('role')"
       >
         <span class="w-[3px] h-[18px] rounded-[var(--radius-sm)] flex-shrink-0" :style="{ background: barColor('role') }"></span>
@@ -320,7 +351,7 @@ onUnmounted(() => window.removeEventListener("keydown", onWindowKeydown, true));
                 ? 'text-[var(--color-brand-solid)] font-semibold'
                 : 'text-[var(--color-text-primary)]')
         "
-        @mouseenter="highlightedIndex = i"
+        @mouseenter="hoverArmed && (highlightedIndex = i)"
         @click="selectVal(v)"
       >
         <span class="truncate min-w-0">{{ v }}</span>
