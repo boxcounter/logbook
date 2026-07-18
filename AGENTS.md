@@ -127,6 +127,7 @@ App.vue
 ### 其他
 
 - 诊断先于计划：handoff 标记了 bug → 先写测试确认 bug 还存在 → 再计划修复
+- Phase checkpoint：每完成一个独立 phase 停下来确认，不要连续推进多个 phase 不征求同意
 
 ### 数据安全与可靠性
 
